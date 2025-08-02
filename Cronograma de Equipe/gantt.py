@@ -35,7 +35,6 @@ cores_fornecedores_base = [
 # Arquivos de mapeamento de cores persistente
 ARQ_CORES_HORIZONTES = 'cores_horizontes.json'
 ARQ_CORES_FORNECEDORES = 'cores_fornecedores.json'
-ARQ_CORES_COMBINED = 'cores_combined.json'
 
 # Tamanho da figura
 FIGSIZE = (14, 10)
@@ -51,7 +50,6 @@ def traduzir_meses(data_str):
         data_str = re.sub(pt, en, data_str)
     return data_str
 
-
 def carregar_dados(nome_arquivo):
     df = pd.read_excel(nome_arquivo, sheet_name='Tabela_Tarefas1')
     df['Início_en'] = df['Início'].apply(traduzir_meses)
@@ -62,14 +60,12 @@ def carregar_dados(nome_arquivo):
     df = df[df['Ativo'] == 'Sim']
     return df
 
-
 def preparar_grupo(df, grupo):
     df_grupo = df[df['Grupo_de_recursos'] == grupo].copy()
     df_grupo = df_grupo.assign(Nomes_dos_recursos=df_grupo['Nomes_dos_recursos'].str.split(';'))
     df_grupo = df_grupo.explode('Nomes_dos_recursos')
     df_grupo['Nomes_dos_recursos'] = df_grupo['Nomes_dos_recursos'].str.strip()
     return df_grupo
-
 
 def empilhar_tarefas(df_grupo):
     tarefa_por_recurso = defaultdict(list)
@@ -107,7 +103,6 @@ def empilhar_tarefas(df_grupo):
             linha_global += 1
     return df_aloc, recursos
 
-
 def carregar_mapa_cores(arq_json, paleta_base, recursos):
     if os.path.exists(arq_json):
         with open(arq_json, 'r') as f:
@@ -122,13 +117,13 @@ def carregar_mapa_cores(arq_json, paleta_base, recursos):
             if cores_disponiveis:
                 mapa[recurso] = cores_disponiveis.pop(0)
             else:
+                # Se esgotar a paleta, continua reaproveitando de forma circular
                 mapa[recurso] = paleta_base[len(mapa) % len(paleta_base)]
 
     with open(arq_json, 'w') as f:
         json.dump(mapa, f, indent=4)
 
     return mapa
-
 
 def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
     hoje = datetime.now()
@@ -196,18 +191,16 @@ if __name__ == "__main__":
 
     df = carregar_dados(arquivo)
 
-    # --- Combina Horizontes + Fornecedores ---
+    # --- Horizontes ---
     df_h = preparar_grupo(df, 'Horizontes')
+    df_aloc_h, recursos_h = empilhar_tarefas(df_h)
+    cores_dict_h = carregar_mapa_cores(ARQ_CORES_HORIZONTES, cores_horizontes_base, recursos_h)
+    plotar(df_aloc_h, recursos_h, cores_dict_h, 'Relatório de Alocação de Equipe', 'horizontes.png')
+
+    # --- Fornecedores ---
     df_f = preparar_grupo(df, 'Fornecedores')
-    df_comb = pd.concat([df_h, df_f])
-    df_aloc_comb, recursos_comb = empilhar_tarefas(df_comb)
+    df_aloc_f, recursos_f = empilhar_tarefas(df_f)
+    cores_dict_f = carregar_mapa_cores(ARQ_CORES_FORNECEDORES, cores_fornecedores_base, recursos_f)
+    plotar(df_aloc_f, recursos_f, cores_dict_f, 'Relatório de Alocação de Fornecedores', 'fornecedores.png')
 
-    # Carrega mapa de cores combinado
-    paleta_combinada = cores_horizontes_base + cores_fornecedores_base
-    cores_dict_comb = carregar_mapa_cores(ARQ_CORES_COMBINED, paleta_combinada, recursos_comb)
-
-    # Gera gráfico único
-    plotar(df_aloc_comb, recursos_comb, cores_dict_comb,
-           'Relatório de Alocação de Equipe e Fornecedores', 'combined.png')
-
-    print("Gráfico combinado gerado com sucesso!")
+    print("Gráficos gerados com sucesso!")
