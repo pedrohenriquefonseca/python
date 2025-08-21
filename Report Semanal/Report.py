@@ -128,7 +128,7 @@ def gerar_relatorio(nome_projeto):
                 p = doc.add_paragraph(t)
                 p.style = 'List Bullet'
 
-    doc.add_paragraph("\n🔎 DISCIPLINAS EM ANÁLISE:")
+    doc.add_paragraph("\n🔎 ARQUIVOS EM ANÁLISE:")
     if filtro_cliente.empty:
         doc.add_paragraph("- Não existem tarefas que cumpram os critérios desta seção")
     else:
