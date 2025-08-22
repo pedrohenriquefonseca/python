@@ -5,7 +5,10 @@ import os
 
 # --- SELEÇÃO DO ARQUIVO E NOME DO PROJETO ---
 
-arquivos_excel = [f for f in os.listdir() if f.lower().endswith(('.xls', '.xlsx'))]
+arquivos_excel = []
+for f in os.listdir():
+    if f.lower().endswith(('.xls', '.xlsx')):
+        arquivos_excel.append(f)
 
 if not arquivos_excel:
     print("Nenhum arquivo Excel (.xls ou .xlsx) encontrado na pasta.")
@@ -22,6 +25,21 @@ if indice < 0 or indice >= len(arquivos_excel):
 
 arquivo_escolhido = arquivos_excel[indice]
 nome_projeto = input("Digite o nome do projeto para o título do gráfico: ").strip()
+
+# --- SOLICITAÇÃO DA DATA DE CORTE ---
+while True:
+    try:
+        dia_corte = int(input("Digite o dia de corte para agrupamento mensal (1-31): "))
+        if 1 <= dia_corte <= 31:
+            break
+        else:
+            print("Por favor, digite um número entre 1 e 31.")
+    except ValueError:
+        print("Por favor, digite um número válido.")
+
+print(f"Configuração definida:")
+print(f"- Lançamentos do dia 1 até o dia {dia_corte}: ficam no mês atual")
+print(f"- Lançamentos do dia {dia_corte + 1} até o fim do mês: vão para o mês seguinte")
 
 # --- FUNÇÃO DE NORMALIZAÇÃO DE DATAS ---
 
@@ -42,16 +60,24 @@ def traduzir_data(data_str):
 
 # --- FUNÇÃO PARA AJUSTAR O MÊS CUSTOMIZADO ---
 
-def mes_customizado(data):
+def mes_customizado(data, dia_corte):
+    """
+    Lógica customizada baseada no dia de corte definido pelo usuário:
+    - Se dia <= dia_corte: valor fica no MÊS ATUAL
+    - Se dia > dia_corte: valor vai para o MÊS SEGUINTE
+    """
     if pd.isnull(data):
         return None
-    if data.day >= 21:
-        return pd.Timestamp(data.year, data.month, 21)
-    else:
-        if data.month == 1:
-            return pd.Timestamp(data.year - 1, 12, 21)
+    
+    if data.day > dia_corte:
+        # Vai para o mês seguinte
+        if data.month == 12:
+            return pd.Timestamp(data.year + 1, 1, 1)
         else:
-            return pd.Timestamp(data.year, data.month - 1, 21)
+            return pd.Timestamp(data.year, data.month + 1, 1)
+    else:
+        # Fica no mês atual
+        return pd.Timestamp(data.year, data.month, 1)
 
 # --- PROCESSAMENTO DOS DADOS ---
 
@@ -72,8 +98,8 @@ df["Término"] = df["Término"].astype(str).apply(traduzir_data)
 df["Término"] = pd.to_datetime(df["Término"], format="%d/%m/%y", errors="coerce")
 df["Custo"] = pd.to_numeric(df["Custo"], errors="coerce")
 
-# Agrupamento considerando meses iniciando em 21 e terminando em 20
-df["Mês_Custom"] = df["Término"].apply(mes_customizado)
+# Agrupamento com lógica customizada
+df["Mês_Custom"] = df["Término"].apply(lambda x: mes_customizado(x, dia_corte))
 df_mensal = df.groupby("Mês_Custom")["Custo"].sum().reset_index()
 df_mensal = df_mensal[df_mensal["Custo"] > 0]
 df_mensal["Acumulado"] = df_mensal["Custo"].cumsum()
@@ -83,7 +109,13 @@ df_mensal["Acumulado"] = df_mensal["Custo"].cumsum()
 fig, ax1 = plt.subplots(figsize=(12, 6))
 
 # Barras mensais
-ax1.bar(range(len(df_mensal)), df_mensal["Custo"], width=0.6, color='lightgray')
+bars = ax1.bar(range(len(df_mensal)), df_mensal["Custo"], width=0.6, color='lightgray')
+
+# Rótulos dos valores mensais na parte inferior das barras
+for i, (bar, valor) in enumerate(zip(bars, df_mensal["Custo"])):
+    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_y() + 50, 
+             f'R$ {int(valor):,}'.replace(",", "."), 
+             ha='center', va='bottom', fontsize=7)
 
 # Linha acumulada com cor #fca903
 ax2 = ax1.twinx()
@@ -107,13 +139,19 @@ ax2.tick_params(axis='y', labelsize=7)
 
 # Eixo X com espaçamento igualitário
 ax1.set_xticks(range(len(df_mensal)))
-ax1.set_xticklabels([d.strftime('%b-%y').capitalize() for d in df_mensal["Mês_Custom"]], fontsize=7)
+
+# Criar lista de labels para o eixo X
+labels_x = []
+for d in df_mensal["Mês_Custom"]:
+    label = d.strftime('%b-%y').capitalize()
+    labels_x.append(label)
+ax1.set_xticklabels(labels_x, fontsize=7)
 
 # Grade tracejada
 ax1.grid(True, which='major', axis='both', linestyle='--', linewidth=0.5, color='lightgray')
 ax2.grid(False)
 
-# Título
-plt.title(f"Curva de Desembolso - {nome_projeto}", fontsize=12, fontweight="bold")
+# Título com informação do dia de corte
+plt.title(f"Curva de Desembolso - {nome_projeto}\n(Corte no dia {dia_corte})", fontsize=12, fontweight="bold")
 plt.tight_layout()
 plt.show()
