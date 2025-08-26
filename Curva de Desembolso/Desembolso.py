@@ -37,10 +37,6 @@ while True:
     except ValueError:
         print("Por favor, digite um número válido.")
 
-print(f"Configuração definida:")
-print(f"- Lançamentos do dia 1 até o dia {dia_corte}: ficam no mês atual")
-print(f"- Lançamentos do dia {dia_corte + 1} até o fim do mês: vão para o mês seguinte")
-
 # --- FUNÇÃO DE NORMALIZAÇÃO DE DATAS ---
 
 meses_pt_en = {
@@ -151,7 +147,8 @@ ax1.set_xticklabels(labels_x, fontsize=7)
 ax1.grid(True, which='major', axis='both', linestyle='--', linewidth=0.5, color='lightgray')
 ax2.grid(False)
 
-# Título com informação do dia de corte
-plt.title(f"Curva de Desembolso - {nome_projeto}\n(Corte no dia {dia_corte})", fontsize=12, fontweight="bold")
-plt.tight_layout()
+# Título principal no topo do eixo e subtítulo logo abaixo, ambos próximos ao gráfico
+ax1.set_title(f"Curva de Desembolso - {nome_projeto}", fontsize=12, fontweight="bold", pad=20)
+ax1.text(0.5, 1.01, f"(Corte no dia {dia_corte})", transform=ax1.transAxes, ha='center', va='bottom', fontsize=9, fontweight='normal')
+plt.tight_layout(rect=[0, 0, 1, 0.96])
 plt.show()
