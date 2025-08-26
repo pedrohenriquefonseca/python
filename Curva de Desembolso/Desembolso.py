@@ -118,8 +118,10 @@ ax2 = ax1.twinx()
 ax2.plot(range(len(df_mensal)), df_mensal["Acumulado"], marker='o', color='#fca903')
 
 # Rótulos acumulados
+max_valor = df_mensal["Acumulado"].max()
+offset = max_valor * 0.02  # 5% do valor máximo para espaçamento proporcional
 for i, y in enumerate(df_mensal["Acumulado"]):
-    ax2.text(i, y, f'R$ {int(y):,}'.replace(",", "."), fontsize=8, rotation=90, va='bottom', ha='center')
+    ax2.text(i, y + offset, f'R$ {int(y):,}'.replace(",", "."), fontsize=8, rotation=90, va='bottom', ha='center')
 
 # Rótulos dos eixos
 ax1.set_ylabel("Desembolso Mensal", fontsize=9, fontweight="bold")
