@@ -119,7 +119,7 @@ ax2.plot(range(len(df_mensal)), df_mensal["Acumulado"], marker='o', color='#fca9
 
 # Rótulos acumulados
 max_valor = df_mensal["Acumulado"].max()
-offset = max_valor * 0.02  # 5% do valor máximo para espaçamento proporcional
+offset = max_valor * 0.02  
 for i, y in enumerate(df_mensal["Acumulado"]):
     ax2.text(i, y + offset, f'R$ {int(y):,}'.replace(",", "."), fontsize=8, rotation=90, va='bottom', ha='center')
 
