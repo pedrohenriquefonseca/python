@@ -137,7 +137,7 @@ def gerar_relatorio(nome_projeto):
             _, avo, pai = buscar_hierarquia(idx)
             chave = row.get('Subprojeto_Horizontes', 'Não Informado')
             dias = (hoje - row['Início_DT']).days if pd.notna(row['Início_DT']) else "?"
-            linha = f"{avo} - {pai} - {row['Nome']}: Desde {row['Início']} ({dias} dias)"
+            linha = f"{avo} - {pai} - {row['Nome']}: Com o cliente desde {row['Início']} ({dias} dias)"
             grupo.setdefault(chave, []).append(linha)
 
         for subprojeto, tarefas in grupo.items():
