@@ -21,7 +21,7 @@ meses_pt_en = {
 
 # Paletas de cores expandidas (16 cores cada)
 cores_horizontes_base = [
-    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b',
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#daa520',
     '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78',
     '#98df8a', '#ff9896', '#c5b0d5', '#c49c94'
 ]
@@ -139,8 +139,8 @@ def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
         plt.barh(y=y_pos, width=duracao, left=inicio, height=0.7, align='center', color=cor)
         plt.text(inicio + duracao / 50, y_pos, row['Nome'], va='center', ha='left', fontsize=9, color='black')
 
-    plt.axvline(x=hoje, color='red', linestyle='--', linewidth=2)
-    plt.text(hoje, plt.ylim()[1], 'Hoje', color='red', va='bottom', ha='center', fontsize=10, fontweight='bold')
+    plt.axvline(x=hoje, color='red', linestyle='--', linewidth=1)
+    plt.text(hoje, plt.ylim()[1], 'Hoje', color='red', va='bottom', ha='center', fontsize=10, fontweight='normal')
 
     y_labels, y_ticks, y_colors = [], [], []
     for recurso in recursos:
@@ -150,7 +150,7 @@ def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
         y_ticks.append(pos_central)
         y_colors.append(cores_dict[recurso])
 
-    plt.yticks(y_ticks, y_labels, fontsize=10)
+    plt.yticks(y_ticks, y_labels, fontsize=10, fontweight='bold')
     ax = plt.gca()
     for ticklabel, color in zip(ax.get_yticklabels(), y_colors):
         ticklabel.set_color(color)
@@ -161,9 +161,8 @@ def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
     plt.xticks(rotation=0, fontsize=10, color='gray')
 
     plt.grid(axis='x', linestyle='--', color='lightgray', linewidth=0.8)
-    plt.grid(axis='y', linestyle='--', color='lightgray', linewidth=0.8)
 
-    plt.title(titulo, fontsize=16, fontweight='bold')
+    plt.title(titulo, fontsize=16, fontweight='bold', pad=20)
     plt.xlabel('Data', fontsize=11, fontweight='bold')
     plt.ylabel('Recursos', fontsize=11, fontweight='bold')
 

@@ -94,7 +94,7 @@ def gerar_relatorio(nome_projeto):
     doc = Document()
     style = doc.styles['Normal']
     style.font.name = 'Arial'
-    style.font.size = Pt(11)
+    style.font.size = Pt(10)
 
     p = doc.add_paragraph()
     run = p.add_run(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}")

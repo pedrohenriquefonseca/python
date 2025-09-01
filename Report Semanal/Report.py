@@ -254,7 +254,7 @@ def gerar_relatorio(nome_projeto):
         doc = Document()
         style = doc.styles['Normal']
         style.font.name = 'Arial'
-        style.font.size = Pt(11)
+        style.font.size = Pt(10)
         
         # Título do relatório
         p = doc.add_paragraph()
