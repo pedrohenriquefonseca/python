@@ -1,9 +1,6 @@
 import os
 import pandas as pd
 from datetime import datetime
-from docx import Document
-from docx.shared import Pt
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 def selecionar_arquivo_excel():
     arquivos = [f for f in os.listdir() if f.endswith(('.xls', '.xlsx'))]
@@ -91,29 +88,19 @@ def gerar_relatorio(nome_projeto):
                 break
         return bisavo, avo, pai
 
-    doc = Document()
-    style = doc.styles['Normal']
-    style.font.name = 'Arial'
-    style.font.size = Pt(10)
+    partes = []
+    partes.append(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n")
+    partes.append("\n📌 RESUMO:\n")
 
-    p = doc.add_paragraph()
-    run = p.add_run(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}")
-    run.underline = True
-    run.bold = True
-    p.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-
-    doc.add_paragraph("📌 RESUMO:")
     resumo1 = f"O projeto, com tendência de término para {AA}, está {BB} dias corridos atrasado em relação à Linha de Base aprovada pelo cliente, que previa término em {CC}."
     resumo2 = f"Com duração inicial de {DD} dias corridos, o projeto possui atualmente duração estimada de {EE} dias corridos."
     resumo3 = f"O grau de aderência do projeto ao planejamento é de {FF_fmt}."
-
     for texto in [resumo1, resumo2, resumo3]:
-        p = doc.add_paragraph(texto)
-        p.style = 'List Bullet'
+        partes.append(f"- {texto}\n")
 
-    doc.add_paragraph("\n📅 PRÓXIMAS EMISSÕES DE PROJETO:")
+    partes.append("\n📅 PRÓXIMAS EMISSÕES DE PROJETO:\n")
     if filtro_horizontes.empty:
-        doc.add_paragraph("- Não existem tarefas que cumpram os critérios desta seção")
+        partes.append("- Não existem tarefas que cumpram os critérios desta seção\n")
     else:
         grupo = {}
         for idx, row in filtro_horizontes.iterrows():
@@ -123,14 +110,13 @@ def gerar_relatorio(nome_projeto):
             grupo.setdefault(chave, []).append(linha)
 
         for subprojeto, tarefas in grupo.items():
-            doc.add_paragraph(f"\n{subprojeto}:")
+            partes.append(f"\n{subprojeto}:\n")
             for t in tarefas:
-                p = doc.add_paragraph(t)
-                p.style = 'List Bullet'
+                partes.append(f"- {t}\n")
 
-    doc.add_paragraph("\n🔎 ARQUIVOS EM ANÁLISE:")
+    partes.append("\n🔎 ARQUIVOS EM ANÁLISE:\n")
     if filtro_cliente.empty:
-        doc.add_paragraph("- Não existem tarefas que cumpram os critérios desta seção")
+        partes.append("- Não existem tarefas que cumpram os critérios desta seção\n")
     else:
         grupo = {}
         for idx, row in filtro_cliente.iterrows():
@@ -141,13 +127,15 @@ def gerar_relatorio(nome_projeto):
             grupo.setdefault(chave, []).append(linha)
 
         for subprojeto, tarefas in grupo.items():
-            doc.add_paragraph(f"\n{subprojeto}:")
+            partes.append(f"\n{subprojeto}:\n")
             for t in tarefas:
-                p = doc.add_paragraph(t)
-                p.style = 'List Bullet'
+                partes.append(f"- {t}\n")
 
-    nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}.docx"
-    doc.save(nome_arquivo)
+    conteudo_md = "".join(partes)
+
+    nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}.md"
+    with open(nome_arquivo, 'w', encoding='utf-8') as f:
+        f.write(conteudo_md)
     print(f"\nRelatório salvo como: {nome_arquivo}")
 
 if __name__ == "__main__":

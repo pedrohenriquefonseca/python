@@ -1,9 +1,6 @@
 import os
 import pandas as pd
 from datetime import datetime
-from docx import Document
-from docx.shared import Pt
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 
 def selecionar_arquivo_excel():
@@ -131,23 +128,21 @@ def filtrar_tarefas_por_recurso(df, termo_busca):
         return pd.DataFrame()
 
 
-def adicionar_secao_documento(doc, titulo, tarefas_df, df_principal, hoje, tipo_secao):
-    """Adiciona uma seção ao documento Word com as tarefas especificadas."""
-    doc.add_paragraph(f"\n{titulo}")
-    
+def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
+    """Monta uma seção em Markdown com as tarefas especificadas."""
+    secao_md = f"\n{titulo}\n\n"
     if tarefas_df.empty:
-        doc.add_paragraph("- Não existem tarefas que cumpram os critérios desta seção")
-        return
-    
-    # Agrupar tarefas por hierarquia
+        secao_md += "- Não existem tarefas que cumpram os critérios desta seção\n"
+        return secao_md
+
     grupos = {}
     for idx, row in tarefas_df.iterrows():
         bisavo, avo, pai = buscar_hierarquia(df_principal, idx)
         chave = bisavo if bisavo else "Sem categoria"
-        
+
         if tipo_secao == "emissoes":
             linha = f"{avo} - {pai} - {row['Nome']}: Programado para {row.get('Término', 'N/A')}"
-        else:  # analise
+        else:
             dias_analise = "?"
             if pd.notna(row.get('Início_DT')):
                 try:
@@ -155,18 +150,16 @@ def adicionar_secao_documento(doc, titulo, tarefas_df, df_principal, hoje, tipo_
                 except:
                     dias_analise = "?"
             linha = f"{avo} - {pai} - {row['Nome']}: A cargo do cliente desde {row.get('Início', 'N/A')} ({dias_analise} dias)"
-        
-        if chave not in grupos:
-            grupos[chave] = []
-        grupos[chave].append(linha)
-    
-    # Adicionar grupos ao documento
+
+        grupos.setdefault(chave, []).append(linha)
+
     for bisavo, tarefas in grupos.items():
         if bisavo:
-            doc.add_paragraph(f"\n{bisavo}:")
+            secao_md += f"\n{bisavo}:\n"
         for tarefa in tarefas:
-            p = doc.add_paragraph(tarefa)
-            p.style = 'List Bullet'
+            secao_md += f"- {tarefa}\n"
+
+    return secao_md
 
 
 def validar_colunas_necessarias(df):
@@ -194,7 +187,7 @@ def validar_colunas_necessarias(df):
 
 
 def gerar_relatorio(nome_projeto):
-    """Função principal para gerar o relatório semanal."""
+    """Gera o relatório semanal diretamente em arquivo Markdown (.md)."""
     try:
         print("Iniciando geração do relatório...")
         
@@ -250,46 +243,39 @@ def gerar_relatorio(nome_projeto):
         filtro_horizontes = filtrar_tarefas_por_recurso(df, "Horizontes")
         filtro_cliente = filtrar_tarefas_por_recurso(df, "Cliente")
         
-        # Criar documento Word
-        doc = Document()
-        style = doc.styles['Normal']
-        style.font.name = 'Arial'
-        style.font.size = Pt(10)
-        
-        # Título do relatório
-        p = doc.add_paragraph()
-        run = p.add_run(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}")
-        run.underline = True
-        run.bold = True
-        p.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-        
-        # Seção Resumo
-        doc.add_paragraph("📌 RESUMO:")
-        
+        # Montar conteúdo Markdown
+        partes = []
+        partes.append(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n")
+        partes.append("\n📌 RESUMO:\n")
+
         resumo_textos = [
             f"O projeto, com tendência de término para {AA}, está {abs(BB)} dias corridos {'atrasado' if BB > 0 else 'adiantado'} em relação à Linha de Base aprovada pelo cliente, que previa término em {CC}.",
             f"Com duração inicial de {DD} dias corridos, o projeto possui atualmente duração estimada de {EE} dias corridos.",
             f"O grau de aderência do projeto ao planejamento é de {FF_fmt}."
         ]
-        
         for texto in resumo_textos:
-            p = doc.add_paragraph(texto)
-            p.style = 'List Bullet'
-        
-        # Adicionar seções
-        adicionar_secao_documento(
-            doc, "📅 PRÓXIMAS EMISSÕES DE PROJETO:", 
-            filtro_horizontes, df, hoje, "emissoes"
+            partes.append(f"- {texto}\n")
+
+        partes.append(
+            montar_secao_markdown(
+                "\n📅 PRÓXIMAS EMISSÕES DE PROJETO:",
+                filtro_horizontes, df, hoje, "emissoes"
+            )
         )
-        
-        adicionar_secao_documento(
-            doc, "🔎 ARQUIVOS EM ANÁLISE:", 
-            filtro_cliente, df, hoje, "analise"
+
+        partes.append(
+            montar_secao_markdown(
+                "\n🔎 ARQUIVOS EM ANÁLISE:",
+                filtro_cliente, df, hoje, "analise"
+            )
         )
-        
-        # Salvar arquivo (sem data no nome)
-        nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}.docx"
-        doc.save(nome_arquivo)
+
+        conteudo_md = "".join(partes)
+
+        # Salvar arquivo Markdown (sem data no nome)
+        nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}.md"
+        with open(nome_arquivo, 'w', encoding='utf-8') as f:
+            f.write(conteudo_md)
         print(f"\nRelatório salvo como: {nome_arquivo}")
         
     except FileNotFoundError as e:
