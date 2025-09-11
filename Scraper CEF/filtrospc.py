@@ -1,4 +1,5 @@
 # script_cef_tipo_apartamento_v4.py
+
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
 URL = "https://venda-imoveis.caixa.gov.br/sistema/busca-imovel.asp?sltTipoBusca=imoveis"
@@ -144,35 +145,27 @@ def main():
         page.set_default_timeout(45000)
         page.set_default_navigation_timeout(45000)
 
-        print("[1] Abrindo página…")
         page.goto(URL, wait_until="domcontentloaded")
 
         # -------- ETAPA 1 --------
-        print("[2] Encontrando frame da Etapa 1…")
         frame1 = find_frame_with_selector(page, "select", timeout_ms=20000, state="attached")
 
-        print("[3] Estado = MG…")
         estado_sel = find_select_with_option(frame1, "MG", timeout_ms=20000)
         if not select_option_by_text_handle(estado_sel, "MG"):
             raise RuntimeError("Falha ao definir Estado = MG")
 
-        print("[4] Cidade = BELO HORIZONTE…")
         cidade_sel = find_select_with_option(frame1, "BELO HORIZONTE", timeout_ms=20000)
         if not select_option_by_text_handle(cidade_sel, "BELO HORIZONTE"):
             raise RuntimeError("Falha ao definir Cidade = BELO HORIZONTE")
 
-        print("[5] Marcando TODOS os bairros…")
         frame1.wait_for_selector("input[type='checkbox']", timeout=20000, state="attached")
         mark_all_checkboxes(frame1)
 
-        print("[6] Próximo → Etapa 2…")
         click_next(frame1)
 
         # -------- ETAPA 2 --------
-        print("[7] Localizando frame da Etapa 2 (opção 'APARTAMENTO')…")
         frame2 = find_frame_with_option(page, "APARTAMENTO", timeout_ms=25000)
 
-        print("[8] Tipo de Imóvel = Apartamento…")
         tipo_sel = find_select_with_option(frame2, "APARTAMENTO", timeout_ms=20000)
         ok = select_option_by_text_handle(tipo_sel, "APARTAMENTO")
         if not ok:
@@ -183,11 +176,9 @@ def main():
             except Exception:
                 pass
         txt = get_selected_text(tipo_sel)
-        print(f"    - Valor em 'Tipo' após set: {txt!r}")
         if txt.strip().upper() != "APARTAMENTO":
             raise RuntimeError("Tipo de Imóvel NÃO ficou como Apartamento.")
 
-        print("[9] QUARTOS/VAGAS/ÁREA = INDIFERENTE (sem mexer no 'Tipo' e na 'Faixa')")
         frame2.evaluate(
             """(tipoEl) => {
                 const U = t => (t||"").normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
@@ -208,28 +199,19 @@ def main():
             tipo_sel
         )
 
-        print("[10] Faixa de valor = 200k–400k (value=3)…")
         try:
             if frame2.query_selector("select[name='cmb_faixa_vlr']") or frame2.query_selector("#cmb_faixa_vlr"):
                 frame2.select_option("select[name='cmb_faixa_vlr'], #cmb_faixa_vlr", value="3")
             else:
                 faixa_sel = find_select_with_option(frame2, "DE R$200.000,01 ATÉ R$400.000,00", timeout_ms=12000)
                 select_option_by_text_handle(faixa_sel, "DE R$200.000,01 ATÉ R$400.000,00")
-            print("    - Faixa definida.")
         except Exception as e:
             raise RuntimeError(f"Falha ao definir Faixa de valor: {e}")
 
-        print("[11] Reforçando Tipo = Apartamento…")
         select_option_by_text_handle(tipo_sel, "APARTAMENTO")
         txt = get_selected_text(tipo_sel)
-        print(f"    - Valor final em 'Tipo': {txt!r}")
 
-        print("[12] Próximo → Resultados…")
         click_next(frame2)
-
-        print("✔ Concluído. A janela do navegador permanecerá aberta indefinidamente.")
-        print(">>> O script foi finalizado. Feche a janela do navegador quando desejar.")
-        print(">>> O navegador continuará funcionando normalmente para navegação manual.")
 
         # ====== Manter janela aberta indefinidamente ======
         # O navegador permanece aberto e funcional após o script terminar
@@ -238,27 +220,16 @@ def main():
         
     except Exception as e:
         print(f"❌ Erro durante a execução: {e}")
-        # Em caso de erro, ainda mantemos o navegador aberto para debug
-        print(">>> O navegador permanecerá aberto para investigação do erro.")
-        print(">>> Feche a janela do navegador quando terminar a investigação.")
     
     # IMPORTANTE: Manter o script ativo para evitar fechamento do navegador
     # O navegador permanecerá aberto indefinidamente até ser fechado manualmente
     # O script termina, mas o navegador continua funcionando
     
-    print("\n" + "="*60)
-    print("🔍 NAVEGADOR MANTIDO ABERTO")
-    print("="*60)
-    print("O navegador permanecerá aberto para você navegar livremente.")
-    print("Para fechar o navegador e encerrar o script, pressione ENTER aqui.")
-    print("="*60)
-    
-    # Manter o script ativo até o usuário pressionar ENTER
+    print("\n🔍 NAVEGADOR MANTIDO ABERTO")
     input("Pressione ENTER para fechar o navegador e encerrar o script...")
     
     # Só agora fechamos o navegador quando o usuário quiser
     if browser:
-        print("Fechando o navegador...")
         browser.close()
     if p:
         p.stop()

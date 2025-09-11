@@ -273,7 +273,7 @@ def gerar_relatorio(nome_projeto):
         conteudo_md = "".join(partes)
 
         # Salvar arquivo Markdown (sem data no nome)
-        nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}.md"
+        nome_arquivo = f"Relatorio Semanal - {nome_projeto}.md"
         with open(nome_arquivo, 'w', encoding='utf-8') as f:
             f.write(conteudo_md)
         print(f"\nRelatório salvo como: {nome_arquivo}")
