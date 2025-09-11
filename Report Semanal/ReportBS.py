@@ -137,7 +137,7 @@ def gerar_relatorio(nome_projeto):
             _, avo, pai = buscar_hierarquia(idx)
             chave = row.get('Subprojeto_Horizontes', 'Não Informado')
             dias = (hoje - row['Início_DT']).days if pd.notna(row['Início_DT']) else "?"
-            linha = f"{avo} - {pai} - {row['Nome']}: Com o cliente desde {row['Início']} ({dias} dias)"
+            linha = f"{avo} - {pai} - {row['Nome']}: A cargo do cliente desde {row['Início']} ({dias} dias)"
             grupo.setdefault(chave, []).append(linha)
 
         for subprojeto, tarefas in grupo.items():
@@ -146,7 +146,7 @@ def gerar_relatorio(nome_projeto):
                 p = doc.add_paragraph(t)
                 p.style = 'List Bullet'
 
-    nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}_{hoje_fmt.replace('/', '-')}.docx"
+    nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}.docx"
     doc.save(nome_arquivo)
     print(f"\nRelatório salvo como: {nome_arquivo}")
 

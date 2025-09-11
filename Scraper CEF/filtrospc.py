@@ -131,7 +131,13 @@ def click_next(frame):
 
 # ---------- fluxo principal ----------
 def main():
-    with sync_playwright() as p:
+    # Inicializar o Playwright sem usar 'with' para manter o navegador aberto
+    p = sync_playwright().start()
+    browser = None
+    context = None
+    page = None
+    
+    try:
         browser = p.chromium.launch(headless=False)  # visível para inspeção
         context = browser.new_context()
         page = context.new_page()
@@ -221,17 +227,41 @@ def main():
         print("[12] Próximo → Resultados…")
         click_next(frame2)
 
-        print("✔ Concluído. Deixe a janela aberta para inspecionar.")
-        print(">>> Quando terminar, feche a janela do navegador.")
+        print("✔ Concluído. A janela do navegador permanecerá aberta indefinidamente.")
+        print(">>> O script foi finalizado. Feche a janela do navegador quando desejar.")
+        print(">>> O navegador continuará funcionando normalmente para navegação manual.")
 
-        # ====== Espera elegante pelo FECHAMENTO, sem erro ======
-        # Opção A (recomendada): esperar o fechamento da aba atual
-        try:
-            page.wait_for_event("close")  # bloqueia até você fechar a janela/aba
-        except PWTimeout:
-            pass
-        # Alternativa:
-        # browser.wait_for_event("disconnected")
+        # ====== Manter janela aberta indefinidamente ======
+        # O navegador permanece aberto e funcional após o script terminar
+        # A janela só será fechada quando o usuário fechar manualmente
+        # NÃO fechamos o browser, context ou page aqui intencionalmente
+        
+    except Exception as e:
+        print(f"❌ Erro durante a execução: {e}")
+        # Em caso de erro, ainda mantemos o navegador aberto para debug
+        print(">>> O navegador permanecerá aberto para investigação do erro.")
+        print(">>> Feche a janela do navegador quando terminar a investigação.")
+    
+    # IMPORTANTE: Manter o script ativo para evitar fechamento do navegador
+    # O navegador permanecerá aberto indefinidamente até ser fechado manualmente
+    # O script termina, mas o navegador continua funcionando
+    
+    print("\n" + "="*60)
+    print("🔍 NAVEGADOR MANTIDO ABERTO")
+    print("="*60)
+    print("O navegador permanecerá aberto para você navegar livremente.")
+    print("Para fechar o navegador e encerrar o script, pressione ENTER aqui.")
+    print("="*60)
+    
+    # Manter o script ativo até o usuário pressionar ENTER
+    input("Pressione ENTER para fechar o navegador e encerrar o script...")
+    
+    # Só agora fechamos o navegador quando o usuário quiser
+    if browser:
+        print("Fechando o navegador...")
+        browser.close()
+    if p:
+        p.stop()
 
 if __name__ == "__main__":
     main()

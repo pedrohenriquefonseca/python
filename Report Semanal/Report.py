@@ -154,7 +154,7 @@ def adicionar_secao_documento(doc, titulo, tarefas_df, df_principal, hoje, tipo_
                     dias_analise = (hoje - row['Início_DT']).days
                 except:
                     dias_analise = "?"
-            linha = f"{avo} - {pai} - {row['Nome']}: Com o cliente desde {row.get('Início', 'N/A')} ({dias_analise} dias)"
+            linha = f"{avo} - {pai} - {row['Nome']}: A cargo do cliente desde {row.get('Início', 'N/A')} ({dias_analise} dias)"
         
         if chave not in grupos:
             grupos[chave] = []
@@ -287,8 +287,8 @@ def gerar_relatorio(nome_projeto):
             filtro_cliente, df, hoje, "analise"
         )
         
-        # Salvar arquivo
-        nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}_{hoje_fmt.replace('/', '-')}.docx"
+        # Salvar arquivo (sem data no nome)
+        nome_arquivo = f"Relatorio_Semanal_{nome_projeto.replace(' ', '_')}.docx"
         doc.save(nome_arquivo)
         print(f"\nRelatório salvo como: {nome_arquivo}")
         
