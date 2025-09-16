@@ -249,9 +249,9 @@ def gerar_relatorio(nome_projeto):
         partes.append("\n📌 RESUMO:\n")
 
         resumo_textos = [
-            f"O projeto, com tendência de término para {AA}, está {abs(BB)} dias corridos {'atrasado' if BB > 0 else 'adiantado'} em relação à Linha de Base aprovada pelo cliente, que previa término em {CC}.",
-            f"Com duração inicial de {DD} dias corridos, o projeto possui atualmente duração estimada de {EE} dias corridos.",
-            f"O grau de aderência do projeto ao planejamento é de {FF_fmt}."
+            f"Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).",
+            f"Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).",
+            f"Aderência ao Cronograma: {FF_fmt}."
         ]
         for texto in resumo_textos:
             partes.append(f"- {texto}\n")

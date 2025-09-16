@@ -92,9 +92,9 @@ def gerar_relatorio(nome_projeto):
     partes.append(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n")
     partes.append("\n📌 RESUMO:\n")
 
-    resumo1 = f"O projeto, com tendência de término para {AA}, está {BB} dias corridos atrasado em relação à Linha de Base aprovada pelo cliente, que previa término em {CC}."
-    resumo2 = f"Com duração inicial de {DD} dias corridos, o projeto possui atualmente duração estimada de {EE} dias corridos."
-    resumo3 = f"O grau de aderência do projeto ao planejamento é de {FF_fmt}."
+    resumo1 = f"Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC})."
+    resumo2 = f"Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos)."
+    resumo3 = f"Aderência ao Cronograma: {FF_fmt}."
     for texto in [resumo1, resumo2, resumo3]:
         partes.append(f"- {texto}\n")
 
