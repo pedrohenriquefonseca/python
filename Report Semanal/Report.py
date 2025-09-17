@@ -130,7 +130,7 @@ def filtrar_tarefas_por_recurso(df, termo_busca):
 
 def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
     """Monta uma seção em Markdown com as tarefas especificadas."""
-    secao_md = f"\n{titulo}\n\n"
+    secao_md = f"\n{titulo}"
     if tarefas_df.empty:
         secao_md += "- Não existem tarefas que cumpram os critérios desta seção\n"
         return secao_md

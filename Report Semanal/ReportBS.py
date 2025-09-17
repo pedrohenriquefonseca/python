@@ -90,7 +90,7 @@ def gerar_relatorio(nome_projeto):
 
     partes = []
     partes.append(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n")
-    partes.append("\n📌 RESUMO:\n")
+    partes.append("\n\n📌 RESUMO:\n")
 
     resumo1 = f"Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC})."
     resumo2 = f"Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos)."
@@ -98,7 +98,7 @@ def gerar_relatorio(nome_projeto):
     for texto in [resumo1, resumo2, resumo3]:
         partes.append(f"- {texto}\n")
 
-    partes.append("\n📅 PRÓXIMAS EMISSÕES DE PROJETO:\n")
+    partes.append("\n\n📅 PRÓXIMAS EMISSÕES DE PROJETO:")
     if filtro_horizontes.empty:
         partes.append("- Não existem tarefas que cumpram os critérios desta seção\n")
     else:
@@ -114,7 +114,7 @@ def gerar_relatorio(nome_projeto):
             for t in tarefas:
                 partes.append(f"- {t}\n")
 
-    partes.append("\n🔎 ARQUIVOS EM ANÁLISE:\n")
+    partes.append("\n\n🔎 ARQUIVOS EM ANÁLISE:")
     if filtro_cliente.empty:
         partes.append("- Não existem tarefas que cumpram os critérios desta seção\n")
     else:
@@ -133,7 +133,7 @@ def gerar_relatorio(nome_projeto):
 
     conteudo_md = "".join(partes)
 
-    nome_arquivo = f"Report Semanal - {nome_projeto}.md"
+    nome_arquivo = f"Relatorio Semanal - {nome_projeto}.md"
     with open(nome_arquivo, 'w', encoding='utf-8') as f:
         f.write(conteudo_md)
     print(f"\nRelatório salvo como: {nome_arquivo}")
