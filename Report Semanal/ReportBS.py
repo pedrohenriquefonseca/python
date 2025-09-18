@@ -3,7 +3,11 @@ import pandas as pd
 from datetime import datetime
 
 def selecionar_arquivo_excel():
-    arquivos = [f for f in os.listdir() if f.endswith(('.xls', '.xlsx'))]
+    # Criamos uma lista vazia e depois adicionamos cada arquivo que termina com '.xls' ou '.xlsx'.
+    arquivos = []
+    for f in os.listdir():
+        if f.endswith('.xls') or f.endswith('.xlsx'):
+            arquivos.append(f)
     if not arquivos:
         raise FileNotFoundError("Nenhum arquivo Excel encontrado na pasta atual.")
     elif len(arquivos) == 1:
@@ -95,10 +99,13 @@ def gerar_relatorio(nome_projeto):
     resumo1 = f"Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC})."
     resumo2 = f"Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos)."
     resumo3 = f"Aderência ao Cronograma: {FF_fmt}."
-    for texto in [resumo1, resumo2, resumo3]:
-        partes.append(f"- {texto}\n")
+    
+    partes.append(f"- {resumo1}\n")
+    partes.append(f"- {resumo2}\n")
+    partes.append(f"- {resumo3}\n")
 
     partes.append("\n\n📅 PRÓXIMAS EMISSÕES DE PROJETO:")
+    
     if filtro_horizontes.empty:
         partes.append("- Não existem tarefas que cumpram os critérios desta seção\n")
     else:

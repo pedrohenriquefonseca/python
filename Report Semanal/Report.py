@@ -69,7 +69,7 @@ def formatar_data(coluna):
 
 
 def processar_porcentagem(valor):
-    """Processa valor de porcentagem removendo símbolos e convertendo."""
+    #Processa valor de porcentagem removendo símbolos e convertendo.
     if pd.isna(valor):
         return 0
     
@@ -81,7 +81,7 @@ def processar_porcentagem(valor):
 
 
 def calcular_dias_diferenca(data1, data2):
-    """Calcula diferença em dias entre duas datas."""
+    #Calcula diferença em dias entre duas datas.
     if pd.isna(data1) or pd.isna(data2):
         return 0
     try:
@@ -91,7 +91,7 @@ def calcular_dias_diferenca(data1, data2):
 
 
 def buscar_hierarquia(df, linha_index):
-    """Busca a hierarquia (bisavô, avô, pai) de uma linha específica."""
+    #Busca a hierarquia (bisavô, avô, pai) de uma linha específica.
     pai = avo = bisavo = ''
     
     for i in range(linha_index - 1, -1, -1):
