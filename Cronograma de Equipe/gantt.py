@@ -178,14 +178,14 @@ if __name__ == "__main__":
 
     arquivos_xlsx = [f for f in os.listdir('.') if f.endswith('.xlsx')]
     if not arquivos_xlsx:
-        print("Nenhum arquivo .xlsx encontrado na pasta.")
+        print('Nenhum arquivo .xlsx encontrado na pasta.')
         exit()
 
-    print("Arquivos encontrados:")
+    print('Arquivos encontrados:')
     for i, nome_arq in enumerate(arquivos_xlsx, 1):
-        print(f"{i} - {nome_arq}")
+        print(f'{i} - {nome_arq}')
 
-    escolha = int(input("Digite o número do arquivo desejado: "))
+    escolha = int(input('Digite o número do arquivo desejado: '))
     arquivo = arquivos_xlsx[escolha-1]
 
     df = carregar_dados(arquivo)
@@ -202,4 +202,4 @@ if __name__ == "__main__":
     cores_dict_f = carregar_mapa_cores(ARQ_CORES_FORNECEDORES, cores_fornecedores_base, recursos_f)
     plotar(df_aloc_f, recursos_f, cores_dict_f, 'Relatório de Alocação de Fornecedores', 'fornecedores.png')
 
-    print("Gráficos gerados com sucesso!")
+    print('Gráficos gerados com sucesso!')

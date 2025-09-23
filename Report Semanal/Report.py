@@ -2,35 +2,34 @@ import os
 import pandas as pd
 from datetime import datetime
 
-
+#Seleciona arquivo Excel da pasta atual.
 def selecionar_arquivo_excel():
-    """Seleciona arquivo Excel da pasta atual."""
     arquivos = []
     for arquivo in os.listdir():
         if arquivo.endswith(('.xls', '.xlsx')):
             arquivos.append(arquivo)
     
     if not arquivos:
-        raise FileNotFoundError("Nenhum arquivo Excel encontrado na pasta atual.")
+        raise FileNotFoundError('Nenhum arquivo Excel encontrado na pasta atual.')
     elif len(arquivos) == 1:
-        print(f"Arquivo selecionado automaticamente: {arquivos[0]}")
+        print(f'Arquivo selecionado automaticamente: {arquivos[0]}')
         return arquivos[0]
     else:
-        print("Selecione um arquivo:")
+        print('Selecione um arquivo:')
         for idx, arquivo in enumerate(arquivos, 1):
-            print(f"{idx}. {arquivo}")
+            print(f'{idx}. {arquivo}')
         
         while True:
             try:
-                escolha = int(input("Digite o número do arquivo desejado: "))
+                escolha = int(input('Digite o número do arquivo desejado: '))
                 if 1 <= escolha <= len(arquivos):
                     return arquivos[escolha - 1]
                 else:
-                    print(f"Por favor, digite um número entre 1 e {len(arquivos)}")
+                    print(f'Por favor, digite um número entre 1 e {len(arquivos)}')
             except ValueError:
-                print("Por favor, digite apenas números")
+                print('Por favor, digite apenas números')
             except KeyboardInterrupt:
-                print("\nOperação cancelada pelo usuário.")
+                print('\nOperação cancelada pelo usuário.')
                 exit(1)
 
 
@@ -41,9 +40,8 @@ meses_portugues = {
     'setembro': 'September', 'outubro': 'October', 'novembro': 'November', 'dezembro': 'December'
 }
 
-
+#Traduz nomes de meses do português para inglês.
 def traduzir_meses(texto):
-    """Traduz nomes de meses do português para inglês."""
     if pd.isna(texto):
         return texto
     
@@ -52,9 +50,8 @@ def traduzir_meses(texto):
         texto_lower = texto_lower.replace(pt, en)
     return texto_lower
 
-
+#Formata coluna de datas para o padrão brasileiro.
 def formatar_data(coluna):
-    """Formata coluna de datas para o padrão brasileiro."""
     try:
         datas_traduzidas = coluna.apply(traduzir_meses)
         datas_convertidas = pd.to_datetime(
@@ -64,7 +61,7 @@ def formatar_data(coluna):
         )
         return datas_convertidas.dt.strftime('%d/%m/%y')
     except Exception as e:
-        print(f"Aviso: Erro ao formatar datas: {e}")
+        print(f'Aviso: Erro ao formatar datas: {e}')
         return coluna
 
 
@@ -118,52 +115,51 @@ def buscar_hierarquia(df, linha_index):
 
 
 def filtrar_tarefas_por_recurso(df, termo_busca):
-    """Filtra tarefas baseado no recurso especificado."""
+    #Filtra tarefas baseado no recurso especificado.
     try:
         filtro_recursos = df['Nomes_dos_Recursos'].astype(str).str.contains(termo_busca, case=False, na=False)
         filtro_percentual = (df['Porcentagem_Concluída'] > 0) & (df['Porcentagem_Concluída'] < 1)
         return df[filtro_recursos & filtro_percentual]
     except KeyError:
-        print(f"Aviso: Coluna necessária não encontrada para filtrar {termo_busca}")
+        print(f'Aviso: Coluna necessária não encontrada para filtrar {termo_busca}')
         return pd.DataFrame()
 
 
 def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
-    """Monta uma seção em Markdown com as tarefas especificadas."""
-    secao_md = f"\n{titulo}"
+    #Monta uma seção em Markdown com as tarefas especificadas.
+    secao_md = f'\n{titulo}'
     if tarefas_df.empty:
-        secao_md += "- Não existem tarefas que cumpram os critérios desta seção\n"
+        secao_md += '- Não existem tarefas que cumpram os critérios desta seção\n'
         return secao_md
 
     grupos = {}
     for idx, row in tarefas_df.iterrows():
         bisavo, avo, pai = buscar_hierarquia(df_principal, idx)
-        chave = bisavo if bisavo else "Sem categoria"
+        chave = bisavo if bisavo else 'Sem categoria'
 
-        if tipo_secao == "emissoes":
-            linha = f"{avo} - {pai} - {row['Nome']}: Programado para {row.get('Término', 'N/A')}"
+        if tipo_secao == 'emissoes':
+            linha = f'{avo} - {pai} - {row["Nome"]}: Programado para {row.get("Término", "N/A")}'
         else:
-            dias_analise = "?"
+            dias_analise = '?'
             if pd.notna(row.get('Início_DT')):
                 try:
                     dias_analise = (hoje - row['Início_DT']).days
                 except:
-                    dias_analise = "?"
-            linha = f"{avo} - {pai} - {row['Nome']}: A cargo do cliente desde {row.get('Início', 'N/A')} ({dias_analise} dias)"
+                    dias_analise = '?'
+            linha = f'{avo} - {pai} - {row["Nome"]}: A cargo do cliente desde {row.get("Início", "N/A")} ({dias_analise} dias)'
 
         grupos.setdefault(chave, []).append(linha)
 
     for bisavo, tarefas in grupos.items():
         if bisavo:
-            secao_md += f"\n{bisavo}:\n"
+            secao_md += f'\n{bisavo}:\n'
         for tarefa in tarefas:
-            secao_md += f"- {tarefa}\n"
+            secao_md += f'- {tarefa}\n'
 
     return secao_md
 
-
+#Valida se as colunas necessárias existem no DataFrame.
 def validar_colunas_necessarias(df):
-    """Valida se as colunas necessárias existem no DataFrame."""
     colunas_obrigatorias = [
         'Nível_da_estrutura_de_tópicos', 'Nome', 'Nomes_dos_Recursos',
         'Porcentagem_Concluída', 'Porcentagem_Previsto'
@@ -175,7 +171,7 @@ def validar_colunas_necessarias(df):
             colunas_faltantes.append(coluna)
     
     if colunas_faltantes:
-        print(f"Aviso: Colunas não encontradas: {', '.join(colunas_faltantes)}")
+        print(f'Aviso: Colunas não encontradas: {", ".join(colunas_faltantes)}')
         # Criar colunas com valores padrão
         for coluna in colunas_faltantes:
             if 'Porcentagem' in coluna:
@@ -185,19 +181,15 @@ def validar_colunas_necessarias(df):
     
     return df
 
-
+#Gera o relatório semanal diretamente em arquivo Markdown (.md).
 def gerar_relatorio(nome_projeto):
-    """Gera o relatório semanal diretamente em arquivo Markdown (.md)."""
     try:
-        print("Iniciando geração do relatório...")
-        
         # Selecionar e carregar arquivo
         arquivo = selecionar_arquivo_excel()
-        print(f"Carregando dados de: {arquivo}")
         df = pd.read_excel(arquivo)
         
         if df.empty:
-            raise ValueError("O arquivo Excel está vazio")
+            raise ValueError('O arquivo Excel está vazio')
         
         # Validar colunas necessárias
         df = validar_colunas_necessarias(df)
@@ -221,7 +213,7 @@ def gerar_relatorio(nome_projeto):
         # Encontrar linha de nível 0 (projeto principal)
         nivel0_linhas = df[df['Nível_da_estrutura_de_tópicos'] == 0]
         if nivel0_linhas.empty:
-            print("Aviso: Nenhuma linha de nível 0 encontrada. Usando primeira linha.")
+            print('Aviso: Nenhuma linha de nível 0 encontrada. Usando primeira linha.')
             nivel0 = df.iloc[0]
         else:
             nivel0 = nivel0_linhas.iloc[0]
@@ -237,63 +229,63 @@ def gerar_relatorio(nome_projeto):
         FF = 0
         if nivel0.get('Porcentagem_Previsto', 0) > 0:
             FF = nivel0.get('Porcentagem_Concluída', 0) / nivel0['Porcentagem_Previsto']
-        FF_fmt = f"{FF:.0%}"
+        FF_fmt = f'{FF:.0%}'
         
         # Filtrar tarefas
-        filtro_horizontes = filtrar_tarefas_por_recurso(df, "Horizontes")
-        filtro_cliente = filtrar_tarefas_por_recurso(df, "Cliente")
+        filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
+        filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
         
         # Montar conteúdo Markdown
         partes = []
-        partes.append(f"REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n")
-        partes.append("\n📌 RESUMO:\n")
+        partes.append(f'REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n')
+        partes.append('\n📌 RESUMO:\n')
 
         resumo_textos = [
-            f"Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).",
-            f"Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).",
-            f"Aderência ao Cronograma: {FF_fmt}."
+            f'Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).',
+            f'Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).',
+            f'Aderência ao Cronograma: {FF_fmt}.'
         ]
         for texto in resumo_textos:
-            partes.append(f"- {texto}\n")
+            partes.append(f'- {texto}\n')
 
         partes.append(
             montar_secao_markdown(
-                "\n📅 PRÓXIMAS EMISSÕES DE PROJETO:",
-                filtro_horizontes, df, hoje, "emissoes"
+                '\n📅 PRÓXIMAS EMISSÕES DE PROJETO:',
+                filtro_horizontes, df, hoje, 'emissoes'
             )
         )
 
         partes.append(
             montar_secao_markdown(
-                "\n🔎 ARQUIVOS EM ANÁLISE:",
-                filtro_cliente, df, hoje, "analise"
+                '\n🔎 ARQUIVOS EM ANÁLISE:',
+                filtro_cliente, df, hoje, 'analise'
             )
         )
 
-        conteudo_md = "".join(partes)
+        conteudo_md = ''.join(partes)
 
         # Salvar arquivo Markdown (sem data no nome)
-        nome_arquivo = f"Relatorio Semanal - {nome_projeto}.md"
+        nome_arquivo = f'Relatorio Semanal - {nome_projeto}.md'
         with open(nome_arquivo, 'w', encoding='utf-8') as f:
             f.write(conteudo_md)
-        print(f"\nRelatório salvo como: {nome_arquivo}")
+        print(f'Relatório salvo como: {nome_arquivo}\n')
         
     except FileNotFoundError as e:
-        print(f"Erro: {e}")
+        print(f'Erro: {e}')
     except Exception as e:
-        print(f"Erro inesperado: {e}")
+        print(f'Erro inesperado: {e}')
         import traceback
         traceback.print_exc()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
-        projeto = input("Digite o nome do projeto: ").strip()
+        projeto = input('\n\nDigite o nome do projeto: ').strip()
         if not projeto:
-            print("Nome do projeto é obrigatório.")
+            print('Nome do projeto é obrigatório.')
             exit(1)
         gerar_relatorio(projeto)
     except KeyboardInterrupt:
-        print("\nOperação cancelada pelo usuário.")
+        print('\nOperação cancelada pelo usuário.')
     except Exception as e:
-        print(f"Erro na execução: {e}")
+        print(f'Erro na execução: {e}')
