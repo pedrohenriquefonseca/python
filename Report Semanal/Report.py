@@ -280,7 +280,7 @@ def gerar_relatorio(nome_projeto):
 
 if __name__ == '__main__':
     try:
-        projeto = input('\n\nDigite o nome do projeto: ').strip()
+        projeto = input('\nDigite o nome do projeto: ').strip()
         if not projeto:
             print('Nome do projeto é obrigatório.')
             exit(1)
