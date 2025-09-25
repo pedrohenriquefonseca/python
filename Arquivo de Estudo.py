@@ -1,3 +1,6 @@
-carteira = float(input('Quantos Reais você possui dentro da sua carteira? R$ '))
-dolar = float(input('Qual a cotação atual do dólar? R$ '))
-print(f'De acordo com dos dados informados, você conseguirá comprar {carteira/dolar:.2f} dólares com o dinheiro que você possui.')
+#Captando as informações
+preço = float(input('Qual o valor atual do produto que deseja comprar? '))
+desconto = float(input('Qual o desconto, em porcentagem, a ser aplicado na compra? '))
+
+#Apresentando as informações calculadas
+print (f'O preço do produto com {desconto}% de desconto será de R${round(preço - (preço * (desconto/100)),2)}.')                        
