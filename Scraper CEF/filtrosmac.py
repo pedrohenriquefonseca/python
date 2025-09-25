@@ -5,8 +5,6 @@ import sys
 URL = "https://venda-imoveis.caixa.gov.br/sistema/busca-imovel.asp?sltTipoBusca=imoveis"
 
 def main():
-    """Script principal para aplicar filtros na CEF usando Chrome"""
-    print("🔍 Abrindo Chrome e aplicando filtros...")
     
     # Usar Playwright com Chrome
     p = sync_playwright().start()
@@ -23,7 +21,6 @@ def main():
                 '--no-sandbox'
             ]
         )
-        print("✅ Chrome aberto - aplicando filtros automaticamente...")
         
         context = browser.new_context()
         page = context.new_page()
