@@ -8,7 +8,7 @@ d = numero // 10 % 10
 c = numero // 100 % 10
 m = numero // 1000 % 10
 
-print(f'A unidade do número indicado é {u}')
-print(f'A dezena do número indicado é {d}')
-print(f'A centena do número indicado é {c}')
-print(f'O milhar do número indicado é {m}\n')
+print(f'A unidade do número indicado é: {u}')
+print(f'A dezena do número indicado é: {d}')
+print(f'A centena do número indicado é: {c}')
+print(f'O milhar do número indicado é: {m}\n')

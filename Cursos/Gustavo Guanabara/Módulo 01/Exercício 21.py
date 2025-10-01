@@ -4,4 +4,5 @@ import pygame
 pygame.mixer.init()
 pygame.mixer.music.load('Exercicio 21.mp3')
 pygame.mixer.music.play()
-input('Pressione Enter para encerrar...')
+input('Pressione Enter para encerrar a música...')
+
