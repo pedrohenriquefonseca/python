@@ -14,16 +14,23 @@ if not arquivos_excel:
     print('Nenhum arquivo Excel (.xls ou .xlsx) encontrado na pasta.')
     exit()
 
-print('Arquivos disponíveis:')
-for i, nome in enumerate(arquivos_excel):
-    print(f'{i + 1}. {nome}')
+# Seleção automática se houver apenas um arquivo Excel
+if len(arquivos_excel) == 1:
+    arquivo_escolhido = arquivos_excel[0]
+    print(f'Arquivo selecionado automaticamente: {arquivo_escolhido}')
+else:
+    # Se houver múltiplos arquivos, pedir ao usuário para escolher
+    print('Arquivos disponíveis:')
+    for i, nome in enumerate(arquivos_excel):
+        print(f'{i + 1}. {nome}')
+    
+    indice = int(input('Digite o número do arquivo que deseja usar: ')) - 1
+    if indice < 0 or indice >= len(arquivos_excel):
+        print('Opção inválida.')
+        exit()
+    
+    arquivo_escolhido = arquivos_excel[indice]
 
-indice = int(input('Digite o número do arquivo que deseja usar: ')) - 1
-if indice < 0 or indice >= len(arquivos_excel):
-    print('Opção inválida.')
-    exit()
-
-arquivo_escolhido = arquivos_excel[indice]
 nome_projeto = input('Digite o nome do projeto para o título do gráfico: ').strip()
 
 # --- SOLICITAÇÃO DA DATA DE CORTE ---
