@@ -64,9 +64,8 @@ def formatar_data(coluna):
         print(f'Aviso: Erro ao formatar datas: {e}')
         return coluna
 
-
+#Processa valor de porcentagem removendo símbolos e convertendo.
 def processar_porcentagem(valor):
-    #Processa valor de porcentagem removendo símbolos e convertendo.
     if pd.isna(valor):
         return 0
     
@@ -76,9 +75,8 @@ def processar_porcentagem(valor):
     except (ValueError, TypeError):
         return 0
 
-
+#Calcula diferença em dias entre duas datas.
 def calcular_dias_diferenca(data1, data2):
-    #Calcula diferença em dias entre duas datas.
     if pd.isna(data1) or pd.isna(data2):
         return 0
     try:
@@ -86,9 +84,8 @@ def calcular_dias_diferenca(data1, data2):
     except:
         return 0
 
-
+#Busca a hierarquia (bisavô, avô, pai) de uma linha específica.
 def buscar_hierarquia(df, linha_index):
-    #Busca a hierarquia (bisavô, avô, pai) de uma linha específica.
     pai = avo = bisavo = ''
     
     for i in range(linha_index - 1, -1, -1):
@@ -113,9 +110,8 @@ def buscar_hierarquia(df, linha_index):
     
     return bisavo, avo, pai
 
-
+#Filtra tarefas baseado no recurso especificado.
 def filtrar_tarefas_por_recurso(df, termo_busca):
-    #Filtra tarefas baseado no recurso especificado.
     try:
         filtro_recursos = df['Nomes_dos_Recursos'].astype(str).str.contains(termo_busca, case=False, na=False)
         filtro_percentual = (df['Porcentagem_Concluída'] > 0) & (df['Porcentagem_Concluída'] < 1)
