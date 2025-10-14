@@ -27,7 +27,6 @@ df = pd.read_excel(arquivo_entrada)
 
 # Aplicar filtros
 df = df[df['Nível_da_estrutura_de_tópicos'] == 4]
-df = df[df['Ativo'] == 'Sim']
 
 # Substituir valores nulos por 0
 df['Custo'] = df['Custo'].fillna(0)

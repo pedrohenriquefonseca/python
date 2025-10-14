@@ -234,7 +234,7 @@ def gerar_relatorio(nome_projeto):
         # Montar conteúdo Markdown
         partes = []
         partes.append(f'REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n')
-        partes.append('\n📌 RESUMO:\n')
+        partes.append('📌 RESUMO:\n')
 
         resumo_textos = [
             f'Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).',
@@ -246,14 +246,14 @@ def gerar_relatorio(nome_projeto):
 
         partes.append(
             montar_secao_markdown(
-                '\n📅 PRÓXIMAS EMISSÕES DE PROJETO:',
+                '📅 PRÓXIMAS EMISSÕES DE PROJETO:',
                 filtro_horizontes, df, hoje, 'emissoes'
             )
         )
 
         partes.append(
             montar_secao_markdown(
-                '\n🔎 ARQUIVOS EM ANÁLISE:',
+                '🔎 ARQUIVOS EM ANÁLISE:',
                 filtro_cliente, df, hoje, 'analise'
             )
         )
@@ -261,7 +261,7 @@ def gerar_relatorio(nome_projeto):
         conteudo_md = ''.join(partes)
 
         # Salvar arquivo Markdown (sem data no nome)
-        nome_arquivo = f'Relatorio Semanal - {nome_projeto}.md'
+        nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
         with open(nome_arquivo, 'w', encoding='utf-8') as f:
             f.write(conteudo_md)
         print(f'Relatório salvo como: {nome_arquivo}\n')
