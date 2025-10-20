@@ -68,6 +68,14 @@ def preparar_grupo(df, grupo):
     return df_grupo
 
 def empilhar_tarefas(df_grupo):
+    # Filtrar tarefas com data de término anterior à data atual
+    hoje = datetime.now()
+    df_grupo = df_grupo[df_grupo['Término_dt'] >= hoje].copy()
+    
+    # Se não houver tarefas após o filtro, retornar DataFrames vazios
+    if df_grupo.empty:
+        return pd.DataFrame(), []
+    
     tarefa_por_recurso = defaultdict(list)
     for _, row in df_grupo.iterrows():
         recurso = row['Nomes_dos_recursos']
@@ -126,6 +134,11 @@ def carregar_mapa_cores(arq_json, paleta_base, recursos):
     return mapa
 
 def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
+    # Verificar se há dados para plotar
+    if df_aloc.empty:
+        print(f'Nenhuma tarefa ativa encontrada para {titulo}')
+        return
+    
     hoje = datetime.now()
     data_inicio_min = df_aloc['Início'].min().replace(day=1)
     data_fim_max = df_aloc['Fim'].max().replace(day=1) + pd.offsets.MonthEnd(1)
@@ -193,13 +206,15 @@ if __name__ == "__main__":
     # --- Horizontes ---
     df_h = preparar_grupo(df, 'Horizontes')
     df_aloc_h, recursos_h = empilhar_tarefas(df_h)
-    cores_dict_h = carregar_mapa_cores(ARQ_CORES_HORIZONTES, cores_horizontes_base, recursos_h)
-    plotar(df_aloc_h, recursos_h, cores_dict_h, 'Relatório de Alocação de Equipe', 'horizontes.png')
+    if not df_aloc_h.empty:
+        cores_dict_h = carregar_mapa_cores(ARQ_CORES_HORIZONTES, cores_horizontes_base, recursos_h)
+        plotar(df_aloc_h, recursos_h, cores_dict_h, 'Relatório de Alocação de Equipe', 'horizontes.png')
 
     # --- Fornecedores ---
     df_f = preparar_grupo(df, 'Fornecedores')
     df_aloc_f, recursos_f = empilhar_tarefas(df_f)
-    cores_dict_f = carregar_mapa_cores(ARQ_CORES_FORNECEDORES, cores_fornecedores_base, recursos_f)
-    plotar(df_aloc_f, recursos_f, cores_dict_f, 'Relatório de Alocação de Fornecedores', 'fornecedores.png')
+    if not df_aloc_f.empty:
+        cores_dict_f = carregar_mapa_cores(ARQ_CORES_FORNECEDORES, cores_fornecedores_base, recursos_f)
+        plotar(df_aloc_f, recursos_f, cores_dict_f, 'Relatório de Alocação de Fornecedores', 'fornecedores.png')
 
     print('Gráficos gerados com sucesso!')
