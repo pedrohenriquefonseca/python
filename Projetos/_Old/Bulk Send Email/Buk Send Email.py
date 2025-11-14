@@ -7,7 +7,7 @@ gmail_user = str(input('Informe seu endereço de email: '))
 gmail_password = str(getpass.getpass('Digite sua senha de 8 dígitos: '))
 destinatarios = input('Informe os endereços dos destinatários separados por vírgula: ').split(',')
 assunto = str(input('Digite o assunto do email: '))
-corpo = str(input('Digite o corpo do email (utilize aspas triplas para linhas multiplas): '))
+corpo = str(input('Digite o corpo do email: '))
 
 enviados = 0
 try:
