@@ -253,7 +253,7 @@ def gerar_relatorio(nome_projeto):
 
         partes.append(
             montar_secao_markdown(
-                '🔎 ARQUIVOS EM ANÁLISE:',
+                '🔎 TAREFAS A CARGO DO CLIENTE:',
                 filtro_cliente, df, hoje, 'analise'
             )
         )
