@@ -64,17 +64,6 @@ def formatar_data(coluna):
         print(f'Aviso: Erro ao formatar datas: {e}')
         return coluna
 
-#Processa valor de porcentagem removendo símbolos e convertendo.
-def processar_porcentagem(valor):
-    if pd.isna(valor):
-        return 0
-    
-    valor_str = str(valor).replace('%', '').replace(',', '.')
-    try:
-        return float(valor_str) / 100 if '%' in str(valor) else float(valor_str)
-    except (ValueError, TypeError):
-        return 0
-
 #Calcula diferença em dias entre duas datas.
 def calcular_dias_diferenca(data1, data2):
     if pd.isna(data1) or pd.isna(data2):
@@ -158,7 +147,7 @@ def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
 def validar_colunas_necessarias(df):
     colunas_obrigatorias = [
         'Nível_da_estrutura_de_tópicos', 'Nome', 'Nomes_dos_Recursos',
-        'Porcentagem_Concluída', 'Porcentagem_Previsto'
+        'Porcentagem_Concluída'
     ]
     
     colunas_faltantes = []
@@ -198,10 +187,6 @@ def gerar_relatorio(nome_projeto):
                 # Criar versões datetime das colunas
                 df[col + '_DT'] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
         
-        # Processar porcentagens
-        if 'Porcentagem_Previsto' in df.columns:
-            df['Porcentagem_Previsto'] = df['Porcentagem_Previsto'].apply(processar_porcentagem)
-        
         # Obter data atual
         hoje = datetime.now()
         hoje_fmt = hoje.strftime('%d/%m/%y')
@@ -221,12 +206,7 @@ def gerar_relatorio(nome_projeto):
         DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
         EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
         
-        # Calcular aderência
-        FF = 0
-        if nivel0.get('Porcentagem_Previsto', 0) > 0:
-            FF = nivel0.get('Porcentagem_Concluída', 0) / nivel0['Porcentagem_Previsto']
-        FF_fmt = f'{FF:.0%}'
-        
+
         # Filtrar tarefas
         filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
         filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
@@ -238,8 +218,7 @@ def gerar_relatorio(nome_projeto):
 
         resumo_textos = [
             f'Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).',
-            f'Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).',
-            f'Aderência ao Cronograma: {FF_fmt}.'
+            f'Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).'
         ]
         for texto in resumo_textos:
             partes.append(f'- {texto}\n')
