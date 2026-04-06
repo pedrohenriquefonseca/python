@@ -34,12 +34,6 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
 #  ROTAS
 # ══════════════════════════════════════════════════════════════
 
-@app.after_request
-def no_cache(response):
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    return response
-
 @app.route('/')
 def index():
     return render_template('index.html')

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find 'C:/Users/HenriquePe/OneDrive - Horizontes Arquitetura e Urbanismo Ltda/Apps Python/Projetos' -name *.bat)",
+      "Bash(python -c \":*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{content_type}\" http://localhost:5000/static/style.css)",
+      "Bash(wmic process:*)",
+      "Bash(powershell -command \"Get-Process python | Select-Object Id, @{Name=''Path'';Expression={$_MainModule.FileName}}\")",
+      "Bash(powershell -command \"\\(Get-WmiObject Win32_Process -Filter ''ProcessId=2836''\\).ExecutablePath\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000/static/main.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000/static/bg.jpeg)",
+      "Bash(powershell -command \":*)",
+      "Bash(taskkill /PID 2836 /F)",
+      "Bash(powershell -command \"Stop-Process -Id 2836 -Force\")"
+    ]
+  }
+}
