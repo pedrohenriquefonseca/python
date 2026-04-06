@@ -1,4 +1,14 @@
 /* ═══════════════════════════════════════════════
+   ERRO GLOBAL  (torna qualquer falha visível)
+   ═══════════════════════════════════════════════ */
+window.addEventListener('error', e => {
+  const painel = document.querySelector('.tool-panel.active');
+  if (!painel) return;
+  const st = painel.querySelector('.status-msg');
+  if (st) { st.textContent = `Erro JS: ${e.message} (${e.filename}:${e.lineno})`; st.className = 'status-msg error'; }
+});
+
+/* ═══════════════════════════════════════════════
    NAVEGAÇÃO ENTRE FERRAMENTAS
    ═══════════════════════════════════════════════ */
 document.querySelectorAll('.nav-link').forEach(link => {
@@ -17,18 +27,19 @@ document.querySelectorAll('.nav-link').forEach(link => {
 /* ═══════════════════════════════════════════════
    ZONA DE ARQUIVO  (clique + drag & drop)
    ═══════════════════════════════════════════════ */
-['report', 'desembolso', 'fisico', 'cronograma'].forEach(id => {
+['report', 'desembolso', 'cronograma'].forEach(id => {
   const input = document.getElementById(`file-${id}`);
   const text  = document.getElementById(`file-text-${id}`);
   const zone  = document.getElementById(`zone-${id}`);
+  if (!input || !text || !zone) return;
 
-  function setFile(file) {
-    if (!file) return;
-    text.textContent = file.name;
+  function setFiles(files) {
+    if (!files || files.length === 0) return;
+    text.textContent = files.length === 1 ? files[0].name : `${files.length} arquivos selecionados`;
     zone.classList.add('has-file');
   }
 
-  input.addEventListener('change', () => setFile(input.files[0]));
+  input.addEventListener('change', () => setFiles(input.files));
 
   zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
   zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
@@ -36,11 +47,12 @@ document.querySelectorAll('.nav-link').forEach(link => {
     e.preventDefault();
     zone.classList.remove('drag-over');
     if (e.dataTransfer.files.length) {
-      // Cria um DataTransfer para injetar o arquivo no input
       const dt = new DataTransfer();
-      dt.items.add(e.dataTransfer.files[0]);
+      // Para report (multiple), aceita todos; para os demais, só o primeiro
+      const lista = input.multiple ? e.dataTransfer.files : [e.dataTransfer.files[0]];
+      Array.from(lista).forEach(f => dt.items.add(f));
       input.files = dt.files;
-      setFile(e.dataTransfer.files[0]);
+      setFiles(dt.files);
     }
   });
 });
@@ -49,10 +61,17 @@ document.querySelectorAll('.nav-link').forEach(link => {
    TOGGLE  (Projetos / Equipe)
    ═══════════════════════════════════════════════ */
 document.querySelectorAll('.toggle-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tipo-cronograma').value = btn.dataset.type;
+  btn.addEventListener('click', e => {
+    if (e.ctrlKey) {
+      // Ctrl+clique: adiciona/remove da seleção, mas mantém ao menos 1 ativo
+      const ativos = document.querySelectorAll('.toggle-btn.active');
+      if (btn.classList.contains('active') && ativos.length === 1) return;
+      btn.classList.toggle('active');
+    } else {
+      // Clique normal: seleciona apenas este
+      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
   });
 });
 
@@ -93,12 +112,28 @@ document.getElementById('modal-close').addEventListener('click', fecharModal);
 modal.addEventListener('click', e => { if (e.target === modal) fecharModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
-function mostrarModal(imagens) {
+function mostrarModal(imagens, nomes) {
   modalBody.innerHTML = '';
-  imagens.forEach(src => {
+  imagens.forEach((src, i) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'modal-img-wrap';
+
     const img = document.createElement('img');
     img.src = `data:image/png;base64,${src}`;
-    modalBody.appendChild(img);
+
+    const btn = document.createElement('button');
+    btn.className = 'modal-download';
+    btn.textContent = 'Baixar imagem';
+    btn.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = img.src;
+      a.download = nomes[i] || `cronograma_${i + 1}.png`;
+      a.click();
+    });
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(btn);
+    modalBody.appendChild(wrapper);
   });
   modal.classList.add('visible');
 }
@@ -112,24 +147,31 @@ function fecharModal() {
    ═══════════════════════════════════════════════ */
 document.getElementById('form-report').addEventListener('submit', async e => {
   e.preventDefault();
-  const arquivo = document.getElementById('file-report').files[0];
-  const nome    = document.getElementById('nome-report').value.trim();
-  if (!arquivo) { showStatus('report', 'Selecione um arquivo Excel.', true); return; }
-  if (!nome)    { showStatus('report', 'Informe o nome do projeto.', true);  return; }
+  const arquivos = Array.from(document.getElementById('file-report').files);
+  if (arquivos.length === 0) { showStatus('report', 'Selecione ao menos um arquivo Excel.', true); return; }
 
   setLoading('report', true);
-  try {
-    const fd = new FormData();
-    fd.append('arquivo', arquivo);
-    fd.append('nome_projeto', nome);
-    const res = await fetch('/api/report', { method: 'POST', body: fd });
-    if (!res.ok) { const j = await res.json(); throw new Error(j.error); }
-    downloadBlob(await res.blob(), res);
-    showStatus('report', 'Relatório gerado com sucesso!');
-  } catch (err) {
-    showStatus('report', `Erro: ${err.message}`, true);
-  } finally {
-    setLoading('report', false);
+  const erros = [];
+  for (let i = 0; i < arquivos.length; i++) {
+    const arquivo = arquivos[i];
+    const nome = arquivo.name.replace(/\.[^/.]+$/, ''); // remove extensão
+    if (arquivos.length > 1) showStatus('report', `Processando ${i + 1} / ${arquivos.length}…`);
+    try {
+      const fd = new FormData();
+      fd.append('arquivo', arquivo);
+      fd.append('nome_projeto', nome);
+      const res = await fetch('/api/report', { method: 'POST', body: fd });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error); }
+      downloadBlob(await res.blob(), res);
+    } catch (err) {
+      erros.push(`${nome}: ${err.message}`);
+    }
+  }
+  setLoading('report', false);
+  if (erros.length === 0) {
+    showStatus('report', arquivos.length === 1 ? 'Relatório gerado com sucesso!' : `${arquivos.length} relatórios gerados com sucesso!`);
+  } else {
+    showStatus('report', `Erros: ${erros.join(' | ')}`, true);
   }
 });
 
@@ -139,10 +181,9 @@ document.getElementById('form-report').addEventListener('submit', async e => {
 document.getElementById('form-desembolso').addEventListener('submit', async e => {
   e.preventDefault();
   const arquivo = document.getElementById('file-desembolso').files[0];
-  const nome    = document.getElementById('nome-desembolso').value.trim();
   const corte   = document.getElementById('corte-desembolso').value;
   if (!arquivo) { showStatus('desembolso', 'Selecione um arquivo Excel.', true); return; }
-  if (!nome)    { showStatus('desembolso', 'Informe o nome do projeto.', true);  return; }
+  const nome = arquivo.name.replace(/\.[^/.]+$/, '');
 
   setLoading('desembolso', true);
   try {
@@ -162,60 +203,67 @@ document.getElementById('form-desembolso').addEventListener('submit', async e =>
 });
 
 /* ═══════════════════════════════════════════════
-   FÍSICO FINANCEIRO
-   ═══════════════════════════════════════════════ */
-document.getElementById('form-fisico').addEventListener('submit', async e => {
-  e.preventDefault();
-  const arquivo = document.getElementById('file-fisico').files[0];
-  const nome    = document.getElementById('nome-fisico').value.trim();
-  const corte   = document.getElementById('corte-fisico').value;
-  if (!arquivo) { showStatus('fisico', 'Selecione um arquivo Excel.', true); return; }
-  if (!nome)    { showStatus('fisico', 'Informe o nome do projeto.', true);  return; }
-
-  setLoading('fisico', true);
-  try {
-    const fd = new FormData();
-    fd.append('arquivo', arquivo);
-    fd.append('nome_projeto', nome);
-    fd.append('dia_corte', corte);
-    const res = await fetch('/api/fisico-financeiro', { method: 'POST', body: fd });
-    if (!res.ok) { const j = await res.json(); throw new Error(j.error); }
-    downloadBlob(await res.blob(), res);
-    showStatus('fisico', 'Tabela gerada com sucesso!');
-  } catch (err) {
-    showStatus('fisico', `Erro: ${err.message}`, true);
-  } finally {
-    setLoading('fisico', false);
-  }
-});
-
-/* ═══════════════════════════════════════════════
    CRONOGRAMA DE EQUIPE
    ═══════════════════════════════════════════════ */
 document.getElementById('form-cronograma').addEventListener('submit', async e => {
   e.preventDefault();
   const arquivo = document.getElementById('file-cronograma').files[0];
-  const tipo    = document.getElementById('tipo-cronograma').value;
   if (!arquivo) { showStatus('cronograma', 'Selecione um arquivo Excel.', true); return; }
 
+  const tipos = Array.from(document.querySelectorAll('.toggle-btn.active')).map(b => b.dataset.type);
+
+  const hoje = (() => {
+    const d = new Date();
+    const yy = String(d.getFullYear()).slice(2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}${mm}${dd}`;
+  })();
+
+  const endpoints = { projetos: '/api/cronograma/projetos', equipe: '/api/cronograma/equipe', clientes: '/api/cronograma/clientes' };
+  const labels    = { projetos: 'Projetos por Cliente', equipe: 'Fornecedores', clientes: 'Equipe Interna' };
+
   setLoading('cronograma', true);
-  try {
-    const fd       = new FormData();
-    fd.append('arquivo', arquivo);
-    const endpoint = tipo === 'projetos' ? '/api/cronograma/projetos' : '/api/cronograma/equipe';
-    const res      = await fetch(endpoint, { method: 'POST', body: fd });
-    const j        = await res.json();
-    if (!res.ok || j.error) throw new Error(j.error);
+  const todasImgs = [], todosNomes = [], erros = [];
 
-    const imgs = tipo === 'projetos'
-      ? [j.image]
-      : [j.horizontes, j.fornecedores].filter(Boolean);
+  for (let i = 0; i < tipos.length; i++) {
+    const tipo = tipos[i];
+    if (tipos.length > 1) showStatus('cronograma', `Processando ${i + 1} / ${tipos.length}…`);
+    try {
+      const fd = new FormData();
+      fd.append('arquivo', arquivo);
+      const res = await fetch(endpoints[tipo], { method: 'POST', body: fd });
+      const j   = await res.json();
+      if (!res.ok || j.error) throw new Error(j.error);
 
-    mostrarModal(imgs);
-    showStatus('cronograma', 'Gráfico gerado!');
-  } catch (err) {
-    showStatus('cronograma', `Erro: ${err.message}`, true);
-  } finally {
-    setLoading('cronograma', false);
+      const prefixo = `${hoje} - Horizontes - ${labels[tipo]}`;
+      if (tipo === 'projetos') {
+        // Projetos por Cliente: um único gráfico
+        todasImgs.push(j.image);
+        todosNomes.push(`${prefixo}.png`);
+      } else if (tipo === 'clientes') {
+        // Projetos: apenas o gráfico Horizontes
+        if (j.horizontes) { todasImgs.push(j.horizontes); todosNomes.push(`${prefixo}.png`); }
+      } else if (tipo === 'equipe') {
+        // Fornecedores: apenas o gráfico de fornecedores
+        if (j.fornecedores) { todasImgs.push(j.fornecedores); todosNomes.push(`${prefixo}.png`); }
+      } else {
+        // Equipe Interna: apenas o gráfico horizontes
+        if (j.horizontes) { todasImgs.push(j.horizontes); todosNomes.push(`${prefixo}.png`); }
+      }
+    } catch (err) {
+      erros.push(`${labels[tipo]}: ${err.message}`);
+    }
   }
+
+  todasImgs.forEach((b64, i) => {
+    const a = document.createElement('a');
+    a.href = `data:image/png;base64,${b64}`;
+    a.download = todosNomes[i];
+    a.click();
+  });
+
+  setLoading('cronograma', false);
+  if (erros.length) showStatus('cronograma', `Erros: ${erros.join(' | ')}`, true);
+  else if (todasImgs.length) showStatus('cronograma', todasImgs.length === 1 ? 'Gráfico gerado!' : `${todasImgs.length} gráficos gerados!`);
 });
