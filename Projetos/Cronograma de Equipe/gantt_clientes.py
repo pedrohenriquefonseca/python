@@ -33,8 +33,9 @@ cores_fornecedores_base = [
 ]
 
 # Arquivos de mapeamento de cores persistente
-ARQ_CORES_HORIZONTES = 'cores_horizontes.json'
-ARQ_CORES_FORNECEDORES = 'cores_fornecedores.json'
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ARQ_CORES_HORIZONTES = os.path.join(_SCRIPT_DIR, 'cores_horizontes.json')
+ARQ_CORES_FORNECEDORES = os.path.join(_SCRIPT_DIR, 'cores_fornecedores.json')
 
 # Tamanho da figura
 FIGSIZE = (14, 10)
@@ -51,12 +52,28 @@ def traduzir_meses(data_str):
     return data_str
 
 def carregar_dados(nome_arquivo):
-    df = pd.read_excel(nome_arquivo, sheet_name='Tabela_Tarefas1')
+    try:
+        df = pd.read_excel(nome_arquivo, sheet_name='Tabela_Tarefas1')
+    except Exception:
+        raise ValueError("Planilha incompatível. Aba 'Tabela_Tarefas1' não encontrada no arquivo.")
+
+    colunas_necessarias = ['Início', 'Término', 'Ativo', 'Grupo_de_recursos', 'Nomes_dos_recursos']
+    faltando = [c for c in colunas_necessarias if c not in df.columns]
+    # Coluna de tarefa pode ter nomes alternativos
+    _nomes_tarefa = ['Nome_da_Tarefa', 'Nome', 'Task', 'Name']
+    col_tarefa = next((c for c in _nomes_tarefa if c in df.columns), None)
+    if col_tarefa is None:
+        faltando.append('Nome_da_Tarefa / Nome / Task / Name')
+    if faltando:
+        raise ValueError(f"Planilha incompatível. Colunas ausentes: {', '.join(faltando)}")
+
     df['Início_en'] = df['Início'].apply(traduzir_meses)
     df['Término_en'] = df['Término'].apply(traduzir_meses)
     df['Início_dt'] = pd.to_datetime(df['Início_en'], errors='coerce', format='%d %B %Y %H:%M')
     df['Término_dt'] = pd.to_datetime(df['Término_en'], errors='coerce', format='%d %B %Y %H:%M')
-    df = df.rename(columns={'Nome_da_Tarefa': 'Nome'})
+    # Normalizar nome da coluna de tarefa
+    if col_tarefa != 'Nome':
+        df = df.rename(columns={col_tarefa: 'Nome'})
     df = df[df['Ativo'] == 'Sim']
     return df
 
@@ -186,6 +203,33 @@ def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
 # ============================
 # EXECUÇÃO DO MOTOR
 # ============================
+
+def gerar_para_web(arquivo_bytes):
+    """Para uso no portal web. Retorna dict com imagens PNG como base64 (chaves: 'horizontes', 'fornecedores')."""
+    import io as _io, base64 as _b64, tempfile as _tmp
+
+    with _tmp.NamedTemporaryFile(delete=False, suffix='.xlsx') as f:
+        f.write(arquivo_bytes)
+        tmp = f.name
+    try:
+        df = carregar_dados(tmp)
+        results = {}
+        for grupo, arq_json, paleta, titulo, key in [
+            ('Horizontes',   ARQ_CORES_HORIZONTES,   cores_horizontes_base,   'Relatório de Alocação de Equipe',        'horizontes'),
+            ('Fornecedores', ARQ_CORES_FORNECEDORES,  cores_fornecedores_base, 'Relatório de Alocação de Fornecedores',  'fornecedores'),
+        ]:
+            df_grupo = preparar_grupo(df, grupo)
+            df_aloc, recursos = empilhar_tarefas(df_grupo)
+            if not df_aloc.empty:
+                cores_dict = carregar_mapa_cores(arq_json, paleta, recursos)
+                buf = _io.BytesIO()
+                plotar(df_aloc, recursos, cores_dict, titulo, buf)
+                buf.seek(0)
+                results[key] = _b64.b64encode(buf.read()).decode('utf-8')
+        return results
+    finally:
+        os.unlink(tmp)
+
 
 if __name__ == "__main__":
 

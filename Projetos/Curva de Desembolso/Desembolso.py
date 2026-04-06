@@ -3,47 +3,6 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import os
 
-# --- SELEÇÃO DO ARQUIVO E NOME DO PROJETO ---
-
-arquivos_excel = []
-for f in os.listdir():
-    if f.lower().endswith(('.xls', '.xlsx')):
-        arquivos_excel.append(f)
-
-if not arquivos_excel:
-    print('Nenhum arquivo Excel (.xls ou .xlsx) encontrado na pasta.')
-    exit()
-
-# Seleção automática se houver apenas um arquivo Excel
-if len(arquivos_excel) == 1:
-    arquivo_escolhido = arquivos_excel[0]
-    print(f'Arquivo selecionado automaticamente: {arquivo_escolhido}')
-else:
-    # Se houver múltiplos arquivos, pedir ao usuário para escolher
-    print('Arquivos disponíveis:')
-    for i, nome in enumerate(arquivos_excel):
-        print(f'{i + 1}. {nome}')
-    
-    indice = int(input('Digite o número do arquivo que deseja usar: ')) - 1
-    if indice < 0 or indice >= len(arquivos_excel):
-        print('Opção inválida.')
-        exit()
-    
-    arquivo_escolhido = arquivos_excel[indice]
-    
-nome_projeto = input('Digite o nome do projeto para o título do gráfico: ').strip()
-
-# --- SOLICITAÇÃO DA DATA DE CORTE ---
-while True:
-    try:
-        dia_corte = int(input('Digite o dia de corte para agrupamento mensal (1-31): '))
-        if 1 <= dia_corte <= 31:
-            break
-        else:
-            print('Por favor, digite um número entre 1 e 31.')
-    except ValueError:
-        print('Por favor, digite um número válido.')
-
 # --- FUNÇÃO DE NORMALIZAÇÃO DE DATAS ---
 
 meses_pt_en = {
@@ -71,7 +30,7 @@ def mes_customizado(data, dia_corte):
     '''
     if pd.isnull(data):
         return None
-    
+
     if data.day > dia_corte:
         # Vai para o mês seguinte
         if data.month == 12:
@@ -82,82 +41,130 @@ def mes_customizado(data, dia_corte):
         # Fica no mês atual
         return pd.Timestamp(data.year, data.month, 1)
 
-# --- PROCESSAMENTO DOS DADOS ---
+# --- PROCESSAMENTO E GRÁFICO ---
 
-try:
-    xls = pd.ExcelFile(arquivo_escolhido)
+def plotar_desembolso(arquivo_path, nome_projeto, dia_corte):
+    """Processa o arquivo Excel e exibe o gráfico de desembolso."""
+    xls = pd.ExcelFile(arquivo_path)
     primeira_aba = xls.sheet_names[0]
     df = pd.read_excel(xls, sheet_name=primeira_aba)
-except Exception as e:
-    print(f'Erro ao ler o arquivo: {e}')
-    exit()
 
-df = df[
-    (df['Ativo'] == 'Sim') &
-    (df['Nível_da_estrutura_de_tópicos'] == 4)
-].copy()
+    colunas_necessarias = ['Ativo', 'Nível_da_estrutura_de_tópicos', 'Término', 'Custo']
+    faltando = [c for c in colunas_necessarias if c not in df.columns]
+    if faltando:
+        raise ValueError(f"Planilha incompatível. Colunas ausentes: {', '.join(faltando)}")
 
-df['Término'] = df['Término'].astype(str).apply(traduzir_data)
-df['Término'] = pd.to_datetime(df['Término'], format='%d/%m/%y', errors='coerce')
-df['Custo'] = pd.to_numeric(df['Custo'], errors='coerce')
+    df = df[
+        (df['Ativo'] == 'Sim') &
+        (df['Nível_da_estrutura_de_tópicos'] == 4)
+    ].copy()
 
-# Agrupamento com lógica customizada
-df['Mês_Custom'] = df['Término'].apply(lambda x: mes_customizado(x, dia_corte))
-df_mensal = df.groupby('Mês_Custom')['Custo'].sum().reset_index()
-df_mensal = df_mensal[df_mensal['Custo'] > 0]
-df_mensal['Acumulado'] = df_mensal['Custo'].cumsum()
+    df['Término'] = df['Término'].astype(str).apply(traduzir_data)
+    df['Término'] = pd.to_datetime(df['Término'], format='%d/%m/%y', errors='coerce')
+    df['Custo'] = pd.to_numeric(df['Custo'], errors='coerce')
 
-# --- GRÁFICO ---
+    # Agrupamento com lógica customizada
+    df['Mês_Custom'] = df['Término'].apply(lambda x: mes_customizado(x, dia_corte))
+    df_mensal = df.groupby('Mês_Custom')['Custo'].sum().reset_index()
+    df_mensal = df_mensal[df_mensal['Custo'] > 0]
+    df_mensal['Acumulado'] = df_mensal['Custo'].cumsum()
 
-fig, ax1 = plt.subplots(figsize=(12, 6))
+    # --- GRÁFICO ---
 
-# Barras mensais
-bars = ax1.bar(range(len(df_mensal)), df_mensal['Custo'], width=0.6, color='lightgray')
+    fig, ax1 = plt.subplots(figsize=(12, 6))
 
-# Rótulos dos valores mensais na parte inferior das barras
-for i, (bar, valor) in enumerate(zip(bars, df_mensal['Custo'])):
-    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_y() + 50, 
-             f'R$ {int(valor):,}'.replace(',', '.'), 
-             ha='center', va='bottom', fontsize=7)
+    # Barras mensais
+    bars = ax1.bar(range(len(df_mensal)), df_mensal['Custo'], width=0.6, color='lightgray')
 
-# Linha acumulada com cor #fca903
-ax2 = ax1.twinx()
-ax2.plot(range(len(df_mensal)), df_mensal['Acumulado'], marker='o', color='#fca903')
+    # Rótulos dos valores mensais na parte inferior das barras
+    for i, (bar, valor) in enumerate(zip(bars, df_mensal['Custo'])):
+        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_y() + 50,
+                 f'R$ {int(valor):,}'.replace(',', '.'),
+                 ha='center', va='bottom', fontsize=7)
 
-# Rótulos acumulados
-max_valor = df_mensal['Acumulado'].max()
-offset = max_valor * 0.02  
-for i, y in enumerate(df_mensal['Acumulado']):
-    ax2.text(i, y + offset, f'R$ {int(y):,}'.replace(',', '.'), fontsize=8, rotation=90, va='bottom', ha='center')
+    # Linha acumulada com cor #fca903
+    ax2 = ax1.twinx()
+    ax2.plot(range(len(df_mensal)), df_mensal['Acumulado'], marker='o', color='#fca903')
 
-# Rótulos dos eixos
-ax1.set_ylabel('Desembolso Mensal', fontsize=9, fontweight='bold')
-ax2.set_ylabel('Desembolso Acumulado', fontsize=9, fontweight='bold')
+    # Rótulos acumulados
+    max_valor = df_mensal['Acumulado'].max()
+    offset = max_valor * 0.02
+    for i, y in enumerate(df_mensal['Acumulado']):
+        ax2.text(i, y + offset, f'R$ {int(y):,}'.replace(',', '.'), fontsize=8, rotation=90, va='bottom', ha='center')
 
-# Formatadores de valores nos eixos Y
-ax1.yaxis.set_major_formatter(mtick.StrMethodFormatter('R$ {x:,.0f}'))
-ax2.yaxis.set_major_formatter(mtick.StrMethodFormatter('R$ {x:,.0f}'))
+    # Rótulos dos eixos
+    ax1.set_ylabel('Desembolso Mensal', fontsize=9, fontweight='bold')
+    ax2.set_ylabel('Desembolso Acumulado', fontsize=9, fontweight='bold')
 
-# Fonte menor para valores dos eixos
-ax1.tick_params(axis='y', labelsize=7)
-ax2.tick_params(axis='y', labelsize=7)
+    # Formatadores de valores nos eixos Y
+    ax1.yaxis.set_major_formatter(mtick.StrMethodFormatter('R$ {x:,.0f}'))
+    ax2.yaxis.set_major_formatter(mtick.StrMethodFormatter('R$ {x:,.0f}'))
 
-# Eixo X com espaçamento igualitário
-ax1.set_xticks(range(len(df_mensal)))
+    # Fonte menor para valores dos eixos
+    ax1.tick_params(axis='y', labelsize=7)
+    ax2.tick_params(axis='y', labelsize=7)
 
-# Criar lista de labels para o eixo X
-labels_x = []
-for d in df_mensal['Mês_Custom']:
-    label = d.strftime('%b-%y').capitalize()
-    labels_x.append(label)
-ax1.set_xticklabels(labels_x, fontsize=7)
+    # Eixo X com espaçamento igualitário
+    ax1.set_xticks(range(len(df_mensal)))
 
-# Grade tracejada
-ax1.grid(True, which='major', axis='both', linestyle='--', linewidth=0.5, color='lightgray')
-ax2.grid(False)
+    # Criar lista de labels para o eixo X
+    labels_x = []
+    for d in df_mensal['Mês_Custom']:
+        label = d.strftime('%b-%y').capitalize()
+        labels_x.append(label)
+    ax1.set_xticklabels(labels_x, fontsize=7)
 
-# Título principal no topo do eixo e subtítulo logo abaixo, ambos próximos ao gráfico
-ax1.set_title(f'Curva de Desembolso - {nome_projeto}', fontsize=12, fontweight='bold', pad=20)
-ax1.text(0.5, 1.01, f'(Corte no dia {dia_corte})', transform=ax1.transAxes, ha='center', va='bottom', fontsize=9, fontweight='normal')
-plt.tight_layout(rect=[0, 0, 1, 0.96])
-plt.show()
+    # Grade tracejada
+    ax1.grid(True, which='major', axis='both', linestyle='--', linewidth=0.5, color='lightgray')
+    ax2.grid(False)
+
+    # Título principal no topo do eixo e subtítulo logo abaixo, ambos próximos ao gráfico
+    ax1.set_title(f'Curva de Desembolso - {nome_projeto}', fontsize=12, fontweight='bold', pad=20)
+    ax1.text(0.5, 1.01, f'(Corte no dia {dia_corte})', transform=ax1.transAxes, ha='center', va='bottom', fontsize=9, fontweight='normal')
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.show()
+
+
+if __name__ == '__main__':
+    # --- SELEÇÃO DO ARQUIVO E NOME DO PROJETO ---
+
+    arquivos_excel = []
+    for f in os.listdir():
+        if f.lower().endswith(('.xls', '.xlsx')):
+            arquivos_excel.append(f)
+
+    if not arquivos_excel:
+        print('Nenhum arquivo Excel (.xls ou .xlsx) encontrado na pasta.')
+        exit()
+
+    # Seleção automática se houver apenas um arquivo Excel
+    if len(arquivos_excel) == 1:
+        arquivo_escolhido = arquivos_excel[0]
+        print(f'Arquivo selecionado automaticamente: {arquivo_escolhido}')
+    else:
+        # Se houver múltiplos arquivos, pedir ao usuário para escolher
+        print('Arquivos disponíveis:')
+        for i, nome in enumerate(arquivos_excel):
+            print(f'{i + 1}. {nome}')
+
+        indice = int(input('Digite o número do arquivo que deseja usar: ')) - 1
+        if indice < 0 or indice >= len(arquivos_excel):
+            print('Opção inválida.')
+            exit()
+
+        arquivo_escolhido = arquivos_excel[indice]
+
+    nome_projeto = input('Digite o nome do projeto para o título do gráfico: ').strip()
+
+    # --- SOLICITAÇÃO DA DATA DE CORTE ---
+    while True:
+        try:
+            dia_corte = int(input('Digite o dia de corte para agrupamento mensal (1-31): '))
+            if 1 <= dia_corte <= 31:
+                break
+            else:
+                print('Por favor, digite um número entre 1 e 31.')
+        except ValueError:
+            print('Por favor, digite um número válido.')
+
+    plotar_desembolso(arquivo_escolhido, nome_projeto, dia_corte)

@@ -156,13 +156,7 @@ def validar_colunas_necessarias(df):
             colunas_faltantes.append(coluna)
     
     if colunas_faltantes:
-        print(f'Aviso: Colunas não encontradas: {", ".join(colunas_faltantes)}')
-        # Criar colunas com valores padrão
-        for coluna in colunas_faltantes:
-            if 'Porcentagem' in coluna:
-                df[coluna] = 0
-            else:
-                df[coluna] = ''
+        raise ValueError(f"Planilha incompatível. Colunas ausentes: {', '.join(colunas_faltantes)}")
     
     return df
 
@@ -251,6 +245,41 @@ def gerar_relatorio(nome_projeto):
         print(f'Erro inesperado: {e}')
         import traceback
         traceback.print_exc()
+
+
+def gerar_relatorio_web(arquivo_bytes, nome_projeto):
+    """Versão para o portal web. Recebe bytes do arquivo Excel, retorna (conteudo_md, nome_arquivo)."""
+    import io as _io
+    df = pd.read_excel(_io.BytesIO(arquivo_bytes))
+    if df.empty:
+        raise ValueError('O arquivo Excel está vazio')
+    df = validar_colunas_necessarias(df)
+    col_datas = ['Início', 'Término', 'Início_da_Linha_de_Base', 'Término_da_linha_de_base']
+    for col in col_datas:
+        if col in df.columns:
+            df[col] = formatar_data(df[col])
+            df[col + '_DT'] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
+    hoje = datetime.now()
+    nivel0_linhas = df[df['Nível_da_estrutura_de_tópicos'] == 0]
+    nivel0 = nivel0_linhas.iloc[0] if not nivel0_linhas.empty else df.iloc[0]
+    AA = nivel0.get('Término', 'N/A')
+    BB = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Término_da_linha_de_base_DT'))
+    CC = nivel0.get('Término_da_linha_de_base', 'N/A')
+    DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
+    EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
+    filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
+    filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
+    partes = [
+        f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}\n\n',
+        '📌 RESUMO:\n',
+        f'- Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).\n',
+        f'- Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).\n',
+        montar_secao_markdown('📅 PRÓXIMAS EMISSÕES DE PROJETO:', filtro_horizontes, df, hoje, 'emissoes'),
+        montar_secao_markdown('🔎 TAREFAS A CARGO DO CLIENTE:', filtro_cliente, df, hoje, 'analise'),
+    ]
+    conteudo_md = ''.join(partes)
+    nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
+    return conteudo_md, nome_arquivo
 
 
 if __name__ == '__main__':
