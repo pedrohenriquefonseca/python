@@ -62,7 +62,8 @@ header h1 {
 
 .filter-btn.active {
   color: #111;
-  background: linear-gradient(transparent 65%, #FFE600 65%);
+  border-bottom: 3px solid #FFE600;
+  padding-bottom: 1px;
 }
 
 /* ─── Galeria ─────────────────────────────────────────── */
