@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'Projetos/Portfolio/fotos/**'
+  workflow_dispatch: # permite disparar manualmente pela aba Actions do GitHub
 
 jobs:
   processar:
