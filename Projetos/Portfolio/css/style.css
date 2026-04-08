@@ -74,20 +74,22 @@ main {
 
 .gallery {
   columns: 4;
-  column-gap: 3px;
+  column-gap: 10px;
 }
 
 .gallery-item {
   break-inside: avoid;
-  margin-bottom: 3px;
+  margin-bottom: 10px;
   cursor: pointer;
   overflow: hidden;
   display: block;
+  border-radius: 6px;
 }
 
 .gallery-item img {
   width: 100%;
   display: block;
+  border-radius: 6px;
   transition: opacity 0.2s;
 }
 
