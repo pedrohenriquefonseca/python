@@ -202,8 +202,9 @@ main {
 }
 
 .viewer-info .info-filename {
-  color: #bbb;
-  font-size: 0.75rem;
+  color: #ddd;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 /* Setas de navegação */
