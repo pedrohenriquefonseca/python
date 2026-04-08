@@ -26,8 +26,9 @@ def run_exiftool(files):
     cmd = [
         'exiftool', '-json', '-charset', 'UTF8',
         '-FileName',
-        '-Title',          # Nome/título da foto (XMP)
-        '-ObjectName',     # Nome/título da foto (IPTC, alternativa)
+        '-Title',          # Título (XMP)
+        '-XPTitle',        # Título (campo Windows)
+        '-ObjectName',     # Título (IPTC)
         '-DateTimeOriginal', '-CreateDate',
         '-FNumber',
         '-ExposureTime',
@@ -37,8 +38,9 @@ def run_exiftool(files):
         '-Model',          # Modelo da câmera
         '-LensMake',       # Marca da lente
         '-LensModel',      # Modelo da lente
-        '-Keywords',       # IPTC tags (Lightroom exporta aqui)
-        '-Subject',        # XMP tags (alternativa)
+        '-Keywords',       # Tags (IPTC)
+        '-Subject',        # Tags (XMP)
+        '-XPKeywords',     # Tags (campo Windows)
     ] + [str(f) for f in files]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -131,10 +133,15 @@ def as_list(value):
 def build_entry(item):
     date_raw = item.get('DateTimeOriginal') or item.get('CreateDate', '')
 
-    keywords = as_list(item.get('Keywords')) or as_list(item.get('Subject'))
+    # XPKeywords vem separado por ponto e vírgula no Windows
+    xp_keywords = []
+    if item.get('XPKeywords'):
+        xp_keywords = [k.strip() for k in str(item['XPKeywords']).split(';') if k.strip()]
+
+    keywords = as_list(item.get('Keywords')) or as_list(item.get('Subject')) or xp_keywords
     tags = [k.strip().lower() for k in keywords if k.strip()]
 
-    name = (item.get('Title') or item.get('ObjectName') or '').strip()
+    name = (item.get('Title') or item.get('XPTitle') or item.get('ObjectName') or '').strip()
 
     return {
         'filename':    item.get('FileName', ''),
