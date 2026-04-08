@@ -45,15 +45,6 @@ function buildFilters() {
     appendFilterBtn(nav, tag, tag);
   });
 
-  // Botão camuflado de login — aparência idêntica às outras tags
-  const loginBtn = document.createElement('button');
-  loginBtn.className = 'filter-btn';
-  loginBtn.textContent = 'login';
-  loginBtn.addEventListener('click', () => {
-    window.location.href = 'upload.html';
-  });
-  nav.appendChild(loginBtn);
-
   updateFilterUI();
 }
 
