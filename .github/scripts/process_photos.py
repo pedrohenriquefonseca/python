@@ -26,12 +26,19 @@ def run_exiftool(files):
     cmd = [
         'exiftool', '-json', '-charset', 'UTF8',
         '-FileName',
+        '-Title',          # Nome/título da foto (XMP)
+        '-ObjectName',     # Nome/título da foto (IPTC, alternativa)
         '-DateTimeOriginal', '-CreateDate',
         '-FNumber',
         '-ExposureTime',
         '-ISO',
-        '-Keywords',   # IPTC tags (Lightroom exporta aqui)
-        '-Subject',    # XMP tags (alternativa)
+        '-FocalLength',    # Distância focal
+        '-Make',           # Marca da câmera
+        '-Model',          # Modelo da câmera
+        '-LensMake',       # Marca da lente
+        '-LensModel',      # Modelo da lente
+        '-Keywords',       # IPTC tags (Lightroom exporta aqui)
+        '-Subject',        # XMP tags (alternativa)
     ] + [str(f) for f in files]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -80,6 +87,38 @@ def format_date(value):
         return str(value)
 
 
+def format_focal_length(value):
+    """Converte FocalLength para formato legível: '85mm', '24mm', etc."""
+    if not value:
+        return ''
+    s = str(value)
+    if 'mm' in s.lower():
+        # ExifTool já retorna com unidade, ex: "85.0 mm"
+        try:
+            num = float(s.lower().replace('mm', '').strip())
+            return f'{num:.0f}mm'
+        except (ValueError, TypeError):
+            return s
+    try:
+        return f'{float(s):.0f}mm'
+    except (ValueError, TypeError):
+        return s
+
+
+def build_camera_string(make, model):
+    """Combina marca e modelo evitando duplicação (ex: 'SONY' + 'SONY A7 IV')."""
+    if not make and not model:
+        return ''
+    if not make:
+        return model
+    if not model:
+        return make
+    # Se o modelo já começa com a marca, não duplica
+    if model.upper().startswith(make.upper()):
+        return model
+    return f'{make} {model}'
+
+
 def as_list(value):
     """Garante que keywords seja sempre uma lista."""
     if not value:
@@ -95,14 +134,20 @@ def build_entry(item):
     keywords = as_list(item.get('Keywords')) or as_list(item.get('Subject'))
     tags = [k.strip().lower() for k in keywords if k.strip()]
 
+    name = (item.get('Title') or item.get('ObjectName') or '').strip()
+
     return {
-        'filename':  item.get('FileName', ''),
-        'publicId':  '',              # Reservado para futura migração ao Cloudinary
-        'date':      format_date(date_raw),
-        'aperture':  format_aperture(item.get('FNumber')),
-        'shutter':   format_shutter(item.get('ExposureTime')),
-        'iso':       item.get('ISO', ''),
-        'tags':      tags,
+        'filename':    item.get('FileName', ''),
+        'name':        name,
+        'publicId':    '',
+        'date':        format_date(date_raw),
+        'aperture':    format_aperture(item.get('FNumber')),
+        'shutter':     format_shutter(item.get('ExposureTime')),
+        'iso':         item.get('ISO', ''),
+        'focalLength': format_focal_length(item.get('FocalLength')),
+        'camera':      build_camera_string(item.get('Make', ''), item.get('Model', '')),
+        'lens':        (item.get('LensModel') or item.get('LensMake') or '').strip(),
+        'tags':        tags,
     }
 
 

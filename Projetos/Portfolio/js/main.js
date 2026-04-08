@@ -1,13 +1,26 @@
 let allPhotos = [];
 let currentPhotos = [];
 let currentIndex = 0;
-let activeTags = new Set(); // conjunto de tags ativas (vazio = todas)
+let activeTags = new Set();
+
+// ─── Utilitários ──────────────────────────────────────────────
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  // dateStr vem no formato '2026-03-19'
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const meses = [
+    'janeiro','fevereiro','março','abril','maio','junho',
+    'julho','agosto','setembro','outubro','novembro','dezembro'
+  ];
+  return `${day} de ${meses[month - 1]} de ${year}`;
+} // conjunto de tags ativas (vazio = todas)
 
 // ─── Inicialização ────────────────────────────────────────────
 
 async function init() {
   try {
-    const res = await fetch('fotos.json');
+    const res = await fetch(`fotos.json?v=${Date.now()}`);
     allPhotos = await res.json();
   } catch {
     allPhotos = [];
@@ -141,15 +154,22 @@ function updateViewer() {
   img.src = Config.getImageUrl(foto);
   img.alt = foto.filename;
 
-  // Metadados (3 linhas)
-  const camSettings = [foto.aperture, foto.shutter, foto.iso ? `ISO ${foto.iso}` : '']
-    .filter(Boolean)
-    .join('  ·  ');
+  // Metadados
+  const title = foto.name || foto.filename;
+
+  const camSettings = [
+    foto.aperture,
+    foto.shutter,
+    foto.iso       ? `ISO ${foto.iso}`  : '',
+    foto.focalLength || '',
+  ].filter(Boolean).join('  ·  ');
 
   const lines = [
-    { cls: 'info-filename', text: foto.filename },
-    { cls: 'info-date',     text: foto.date },
+    { cls: 'info-filename', text: title },
+    { cls: 'info-date',     text: formatDate(foto.date) },
     { cls: 'info-camera',   text: camSettings },
+    { cls: 'info-body',     text: foto.camera },
+    { cls: 'info-lens',     text: foto.lens },
   ].filter(l => l.text);
 
   document.getElementById('viewer-info').innerHTML =
