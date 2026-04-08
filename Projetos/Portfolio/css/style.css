@@ -69,17 +69,17 @@ header h1 {
 /* ─── Galeria ─────────────────────────────────────────── */
 
 main {
-  padding: 20px 3px;
+  padding: 24px 40px;
 }
 
 .gallery {
   columns: 4;
-  column-gap: 10px;
+  column-gap: 16px;
 }
 
 .gallery-item {
   break-inside: avoid;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
   cursor: pointer;
   overflow: hidden;
   display: block;
@@ -249,6 +249,7 @@ main {
 
 @media (max-width: 680px) {
   .gallery { columns: 2; }
+  main { padding: 16px 20px; }
   header h1 { font-size: 1.4rem; }
   .viewer-content { max-width: calc(100vw - 80px); }
   .nav-btn { width: 34px; height: 34px; }
@@ -258,4 +259,5 @@ main {
 
 @media (max-width: 420px) {
   .gallery { columns: 1; }
+  main { padding: 12px 14px; }
 }
