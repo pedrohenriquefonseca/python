@@ -102,6 +102,7 @@ main {
   overflow: hidden;
   display: block;
   border-radius: 8px;
+  position: relative;
 }
 
 .gallery-item img {
@@ -109,6 +110,24 @@ main {
   display: block;
   border-radius: 8px;
   transition: opacity 0.2s;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Escudo transparente sobre as imagens */
+.img-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+  -webkit-user-drag: none;
+}
+
+/* Escudo no visualizador — posicionado sobre a foto */
+.viewer-img-shield {
+  position: absolute;
+  cursor: default;
+  pointer-events: all;
 }
 
 .gallery-item:hover img {

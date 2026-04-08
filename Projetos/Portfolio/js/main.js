@@ -110,11 +110,16 @@ function renderGallery() {
 
     const img = document.createElement('img');
     img.src = Config.getThumbnailUrl(foto);
-    img.alt = foto.filename;
+    img.alt = '';
     img.loading = 'lazy';
 
+    // Escudo transparente — captura cliques e bloqueia interação com a img
+    const shield = document.createElement('div');
+    shield.className = 'img-shield';
+    shield.addEventListener('click', () => openViewer(idx));
+
     item.appendChild(img);
-    item.addEventListener('click', () => openViewer(idx));
+    item.appendChild(shield);
     gallery.appendChild(item);
   });
 }
@@ -200,6 +205,33 @@ function bindViewerEvents() {
   document.getElementById('viewer').addEventListener('click', e => {
     if (e.target === document.getElementById('viewer')) closeViewer();
   });
+
+  // ── Proteção de imagens ──────────────────────────────────────
+
+  // Bloqueia clique direito em qualquer imagem
+  document.addEventListener('contextmenu', e => {
+    if (e.target.tagName === 'IMG') e.preventDefault();
+  });
+
+  // Bloqueia arrastar imagens
+  document.addEventListener('dragstart', e => {
+    if (e.target.tagName === 'IMG') e.preventDefault();
+  });
+
+  // Ajusta o escudo do visualizador para cobrir exatamente a foto
+  const viewerImg    = document.getElementById('viewer-img');
+  const viewerShield = document.querySelector('.viewer-img-shield');
+
+  function fitViewerShield() {
+    const r = viewerImg.getBoundingClientRect();
+    viewerShield.style.width  = r.width  + 'px';
+    viewerShield.style.height = r.height + 'px';
+    viewerShield.style.top    = viewerImg.offsetTop  + 'px';
+    viewerShield.style.left   = viewerImg.offsetLeft + 'px';
+  }
+
+  viewerImg.addEventListener('load', fitViewerShield);
+  window.addEventListener('resize', fitViewerShield);
 
   // Teclado
   document.addEventListener('keydown', e => {
