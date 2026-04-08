@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #fff;
+    }
+
+    .login-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: 280px;
+    }
+
+    .login-box h2 {
+      font-size: 0.85rem;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .login-box input[type="password"] {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .login-box input[type="password"]:focus {
+      border-color: #aaa;
+    }
+
+    .login-box button {
+      width: 100%;
+      padding: 10px;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .login-box button:hover {
+      background: #333;
+    }
+
+    .login-error {
+      font-size: 0.78rem;
+      color: #c00;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-box">
+    <h2>Pedro Henrique Fonseca</h2>
+    <input type="password" id="password" placeholder="senha" autofocus>
+    <button id="btn-enter">Entrar</button>
+    <span class="login-error" id="login-error">Senha incorreta.</span>
+  </div>
+
+  <script>
+    // A senha será verificada pelo Cloudflare Worker — aqui só redireciona
+    const PASSWORD = 'DEFINIR_SENHA';
+
+    function tryLogin() {
+      const val = document.getElementById('password').value;
+      if (val === PASSWORD) {
+        sessionStorage.setItem('upload_auth', '1');
+        window.location.href = 'upload-area.html';
+      } else {
+        document.getElementById('login-error').style.display = 'block';
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      }
+    }
+
+    document.getElementById('btn-enter').addEventListener('click', tryLogin);
+    document.getElementById('password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') tryLogin();
+    });
+  </script>
+
+</body>
+</html>
