@@ -30,7 +30,7 @@ header h1 {
 .social-links {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
@@ -38,18 +38,18 @@ header h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1px solid #ddd;
-  color: #aaa;
+  color: #888;
   text-decoration: none;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s;
+}
+
+.social-links a svg {
+  width: 13px;
+  height: 13px;
 }
 
 .social-links a:hover {
-  color: #555;
-  border-color: #aaa;
+  color: #444;
 }
 
 .bio {
