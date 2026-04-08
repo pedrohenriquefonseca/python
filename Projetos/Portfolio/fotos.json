@@ -1,1 +1,29 @@
-[]
+[
+  {
+    "filename": "DOG9720.jpg",
+    "publicId": "",
+    "date": "2026-03-20",
+    "aperture": "f/16",
+    "shutter": "1/250s",
+    "iso": 2500,
+    "tags": []
+  },
+  {
+    "filename": "DOG9542.jpg",
+    "publicId": "",
+    "date": "2026-03-19",
+    "aperture": "f/8",
+    "shutter": "1/13s",
+    "iso": 10000,
+    "tags": []
+  },
+  {
+    "filename": "DOG09100.jpg",
+    "publicId": "",
+    "date": "2026-03-18",
+    "aperture": "f/4",
+    "shutter": "1/100s",
+    "iso": 20000,
+    "tags": []
+  }
+]
