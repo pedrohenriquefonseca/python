@@ -168,8 +168,7 @@ function updateViewer() {
     { cls: 'info-filename', text: title },
     { cls: 'info-date',     text: formatDate(foto.date) },
     { cls: 'info-camera',   text: camSettings },
-    { cls: 'info-body',     text: foto.camera },
-    { cls: 'info-lens',     text: foto.lens },
+    { cls: 'info-gear', text: [foto.camera, foto.lens].filter(Boolean).join('  ·  ') },
   ].filter(l => l.text);
 
   document.getElementById('viewer-info').innerHTML =
