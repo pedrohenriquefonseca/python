@@ -1,0 +1,34 @@
+name: Processar Fotos
+
+on:
+  push:
+    paths:
+      - 'Portfolio/fotos/**'
+
+jobs:
+  processar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar ExifTool
+        run: sudo apt-get install -y libimage-exiftool-perl
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Processar fotos e atualizar fotos.json
+        run: python .github/scripts/process_photos.py
+
+      - name: Commit fotos.json atualizado
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Portfolio/fotos.json
+          git diff --staged --quiet || (git commit -m "Auto: atualizar fotos.json [skip ci]" && git push)

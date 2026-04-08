@@ -1,0 +1,260 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #fff;
+  color: #111;
+}
+
+/* ─── Header ─────────────────────────────────────────── */
+
+header {
+  text-align: center;
+  padding: 56px 20px 36px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+header h1 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+
+.bio {
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.7;
+  max-width: 580px;
+  margin: 0 auto 32px;
+}
+
+/* ─── Filtros ─────────────────────────────────────────── */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 14px;
+}
+
+.filter-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: #888;
+  cursor: pointer;
+  padding: 5px 0;
+  position: relative;
+  text-transform: lowercase;
+  transition: color 0.15s;
+}
+
+.filter-btn:hover {
+  color: #333;
+}
+
+.filter-btn.active {
+  color: #111;
+  background: #FFE600;
+  padding: 1px 3px;
+  border-radius: 1px;
+}
+
+/* ─── Galeria ─────────────────────────────────────────── */
+
+main {
+  padding: 20px 3px;
+}
+
+.gallery {
+  columns: 4;
+  column-gap: 3px;
+}
+
+.gallery-item {
+  break-inside: avoid;
+  margin-bottom: 3px;
+  cursor: pointer;
+  overflow: hidden;
+  display: block;
+}
+
+.gallery-item img {
+  width: 100%;
+  display: block;
+  transition: opacity 0.2s;
+}
+
+.gallery-item:hover img {
+  opacity: 0.88;
+}
+
+.empty {
+  text-align: center;
+  color: #aaa;
+  padding: 100px 20px;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  column-span: all;
+}
+
+.empty code {
+  font-family: monospace;
+  background: #f4f4f4;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.82rem;
+}
+
+/* ─── Visualizador ────────────────────────────────────── */
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  background: #1c1c1c;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer[hidden] {
+  display: none;
+}
+
+/* Topo */
+.viewer-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  z-index: 10;
+}
+
+.viewer-counter {
+  font-size: 0.75rem;
+  color: #888;
+  letter-spacing: 0.04em;
+}
+
+.viewer-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.viewer-controls button {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #ccc;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.viewer-controls button:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+/* Conteúdo */
+.viewer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: calc(100vw - 110px);
+  padding-top: 50px;
+  padding-bottom: 10px;
+}
+
+.viewer-img {
+  max-width: 100%;
+  max-height: calc(100vh - 160px);
+  object-fit: contain;
+  display: block;
+}
+
+/* Info da foto */
+.viewer-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+  font-size: 0.73rem;
+  color: #777;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.viewer-info .info-filename {
+  color: #bbb;
+  font-size: 0.75rem;
+}
+
+/* Setas de navegação */
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #ccc;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  z-index: 10;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+}
+
+.nav-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.nav-btn.prev { left: 18px; }
+.nav-btn.next { right: 18px; }
+
+/* ─── Responsivo ──────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .gallery { columns: 3; }
+}
+
+@media (max-width: 680px) {
+  .gallery { columns: 2; }
+  header h1 { font-size: 1.4rem; }
+  .viewer-content { max-width: calc(100vw - 80px); }
+  .nav-btn { width: 34px; height: 34px; }
+  .nav-btn.prev { left: 8px; }
+  .nav-btn.next { right: 8px; }
+}
+
+@media (max-width: 420px) {
+  .gallery { columns: 1; }
+}
