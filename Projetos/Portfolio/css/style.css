@@ -69,27 +69,27 @@ header h1 {
 /* ─── Galeria ─────────────────────────────────────────── */
 
 main {
-  padding: 24px 40px;
+  padding: 24px 52px;
 }
 
 .gallery {
   columns: 4;
-  column-gap: 16px;
+  column-gap: 21px;
 }
 
 .gallery-item {
   break-inside: avoid;
-  margin-bottom: 16px;
+  margin-bottom: 21px;
   cursor: pointer;
   overflow: hidden;
   display: block;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .gallery-item img {
   width: 100%;
   display: block;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: opacity 0.2s;
 }
 
@@ -249,7 +249,7 @@ main {
 
 @media (max-width: 680px) {
   .gallery { columns: 2; }
-  main { padding: 16px 20px; }
+  main { padding: 16px 26px; }
   header h1 { font-size: 1.4rem; }
   .viewer-content { max-width: calc(100vw - 80px); }
   .nav-btn { width: 34px; height: 34px; }
@@ -259,5 +259,5 @@ main {
 
 @media (max-width: 420px) {
   .gallery { columns: 1; }
-  main { padding: 12px 14px; }
+  main { padding: 12px 18px; }
 }
