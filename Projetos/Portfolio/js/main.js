@@ -40,7 +40,7 @@ function buildFilters() {
   const nav = document.getElementById('filters');
   nav.innerHTML = '';
 
-  appendFilterBtn(nav, 'Todas', 'all');
+  appendFilterBtn(nav, 'All', 'all');
   [...tags].sort((a, b) => a.localeCompare(b, 'pt')).forEach(tag => {
     appendFilterBtn(nav, tag, tag);
   });
