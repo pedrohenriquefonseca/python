@@ -11,14 +11,14 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
     "tags": [
-      "orange",
-      "blue",
-      "lisbon"
+      "Orange",
+      "Blue",
+      "Lisbon"
     ]
   },
   {
     "filename": "DOG9999.jpg",
-    "name": "",
+    "name": "Elétrico 28",
     "publicId": "",
     "date": "2026-03-21",
     "aperture": "f/4",
@@ -27,11 +27,11 @@
     "focalLength": "43mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": []
+    "tags": ["Blue","Yellow","Lisbon"]
   },
   {
     "filename": "DOG9608.jpg",
-    "name": "",
+    "name": "Birds",
     "publicId": "",
     "date": "2026-03-20",
     "aperture": "f/5.6",
@@ -40,7 +40,7 @@
     "focalLength": "43mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": []
+    "tags": ["Pink","Grey","Lisbon"]
   },
   {
     "filename": "DOG9720.jpg",
@@ -54,14 +54,14 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
     "tags": [
-      "lisbon",
-      "street photography",
-      "white"
+      "Lisbon",
+      "Street Photography",
+      "White"
     ]
   },
   {
     "filename": "DOG9761.jpg",
-    "name": "",
+    "name": "Tejo",
     "publicId": "",
     "date": "2026-03-20",
     "aperture": "f/16",
@@ -70,11 +70,11 @@
     "focalLength": "24mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": []
+    "tags": ["White","Grey","Lisbon"]
   },
   {
     "filename": "DOG9347.jpg",
-    "name": "",
+    "name": "Worker",
     "publicId": "",
     "date": "2026-03-19",
     "aperture": "f/2.8",
@@ -83,11 +83,11 @@
     "focalLength": "50mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": []
+    "tags": ["Brown","Green","Lisbon","Transparency"]
   },
   {
     "filename": "DOG9363.jpg",
-    "name": "",
+    "name": "Tongue and Ears",
     "publicId": "",
     "date": "2026-03-19",
     "aperture": "f/2.8",
@@ -96,7 +96,7 @@
     "focalLength": "50mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": []
+    "tags": ["Blue","Grey","Lisbon","Dogs"]
   },
   {
     "filename": "DOG09100.jpg",
@@ -110,9 +110,9 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
     "tags": [
-      "lisbon",
-      "silhouette",
-      "yellow"
+      "Lisbon",
+      "Silhouette",
+      "Yellow"
     ]
   },
   {
@@ -127,14 +127,14 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
     "tags": [
-      "porto",
-      "grey",
-      "blue"
+      "Porto",
+      "Grey",
+      "Blue"
     ]
   },
   {
     "filename": "DOG8735.jpg",
-    "name": "",
+    "name": "Casa da Música",
     "publicId": "",
     "date": "2026-03-17",
     "aperture": "f/8",
@@ -143,11 +143,11 @@
     "focalLength": "24mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": []
+    "tags": ["Grey","Blue","Porto"]
   },
   {
     "filename": "DOG8903.jpg",
-    "name": "",
+    "name": "Porto at Night",
     "publicId": "",
     "date": "2026-03-17",
     "aperture": "f/16",
@@ -156,7 +156,7 @@
     "focalLength": "25mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": []
+    "tags": ["Black","Blue","Yellow", "Porto"]
   },
   {
     "filename": "DOG8253.jpg",
@@ -170,7 +170,7 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "blur"
+      "Blur"
     ]
   },
   {
@@ -185,14 +185,14 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "orange",
-      "blue",
-      "nazareth"
+      "Orange",
+      "Blue",
+      "Nazareth"
     ]
   },
   {
     "filename": "DOG7963.jpg",
-    "name": "The city and the City",
+    "name": "The City and the City",
     "publicId": "",
     "date": "2026-03-14",
     "aperture": "f/4",
@@ -202,8 +202,8 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "reflex",
-      "brown"
+      "Reflex",
+      "Brown"
     ]
   }
 ]
