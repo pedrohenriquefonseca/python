@@ -27,6 +27,31 @@ header h1 {
   margin-bottom: 18px;
 }
 
+.social-links {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.social-links a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  color: #aaa;
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.social-links a:hover {
+  color: #555;
+  border-color: #aaa;
+}
+
 .bio {
   font-size: 0.88rem;
   color: #555;
