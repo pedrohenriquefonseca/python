@@ -10,8 +10,8 @@ import subprocess
 import json
 from pathlib import Path
 
-FOTOS_DIR   = Path('Portfolio/fotos')
-OUTPUT_FILE = Path('Portfolio/fotos.json')
+FOTOS_DIR   = Path('Projetos/Portfolio/fotos')
+OUTPUT_FILE = Path('Projetos/Portfolio/fotos.json')
 EXTENSIONS  = {'.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff',
                '.JPG', '.JPEG', '.PNG', '.WEBP', '.TIF', '.TIFF'}
 
