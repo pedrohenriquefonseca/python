@@ -1,29 +1,36 @@
 [
   {
     "filename": "DOG9720.jpg",
+    "name": "MAAT",
     "publicId": "",
     "date": "2026-03-20",
     "aperture": "f/16",
     "shutter": "1/250s",
     "iso": 2500,
-    "tags": []
-  },
-  {
-    "filename": "DOG9542.jpg",
-    "publicId": "",
-    "date": "2026-03-19",
-    "aperture": "f/8",
-    "shutter": "1/13s",
-    "iso": 10000,
-    "tags": []
+    "focalLength": "24mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "lisbon",
+      "museum, street photography",
+      "white"
+    ]
   },
   {
     "filename": "DOG09100.jpg",
+    "name": "Solitude",
     "publicId": "",
     "date": "2026-03-18",
     "aperture": "f/4",
     "shutter": "1/100s",
     "iso": 20000,
-    "tags": []
+    "focalLength": "48mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "lisbon",
+      "silhouette",
+      "yellow"
+    ]
   }
 ]
