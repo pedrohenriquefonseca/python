@@ -13,7 +13,6 @@
     "tags": [
       "orange",
       "blue",
-      "sunny",
       "lisbon"
     ]
   },
@@ -56,7 +55,7 @@
     "lens": "FE 24-50mm F2.8 G",
     "tags": [
       "lisbon",
-      "museum, street photography",
+      "street photography",
       "white"
     ]
   },
@@ -128,7 +127,6 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
     "tags": [
-      "museum",
       "porto",
       "grey",
       "blue"
@@ -172,8 +170,6 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "bridge",
-      "train",
       "blur"
     ]
   },
@@ -191,7 +187,6 @@
     "tags": [
       "orange",
       "blue",
-      "sea",
       "nazareth"
     ]
   },
@@ -208,8 +203,7 @@
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
       "reflex",
-      "brown",
-      "church"
+      "brown"
     ]
   }
 ]
