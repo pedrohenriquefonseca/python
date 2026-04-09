@@ -126,14 +126,55 @@ function closeAllDropdowns() {
   document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
 }
 
+function getAvailableForCat(cat) {
+  // Retorna os valores disponíveis para uma categoria dado os filtros das OUTRAS categorias
+  const otherFilters = [...activeFilters].filter(f => !f.startsWith(cat + ':'));
+
+  const photos = otherFilters.length === 0
+    ? allPhotos
+    : allPhotos.filter(f => {
+        const photoTags = new Set(f.tags || []);
+        const byCat = new Map();
+        otherFilters.forEach(filter => {
+          const c = filter.substring(0, filter.indexOf(':'));
+          if (!byCat.has(c)) byCat.set(c, []);
+          byCat.get(c).push(filter);
+        });
+        return [...byCat.values()].every(filters =>
+          filters.some(filter => photoTags.has(filter))
+        );
+      });
+
+  const available = new Set();
+  photos.forEach(f => {
+    (f.tags || []).forEach(tag => {
+      if (tag.startsWith(cat + ':')) {
+        const val = tag.substring(cat.length + 1).trim();
+        if (val) available.add(val);
+      }
+    });
+  });
+  return available;
+}
+
 function updateFilterUI() {
   // Botão All — ativo quando não há filtros
   const allBtn = document.getElementById('filter-all');
   if (allBtn) allBtn.classList.toggle('active', activeFilters.size === 0);
 
-  // Itens dos dropdowns
-  document.querySelectorAll('.dropdown-item').forEach(item => {
-    item.classList.toggle('active', activeFilters.has(item.dataset.filter));
+  // Itens dos dropdowns — mostra só os disponíveis (itens ativos sempre visíveis)
+  document.querySelectorAll('.dropdown').forEach(wrap => {
+    const cat = wrap.querySelector('.dropdown-btn').dataset.cat;
+    const available = getAvailableForCat(cat);
+
+    wrap.querySelectorAll('.dropdown-item').forEach(item => {
+      const isActive = activeFilters.has(item.dataset.filter);
+      const val = item.dataset.filter.substring(cat.length + 1);
+      const isAvailable = available.has(val);
+      item.classList.toggle('active', isActive);
+      // Itens ativos sempre visíveis; inativas só se disponíveis
+      item.style.display = (isActive || isAvailable) ? '' : 'none';
+    });
   });
 
   // Botões dos dropdowns — mostra contagem de seleções ativas
