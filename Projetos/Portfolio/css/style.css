@@ -59,29 +59,121 @@ header h1 {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 2px 14px;
+  align-items: center;
+  gap: 6px 8px;
+  padding-bottom: 4px;
 }
 
+/* Botão All */
 .filter-btn {
   background: none;
-  border: none;
+  border: 1px solid #ddd;
+  border-radius: 20px;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: #888;
   cursor: pointer;
-  padding: 5px 0;
-  position: relative;
-  transition: color 0.15s;
+  padding: 4px 12px;
+  transition: color 0.15s, border-color 0.15s;
 }
 
-.filter-btn:hover {
-  color: #333;
-}
+.filter-btn:hover { color: #333; border-color: #aaa; }
 
 .filter-btn.active {
   color: #111;
-  border-bottom: 3px solid #FFE600;
-  padding-bottom: 1px;
+  border-color: #111;
+  border-bottom-width: 1px;
+  font-weight: 500;
+}
+
+/* ─── Dropdowns ───────────────────────────────────────── */
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: #888;
+  cursor: pointer;
+  padding: 4px 10px 4px 12px;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.dropdown-btn:hover { color: #333; border-color: #aaa; }
+
+.dropdown-btn.has-active {
+  color: #111;
+  border-color: #111;
+  font-weight: 500;
+}
+
+.dropdown-btn .chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.dropdown.open .chevron { transform: rotate(180deg); }
+
+.dropdown-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFE600;
+  color: #111;
+  font-size: 0.68rem;
+  font-weight: 600;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 4px;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  min-width: 150px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.dropdown.open .dropdown-menu { display: block; }
+
+.dropdown-item {
+  padding: 9px 16px;
+  font-size: 0.8rem;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.dropdown-item:hover { background: #f5f5f5; color: #111; }
+
+.dropdown-item.active {
+  color: #111;
+  font-weight: 500;
+  background: #fffde6;
+}
+
+.dropdown-item.active::before {
+  content: '✓ ';
+  color: #b8a800;
 }
 
 /* ─── Galeria ─────────────────────────────────────────── */

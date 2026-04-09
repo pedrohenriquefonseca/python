@@ -1,7 +1,7 @@
 let allPhotos = [];
 let currentPhotos = [];
 let currentIndex = 0;
-let activeTags = new Set();
+let activeFilters = new Set(); // Set de strings "Categoria:Valor"
 
 // ─── Utilitários ──────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ function formatDate(dateStr) {
     'julho','agosto','setembro','outubro','novembro','dezembro'
   ];
   return `${day} de ${meses[month - 1]} de ${year}`;
-} // conjunto de tags ativas (vazio = todas)
+}
 
 // ─── Inicialização ────────────────────────────────────────────
 
@@ -33,68 +33,127 @@ async function init() {
 
 // ─── Filtros ──────────────────────────────────────────────────
 
-function buildFilters() {
-  const tags = new Set();
-  allPhotos.forEach(f => (f.tags || []).forEach(t => tags.add(t)));
+function parseCategories() {
+  // Agrupa valores por categoria a partir das tags "Categoria:Valor"
+  const cats = new Map();
+  allPhotos.forEach(f => {
+    (f.tags || []).forEach(tag => {
+      const sep = tag.indexOf(':');
+      if (sep === -1) return; // ignora tags sem formato
+      const cat = tag.substring(0, sep).trim();
+      const val = tag.substring(sep + 1).trim();
+      if (!cats.has(cat)) cats.set(cat, new Set());
+      cats.get(cat).add(val);
+    });
+  });
+  return cats;
+}
 
+function buildFilters() {
   const nav = document.getElementById('filters');
   nav.innerHTML = '';
 
-  appendFilterBtn(nav, 'All', 'all');
-  [...tags].sort((a, b) => a.localeCompare(b, 'pt')).forEach(tag => {
-    appendFilterBtn(nav, tag, tag);
-  });
-
-  updateFilterUI();
-}
-
-function appendFilterBtn(nav, label, tag) {
-  const btn = document.createElement('button');
-  btn.className = 'filter-btn';
-  btn.textContent = label;
-  btn.dataset.tag = tag;
-
-  btn.addEventListener('click', e => {
-    if (tag === 'all') {
-      activeTags.clear();
-    } else if (e.ctrlKey || e.metaKey) {
-      // Ctrl+clique: adiciona ou remove da seleção
-      if (activeTags.has(tag)) {
-        activeTags.delete(tag);
-      } else {
-        activeTags.add(tag);
-      }
-    } else {
-      // Clique simples: seleciona só essa tag (ou limpa se já era a única)
-      if (activeTags.size === 1 && activeTags.has(tag)) {
-        activeTags.clear();
-      } else {
-        activeTags.clear();
-        activeTags.add(tag);
-      }
-    }
+  // Botão "All"
+  const allBtn = document.createElement('button');
+  allBtn.className = 'filter-btn active';
+  allBtn.id = 'filter-all';
+  allBtn.textContent = 'All';
+  allBtn.addEventListener('click', () => {
+    activeFilters.clear();
     updateFilterUI();
     renderGallery();
   });
+  nav.appendChild(allBtn);
 
-  nav.appendChild(btn);
+  // Dropdowns por categoria
+  const cats = parseCategories();
+  [...cats.keys()].sort((a, b) => a.localeCompare(b, 'pt')).forEach(cat => {
+    const values = [...cats.get(cat)].sort((a, b) => a.localeCompare(b, 'pt'));
+    nav.appendChild(buildDropdown(cat, values));
+  });
+
+  // Fecha dropdowns ao clicar fora
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.dropdown')) closeAllDropdowns();
+  });
+}
+
+function buildDropdown(cat, values) {
+  const wrap = document.createElement('div');
+  wrap.className = 'dropdown';
+
+  const btn = document.createElement('button');
+  btn.className = 'dropdown-btn';
+  btn.dataset.cat = cat;
+  btn.innerHTML = `${cat} <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  const menu = document.createElement('div');
+  menu.className = 'dropdown-menu';
+
+  values.forEach(val => {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.textContent = val;
+    item.dataset.filter = `${cat}:${val}`;
+    item.addEventListener('click', e => {
+      e.stopPropagation();
+      const key = item.dataset.filter;
+      if (activeFilters.has(key)) {
+        activeFilters.delete(key);
+      } else {
+        activeFilters.add(key);
+      }
+      updateFilterUI();
+      renderGallery();
+    });
+    menu.appendChild(item);
+  });
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = wrap.classList.contains('open');
+    closeAllDropdowns();
+    if (!isOpen) wrap.classList.add('open');
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  return wrap;
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
 }
 
 function updateFilterUI() {
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    const tag = btn.dataset.tag;
-    const isAll = tag === 'all';
-    const isActive = isAll ? activeTags.size === 0 : activeTags.has(tag);
-    btn.classList.toggle('active', isActive);
+  // Botão All — ativo quando não há filtros
+  const allBtn = document.getElementById('filter-all');
+  if (allBtn) allBtn.classList.toggle('active', activeFilters.size === 0);
+
+  // Itens dos dropdowns
+  document.querySelectorAll('.dropdown-item').forEach(item => {
+    item.classList.toggle('active', activeFilters.has(item.dataset.filter));
+  });
+
+  // Botões dos dropdowns — mostra contagem de seleções ativas
+  document.querySelectorAll('.dropdown-btn').forEach(btn => {
+    const cat = btn.dataset.cat;
+    const count = [...activeFilters].filter(f => f.startsWith(cat + ':')).length;
+    const label = count > 0 ? `${cat} <span class="dropdown-count">${count}</span>` : cat;
+    btn.innerHTML = `${label} <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
+    btn.classList.toggle('has-active', count > 0);
   });
 }
 
 // ─── Galeria ──────────────────────────────────────────────────
 
 function renderGallery() {
-  currentPhotos = activeTags.size === 0
+  currentPhotos = activeFilters.size === 0
     ? [...allPhotos]
-    : allPhotos.filter(f => (f.tags || []).some(t => activeTags.has(t)));
+    : allPhotos.filter(f => {
+        const photoTags = new Set(f.tags || []);
+        return [...activeFilters].every(filter => photoTags.has(filter));
+      });
 
   const gallery = document.getElementById('gallery');
   gallery.innerHTML = '';
