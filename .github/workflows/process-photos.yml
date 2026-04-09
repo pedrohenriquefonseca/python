@@ -24,12 +24,18 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Instalar Pillow
+        run: pip install Pillow
+
       - name: Processar fotos e atualizar fotos.json
         run: python .github/scripts/process_photos.py
 
-      - name: Commit fotos.json atualizado
+      - name: Gerar thumbnails WebP
+        run: python .github/scripts/generate_thumbs.py
+
+      - name: Commit arquivos atualizados
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Projetos/Portfolio/fotos.json
-          git diff --staged --quiet || (git commit -m "Auto: atualizar fotos.json [skip ci]" && git push)
+          git add Projetos/Portfolio/fotos.json Projetos/Portfolio/fotos/thumbs/
+          git diff --staged --quiet || (git commit -m "Auto: atualizar fotos.json e thumbnails [skip ci]" && git push)

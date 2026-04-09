@@ -17,7 +17,9 @@ EXTENSIONS  = {'.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff',
 
 
 def get_photo_files():
-    return sorted([f for f in FOTOS_DIR.iterdir() if f.suffix in EXTENSIONS])
+    # Ignora subpastas (ex: thumbs/) — só fotos direto em FOTOS_DIR
+    return sorted([f for f in FOTOS_DIR.iterdir()
+                   if f.is_file() and f.suffix in EXTENSIONS])
 
 
 def run_exiftool(files):

@@ -24,9 +24,10 @@ const Config = {
   getThumbnailUrl(photo) {
     if (this.storage === 'cloudinary') {
       // Cloudinary redimensiona e otimiza automaticamente
-      return `https://res.cloudinary.com/${this.cloudinary.cloudName}/image/upload/w_800,q_auto,f_auto/${photo.publicId}`;
+      return `https://res.cloudinary.com/${this.cloudinary.cloudName}/image/upload/w_1200,q_82,f_webp/${photo.publicId}`;
     }
-    // Local: usa o arquivo original (sem geração de thumbnail)
-    return `fotos/${photo.filename}`;
+    // Local: thumbnail WebP gerado pelo GitHub Action em fotos/thumbs/
+    const stem = photo.filename.replace(/\.[^.]+$/, '');
+    return `fotos/thumbs/${stem}.webp`;
   },
 };
