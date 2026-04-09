@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Corpo da câmera -->
+  <rect x="2" y="10" width="28" height="18" rx="3" ry="3" fill="#111"/>
+  <!-- Saliência do visor -->
+  <rect x="10" y="6" width="12" height="6" rx="2" ry="2" fill="#111"/>
+  <!-- Lente (anel externo) -->
+  <circle cx="16" cy="19" r="6" fill="#fff"/>
+  <!-- Lente (anel interno) -->
+  <circle cx="16" cy="19" r="4" fill="#111"/>
+  <!-- Lente (reflexo) -->
+  <circle cx="16" cy="19" r="2" fill="#fff"/>
+  <!-- Flash -->
+  <rect x="4" y="13" width="3" height="2" rx="1" fill="#fff" opacity="0.6"/>
+</svg>

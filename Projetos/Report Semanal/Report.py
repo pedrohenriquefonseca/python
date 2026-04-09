@@ -64,17 +64,6 @@ def formatar_data(coluna):
         print(f'Aviso: Erro ao formatar datas: {e}')
         return coluna
 
-#Processa valor de porcentagem removendo símbolos e convertendo.
-def processar_porcentagem(valor):
-    if pd.isna(valor):
-        return 0
-    
-    valor_str = str(valor).replace('%', '').replace(',', '.')
-    try:
-        return float(valor_str) / 100 if '%' in str(valor) else float(valor_str)
-    except (ValueError, TypeError):
-        return 0
-
 #Calcula diferença em dias entre duas datas.
 def calcular_dias_diferenca(data1, data2):
     if pd.isna(data1) or pd.isna(data2):
@@ -158,7 +147,7 @@ def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
 def validar_colunas_necessarias(df):
     colunas_obrigatorias = [
         'Nível_da_estrutura_de_tópicos', 'Nome', 'Nomes_dos_Recursos',
-        'Porcentagem_Concluída', 'Porcentagem_Previsto'
+        'Porcentagem_Concluída'
     ]
     
     colunas_faltantes = []
@@ -167,13 +156,7 @@ def validar_colunas_necessarias(df):
             colunas_faltantes.append(coluna)
     
     if colunas_faltantes:
-        print(f'Aviso: Colunas não encontradas: {", ".join(colunas_faltantes)}')
-        # Criar colunas com valores padrão
-        for coluna in colunas_faltantes:
-            if 'Porcentagem' in coluna:
-                df[coluna] = 0
-            else:
-                df[coluna] = ''
+        raise ValueError(f"Planilha incompatível. Colunas ausentes: {', '.join(colunas_faltantes)}")
     
     return df
 
@@ -198,10 +181,6 @@ def gerar_relatorio(nome_projeto):
                 # Criar versões datetime das colunas
                 df[col + '_DT'] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
         
-        # Processar porcentagens
-        if 'Porcentagem_Previsto' in df.columns:
-            df['Porcentagem_Previsto'] = df['Porcentagem_Previsto'].apply(processar_porcentagem)
-        
         # Obter data atual
         hoje = datetime.now()
         hoje_fmt = hoje.strftime('%d/%m/%y')
@@ -221,12 +200,7 @@ def gerar_relatorio(nome_projeto):
         DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
         EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
         
-        # Calcular aderência
-        FF = 0
-        if nivel0.get('Porcentagem_Previsto', 0) > 0:
-            FF = nivel0.get('Porcentagem_Concluída', 0) / nivel0['Porcentagem_Previsto']
-        FF_fmt = f'{FF:.0%}'
-        
+
         # Filtrar tarefas
         filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
         filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
@@ -234,26 +208,25 @@ def gerar_relatorio(nome_projeto):
         # Montar conteúdo Markdown
         partes = []
         partes.append(f'REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n')
-        partes.append('\n📌 RESUMO:\n')
+        partes.append('📌 RESUMO:\n')
 
         resumo_textos = [
             f'Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).',
-            f'Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).',
-            f'Aderência ao Cronograma: {FF_fmt}.'
+            f'Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).'
         ]
         for texto in resumo_textos:
             partes.append(f'- {texto}\n')
 
         partes.append(
             montar_secao_markdown(
-                '\n📅 PRÓXIMAS EMISSÕES DE PROJETO:',
+                '📅 PRÓXIMAS EMISSÕES DE PROJETO:',
                 filtro_horizontes, df, hoje, 'emissoes'
             )
         )
 
         partes.append(
             montar_secao_markdown(
-                '\n🔎 ARQUIVOS EM ANÁLISE:',
+                '🔎 TAREFAS A CARGO DO CLIENTE:',
                 filtro_cliente, df, hoje, 'analise'
             )
         )
@@ -261,7 +234,7 @@ def gerar_relatorio(nome_projeto):
         conteudo_md = ''.join(partes)
 
         # Salvar arquivo Markdown (sem data no nome)
-        nome_arquivo = f'Relatorio Semanal - {nome_projeto}.md'
+        nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
         with open(nome_arquivo, 'w', encoding='utf-8') as f:
             f.write(conteudo_md)
         print(f'Relatório salvo como: {nome_arquivo}\n')
@@ -272,6 +245,41 @@ def gerar_relatorio(nome_projeto):
         print(f'Erro inesperado: {e}')
         import traceback
         traceback.print_exc()
+
+
+def gerar_relatorio_web(arquivo_bytes, nome_projeto):
+    """Versão para o portal web. Recebe bytes do arquivo Excel, retorna (conteudo_md, nome_arquivo)."""
+    import io as _io
+    df = pd.read_excel(_io.BytesIO(arquivo_bytes))
+    if df.empty:
+        raise ValueError('O arquivo Excel está vazio')
+    df = validar_colunas_necessarias(df)
+    col_datas = ['Início', 'Término', 'Início_da_Linha_de_Base', 'Término_da_linha_de_base']
+    for col in col_datas:
+        if col in df.columns:
+            df[col] = formatar_data(df[col])
+            df[col + '_DT'] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
+    hoje = datetime.now()
+    nivel0_linhas = df[df['Nível_da_estrutura_de_tópicos'] == 0]
+    nivel0 = nivel0_linhas.iloc[0] if not nivel0_linhas.empty else df.iloc[0]
+    AA = nivel0.get('Término', 'N/A')
+    BB = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Término_da_linha_de_base_DT'))
+    CC = nivel0.get('Término_da_linha_de_base', 'N/A')
+    DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
+    EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
+    filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
+    filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
+    partes = [
+        f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}\n\n',
+        '📌 RESUMO:\n',
+        f'- Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).\n',
+        f'- Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).\n',
+        montar_secao_markdown('📅 PRÓXIMAS EMISSÕES DE PROJETO:', filtro_horizontes, df, hoje, 'emissoes'),
+        montar_secao_markdown('🔎 TAREFAS A CARGO DO CLIENTE:', filtro_cliente, df, hoje, 'analise'),
+    ]
+    conteudo_md = ''.join(partes)
+    nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
+    return conteudo_md, nome_arquivo
 
 
 if __name__ == '__main__':
