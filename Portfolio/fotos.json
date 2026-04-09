@@ -211,5 +211,24 @@
       "brown",
       "church"
     ]
+  },
+  {
+    "filename": "DOG7424.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-02-17",
+    "aperture": "f/3.5",
+    "shutter": "1/250s",
+    "iso": 125,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "subject:people",
+      "subject:carnaval",
+      "city:belo horizonte",
+      "color:red",
+      "category:portrait"
+    ]
   }
 ]
