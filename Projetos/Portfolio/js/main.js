@@ -42,6 +42,7 @@ function parseCategories() {
       if (sep === -1) return; // ignora tags sem formato
       const cat = tag.substring(0, sep).trim();
       const val = tag.substring(sep + 1).trim();
+      if (!val) return; // ignora placeholders como "Subject:"
       if (!cats.has(cat)) cats.set(cat, new Set());
       cats.get(cat).add(val);
     });
@@ -152,7 +153,17 @@ function renderGallery() {
     ? [...allPhotos]
     : allPhotos.filter(f => {
         const photoTags = new Set(f.tags || []);
-        return [...activeFilters].every(filter => photoTags.has(filter));
+        // Agrupa filtros por categoria
+        const byCat = new Map();
+        activeFilters.forEach(filter => {
+          const cat = filter.substring(0, filter.indexOf(':'));
+          if (!byCat.has(cat)) byCat.set(cat, []);
+          byCat.get(cat).push(filter);
+        });
+        // AND entre categorias, OR dentro de cada categoria
+        return [...byCat.values()].every(filters =>
+          filters.some(filter => photoTags.has(filter))
+        );
       });
 
   const gallery = document.getElementById('gallery');

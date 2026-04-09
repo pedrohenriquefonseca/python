@@ -10,11 +10,7 @@
     "focalLength": "24mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": [
-      "Orange",
-      "Blue",
-      "Lisbon"
-    ]
+    "tags": ["Color:Orange", "Color:Blue", "City:Lisbon", "Subject:"]
   },
   {
     "filename": "DOG9999.jpg",
@@ -27,7 +23,7 @@
     "focalLength": "43mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": ["Blue","Yellow","Lisbon"]
+    "tags": ["Color:Blue", "Color:Yellow", "City:Lisbon", "Subject:"]
   },
   {
     "filename": "DOG9608.jpg",
@@ -40,7 +36,7 @@
     "focalLength": "43mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": ["Pink","Grey","Lisbon"]
+    "tags": ["Color:Pink", "Color:Grey", "City:Lisbon", "Subject:"]
   },
   {
     "filename": "DOG9720.jpg",
@@ -53,11 +49,7 @@
     "focalLength": "24mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": [
-      "Lisbon",
-      "Street Photography",
-      "White"
-    ]
+    "tags": ["Color:White", "City:Lisbon", "Technique:Street Photography", "Subject:"]
   },
   {
     "filename": "DOG9761.jpg",
@@ -70,7 +62,7 @@
     "focalLength": "24mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": ["White","Grey","Lisbon"]
+    "tags": ["Color:White", "Color:Grey", "City:Lisbon", "Subject:"]
   },
   {
     "filename": "DOG9347.jpg",
@@ -83,7 +75,7 @@
     "focalLength": "50mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": ["Brown","Green","Lisbon","Transparency"]
+    "tags": ["Color:Brown", "Color:Green", "City:Lisbon", "Technique:Transparency", "Subject:"]
   },
   {
     "filename": "DOG9363.jpg",
@@ -96,7 +88,7 @@
     "focalLength": "50mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": ["Blue","Grey","Lisbon","Dogs"]
+    "tags": ["Color:Blue", "Color:Grey", "City:Lisbon", "Subject:Dogs"]
   },
   {
     "filename": "DOG09100.jpg",
@@ -109,11 +101,7 @@
     "focalLength": "48mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": [
-      "Lisbon",
-      "Silhouette",
-      "Yellow"
-    ]
+    "tags": ["Color:Yellow", "City:Lisbon", "Technique:Silhouette", "Subject:"]
   },
   {
     "filename": "DOG8694.jpg",
@@ -126,11 +114,7 @@
     "focalLength": "31mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": [
-      "Porto",
-      "Grey",
-      "Blue"
-    ]
+    "tags": ["Color:Grey", "Color:Blue", "City:Porto", "Subject:"]
   },
   {
     "filename": "DOG8735.jpg",
@@ -143,7 +127,7 @@
     "focalLength": "24mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": ["Grey","Blue","Porto"]
+    "tags": ["Color:Grey", "Color:Blue", "City:Porto", "Subject:"]
   },
   {
     "filename": "DOG8903.jpg",
@@ -156,7 +140,7 @@
     "focalLength": "25mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 24-50mm F2.8 G",
-    "tags": ["Black","Blue","Yellow", "Porto"]
+    "tags": ["Color:Black", "Color:Blue", "Color:Yellow", "City:Porto", "Subject:"]
   },
   {
     "filename": "DOG8253.jpg",
@@ -169,9 +153,7 @@
     "focalLength": "40mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
-    "tags": [
-      "Blur"
-    ]
+    "tags": ["City:Porto", "Technique:Blur", "Subject:"]
   },
   {
     "filename": "DOG7943.jpg",
@@ -184,11 +166,7 @@
     "focalLength": "40mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
-    "tags": [
-      "Orange",
-      "Blue",
-      "Nazareth"
-    ]
+    "tags": ["Color:Orange", "Color:Blue", "City:Nazareth", "Subject:"]
   },
   {
     "filename": "DOG7963.jpg",
@@ -201,9 +179,6 @@
     "focalLength": "40mm",
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
-    "tags": [
-      "Reflex",
-      "Brown"
-    ]
+    "tags": ["Color:Brown", "Technique:Reflex", "Subject:"]
   }
 ]
