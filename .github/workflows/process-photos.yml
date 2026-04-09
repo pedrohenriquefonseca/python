@@ -3,7 +3,7 @@ name: Processar Fotos
 on:
   push:
     paths:
-      - 'Projetos/Portfolio/fotos/**'
+      - 'Portfolio/fotos/**'
   workflow_dispatch: # permite disparar manualmente pela aba Actions do GitHub
 
 jobs:
@@ -37,5 +37,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Projetos/Portfolio/fotos.json Projetos/Portfolio/fotos/thumbs/
+          git add Portfolio/fotos.json Portfolio/fotos/thumbs/
           git diff --staged --quiet || (git commit -m "Auto: atualizar fotos.json e thumbnails [skip ci]" && git push)

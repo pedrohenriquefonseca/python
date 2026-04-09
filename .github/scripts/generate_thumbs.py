@@ -9,7 +9,7 @@ Executado automaticamente pelo GitHub Action após process_photos.py.
 from pathlib import Path
 from PIL import Image
 
-FOTOS_DIR  = Path('Projetos/Portfolio/fotos')
+FOTOS_DIR  = Path('Portfolio/fotos')
 THUMBS_DIR = FOTOS_DIR / 'thumbs'
 EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff',
               '.JPG', '.JPEG', '.PNG', '.WEBP', '.TIF', '.TIFF'}
