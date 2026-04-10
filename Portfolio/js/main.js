@@ -224,17 +224,6 @@ function renderGallery() {
     img.alt = '';
     img.loading = 'lazy';
 
-    img.addEventListener('load', () => {
-      const isLandscape = img.naturalWidth > img.naturalHeight;
-      if (isLandscape) item.classList.add('landscape');
-      requestAnimationFrame(() => {
-        const rowSize = 10;
-        const gap = 21;
-        const rowSpan = Math.ceil((item.getBoundingClientRect().height + gap) / (rowSize + gap));
-        item.style.gridRow = `span ${rowSpan}`;
-      });
-    });
-
     // Escudo transparente — captura cliques e bloqueia interação com a img
     const shield = document.createElement('div');
     shield.className = 'img-shield';
