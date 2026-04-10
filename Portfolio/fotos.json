@@ -1,7 +1,84 @@
 [
   {
-    "filename": "DOG7424.jpg",
+    "filename": "_DOG7815.jpg",
+    "name": "Nazareth",
+    "publicId": "",
+    "date": "2026-03-14",
+    "aperture": "f/2.5",
+    "shutter": "1/250s",
+    "iso": 100,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "city:nazareth",
+      "subject:architecture",
+      "color:red",
+      "color:white"
+    ]
+  },
+  {
+    "filename": "_DOG7935.jpg",
     "name": "",
+    "publicId": "",
+    "date": "2026-03-14",
+    "aperture": "f/4",
+    "shutter": "1/800s",
+    "iso": 100,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "subject:sea",
+      "color:orange",
+      "color:green",
+      "city:nazareth"
+    ]
+  },
+  {
+    "filename": "_DOG7630.jpg",
+    "name": "Rabbit",
+    "publicId": "",
+    "date": "2026-02-21",
+    "aperture": "f/3.5",
+    "shutter": "1/250s",
+    "iso": 250,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "color:black",
+      "color:yellow",
+      "subject:carnaval",
+      "city:belo horizonte",
+      "subject:people",
+      "category:portrait"
+    ]
+  },
+  {
+    "filename": "_DOG6929.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-02-17",
+    "aperture": "f/3.5",
+    "shutter": "1/250s",
+    "iso": 100,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "subject:people",
+      "category:street photography",
+      "color:pink",
+      "subject:carnaval",
+      "city:belo horizonte",
+      "technique:flash",
+      "color:white"
+    ]
+  },
+  {
+    "filename": "_DOG7424.jpg",
+    "name": "B",
     "publicId": "",
     "date": "2026-02-17",
     "aperture": "f/3.5",
@@ -16,6 +93,243 @@
       "city:belo horizonte",
       "color:red",
       "category:portrait"
+    ]
+  },
+  {
+    "filename": "_DOG5946.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-02-14",
+    "aperture": "f/9",
+    "shutter": "1/250s",
+    "iso": 125,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "color:blue",
+      "color:yellow",
+      "city:belo horizonte",
+      "category:architecture",
+      "subject:architecture"
+    ]
+  },
+  {
+    "filename": "_DOG3377.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-01-31",
+    "aperture": "f/4",
+    "shutter": "1/400s",
+    "iso": 200,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "subject:people",
+      "color:yellow",
+      "subject:carnaval",
+      "city:belo horizonte",
+      "category:portraits"
+    ]
+  },
+  {
+    "filename": "_DOG3464.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-01-31",
+    "aperture": "f/4",
+    "shutter": "1/400s",
+    "iso": 320,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "color:black",
+      "color:brown",
+      "subject:carnaval",
+      "city:belo horizonte",
+      "subject:people",
+      "category:portrait"
+    ]
+  },
+  {
+    "filename": "_DOG3509.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-01-31",
+    "aperture": "f/4",
+    "shutter": "1/400s",
+    "iso": 400,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "subject:people",
+      "color;purple",
+      "color:pink",
+      "city:belo horizonte",
+      "subject:carnaval",
+      "category:portraits"
+    ]
+  },
+  {
+    "filename": "_DOG3060.jpg",
+    "name": "Friends",
+    "publicId": "",
+    "date": "2026-01-24",
+    "aperture": "f/4",
+    "shutter": "1/640s",
+    "iso": 160,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "color:black",
+      "color:brown",
+      "subject:carnaval",
+      "city:belo horizonte",
+      "subject:people",
+      "category:portraits"
+    ]
+  },
+  {
+    "filename": "DOG01866.jpg",
+    "name": "Waiting",
+    "publicId": "",
+    "date": "2025-12-30",
+    "aperture": "f/6.3",
+    "shutter": "1/5s",
+    "iso": 1000,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "technique:blur",
+      "subject:trains",
+      "color:green",
+      "city:belo horizonte",
+      "color:yellow"
+    ]
+  },
+  {
+    "filename": "DOG00834.jpg",
+    "name": "Velho Fumante no Sinal",
+    "publicId": "",
+    "date": "2025-12-06",
+    "aperture": "f/8",
+    "shutter": "1/320s",
+    "iso": 100,
+    "focalLength": "85mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 85mm F1.8",
+    "tags": [
+      "b&w",
+      "street photography"
+    ]
+  },
+  {
+    "filename": "DOG00212.jpg",
+    "name": "Pelada",
+    "publicId": "",
+    "date": "2025-11-02",
+    "aperture": "f/2.8",
+    "shutter": "1/4000s",
+    "iso": 100,
+    "focalLength": "85mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 85mm F1.8",
+    "tags": [
+      "subject:people",
+      "color:green",
+      "color:pink",
+      "color:blue",
+      "city:santo andré",
+      "color:red"
+    ]
+  },
+  {
+    "filename": "DOG09642.jpg",
+    "name": "Homem fumando",
+    "publicId": "",
+    "date": "2025-10-19",
+    "aperture": "f/2.8",
+    "shutter": "1/800s",
+    "iso": 100,
+    "focalLength": "85mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 85mm F1.8",
+    "tags": [
+      "subject:people",
+      "category:street photography",
+      "technique:black and white",
+      "city:belo horizonte",
+      "color:black",
+      "category:portrait"
+    ]
+  },
+  {
+    "filename": "DOG09207.jpg",
+    "name": "Menino e a Água",
+    "publicId": "",
+    "date": "2025-09-13",
+    "aperture": "f/1.8",
+    "shutter": "1/4000s",
+    "iso": 80,
+    "focalLength": "85mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 85mm F1.8",
+    "tags": [
+      "color:black",
+      "category:street photography",
+      "city:belo horizonte",
+      "subject:people",
+      "technique:black and white"
+    ]
+  },
+  {
+    "filename": "DOG08813.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2025-05-18",
+    "aperture": "f/5",
+    "shutter": "1/250s",
+    "iso": 100,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 50mm F2.5 G",
+    "tags": []
+  },
+  {
+    "filename": "DOG08884.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2025-05-18",
+    "aperture": "f/2.5",
+    "shutter": "1/250s",
+    "iso": 8000,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 50mm F2.5 G",
+    "tags": []
+  },
+  {
+    "filename": "DOG06962.jpg",
+    "name": "Ambulante",
+    "publicId": "",
+    "date": "2025-01-25",
+    "aperture": "f/2.5",
+    "shutter": "1/400s",
+    "iso": 250,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 50mm F2.5 G",
+    "tags": [
+      "subject:people",
+      "category:street photography",
+      "city:belo horizonte",
+      "color:black",
+      "technique:black and white"
     ]
   }
 ]
