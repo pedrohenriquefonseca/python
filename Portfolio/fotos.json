@@ -1,5 +1,352 @@
 [
   {
+    "filename": "_DOG0036.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-21",
+    "aperture": "f/2.8",
+    "shutter": "1/400s",
+    "iso": 100,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Category:Architecture",
+      "Color:Grey",
+      "Color:Yellow",
+      "City:Lisboa"
+    ]
+  },
+  {
+    "filename": "_DOG9859.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-21",
+    "aperture": "f/4.5",
+    "shutter": "1/400s",
+    "iso": 100,
+    "focalLength": "24mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Category:Architecture",
+      "City:Lisboa",
+      "Color:Yellow",
+      "Color:White"
+    ]
+  },
+  {
+    "filename": "_DOG9886.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-21",
+    "aperture": "f/4",
+    "shutter": "1/250s",
+    "iso": 100,
+    "focalLength": "24mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Red",
+      "Technique:Reflection",
+      "Category:Street Photography",
+      "City:Lisboa"
+    ]
+  },
+  {
+    "filename": "_DOG9999.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-21",
+    "aperture": "f/4",
+    "shutter": "1/1250s",
+    "iso": 100,
+    "focalLength": "43mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Blue",
+      "City:Lisboa",
+      "Color:Yellow",
+      "Category:Architecture",
+      "Color:Salmon"
+    ]
+  },
+  {
+    "filename": "_DOG9607.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-20",
+    "aperture": "f/5.6",
+    "shutter": "1/250s",
+    "iso": 160,
+    "focalLength": "43mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Salmon",
+      "City:Lisboa",
+      "Category:Architecture",
+      "Color:Yellow"
+    ]
+  },
+  {
+    "filename": "_DOG9608.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-20",
+    "aperture": "f/5.6",
+    "shutter": "1/250s",
+    "iso": 250,
+    "focalLength": "43mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Salmon",
+      "Category:Street Photography",
+      "Technique:Long Exposition",
+      "Color:Grey",
+      "City:Lisboa"
+    ]
+  },
+  {
+    "filename": "_DOG9720.jpg",
+    "name": "MAAT",
+    "publicId": "",
+    "date": "2026-03-20",
+    "aperture": "f/16",
+    "shutter": "1/250s",
+    "iso": 2500,
+    "focalLength": "24mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "City:Lisboa",
+      "Category:Architecture",
+      "Color:White"
+    ]
+  },
+  {
+    "filename": "_DOG9347.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-19",
+    "aperture": "f/2.8",
+    "shutter": "1/2500s",
+    "iso": 12800,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "City:Lisboa",
+      "Color:Green",
+      "Category:Street Photography",
+      "Technique:Transparency",
+      "Color:Brown"
+    ]
+  },
+  {
+    "filename": "_DOG9365.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-19",
+    "aperture": "f/2.8",
+    "shutter": "1/250s",
+    "iso": 2000,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Blue",
+      "Category:Dogs",
+      "Color:Grey",
+      "City:Lisboa"
+    ]
+  },
+  {
+    "filename": "_DOG9542.jpg",
+    "name": "Blue as a Destination",
+    "publicId": "",
+    "date": "2026-03-19",
+    "aperture": "f/8",
+    "shutter": "1/13s",
+    "iso": 10000,
+    "focalLength": "34mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Blue",
+      "City:Lisboa",
+      "Color:Yellow",
+      "Color:Black",
+      "Technique:Silhouette",
+      "Category:Architecture",
+      "Category:Street Photography"
+    ]
+  },
+  {
+    "filename": "DOG08933.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-18",
+    "aperture": "f/8",
+    "shutter": "1/250s",
+    "iso": 400,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Blue",
+      "City:Lisboa",
+      "Category:Architecture",
+      "Color:Yellow"
+    ]
+  },
+  {
+    "filename": "DOG09100.jpg",
+    "name": "Solitude",
+    "publicId": "",
+    "date": "2026-03-18",
+    "aperture": "f/4",
+    "shutter": "1/100s",
+    "iso": 20000,
+    "focalLength": "48mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Black",
+      "City:Lisboa",
+      "Color:Yellow",
+      "Technique:Silhouette",
+      "Category:Street Photography"
+    ]
+  },
+  {
+    "filename": "_DOG8669.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-17",
+    "aperture": "f/5",
+    "shutter": "1/1000s",
+    "iso": 100,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "City:Porto",
+      "Category:Architecture",
+      "Color:Green"
+    ]
+  },
+  {
+    "filename": "_DOG8704.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-17",
+    "aperture": "f/8",
+    "shutter": "1/640s",
+    "iso": 100,
+    "focalLength": "50mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "City:Porto",
+      "Category:Architecture",
+      "Color:Green",
+      "Color:Blue"
+    ]
+  },
+  {
+    "filename": "_DOG8903.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-17",
+    "aperture": "f/16",
+    "shutter": "15.0ss",
+    "iso": 400,
+    "focalLength": "25mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "Color:Black",
+      "City:Porto",
+      "Category:Architecture",
+      "Technique:Long Exposition"
+    ]
+  },
+  {
+    "filename": "_DOG8324.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-16",
+    "aperture": "f/4",
+    "shutter": "1/250s",
+    "iso": 500,
+    "focalLength": "34mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "FE 24-50mm F2.8 G",
+    "tags": [
+      "City:Porto",
+      "Technique:Reflection",
+      "Color:Brown",
+      "Category:Selfie"
+    ]
+  },
+  {
+    "filename": "_DOG8024.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-15",
+    "aperture": "f/4",
+    "shutter": "1/4000s",
+    "iso": 100,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "City:Porto",
+      "Technique:Silhouette",
+      "Category:Street Photography",
+      "Color:Black"
+    ]
+  },
+  {
+    "filename": "_DOG8246.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-15",
+    "aperture": "f/4",
+    "shutter": "1/4000s",
+    "iso": 100,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "Color:Black",
+      "Category:Street Photography",
+      "City:Porto",
+      "Technique:Silhouette",
+      "Color:Blue"
+    ]
+  },
+  {
+    "filename": "_DOG8274.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-15",
+    "aperture": "f/10",
+    "shutter": "1/250s",
+    "iso": 160,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "Color:Blue",
+      "City:Porto",
+      "Category:Details"
+    ]
+  },
+  {
     "filename": "_DOG7815.jpg",
     "name": "Nazareth",
     "publicId": "",
@@ -33,6 +380,24 @@
       "color:orange",
       "color:green",
       "city:nazareth"
+    ]
+  },
+  {
+    "filename": "_DOG7963.jpg",
+    "name": "",
+    "publicId": "",
+    "date": "2026-03-14",
+    "aperture": "f/4",
+    "shutter": "1/250s",
+    "iso": 320,
+    "focalLength": "40mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 40mm F2.5 FE",
+    "tags": [
+      "City:Porto",
+      "Technique:Reflection",
+      "Color:Brown",
+      "Category:Architecture"
     ]
   },
   {
@@ -210,6 +575,24 @@
       "color:green",
       "city:belo horizonte",
       "color:yellow"
+    ]
+  },
+  {
+    "filename": "DOG00834.jpg",
+    "name": "Velho Fumante no Sinal",
+    "publicId": "",
+    "date": "2025-12-06",
+    "aperture": "f/8",
+    "shutter": "1/320s",
+    "iso": 100,
+    "focalLength": "85mm",
+    "camera": "SONY ILCE-7CM2",
+    "lens": "Viltrox 85mm F1.8",
+    "tags": [
+      "Color:Black",
+      "City:Belo Horizonte",
+      "Category:Street Photography",
+      "Technique:Black and White"
     ]
   },
   {
