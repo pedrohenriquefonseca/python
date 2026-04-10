@@ -358,10 +358,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "city:nazareth",
-      "subject:architecture",
-      "color:red",
-      "color:white"
+      "City:Nazareth",
+      "Category:Architecture",
+      "Color:Red",
+      "Color:White"
     ]
   },
   {
@@ -376,10 +376,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "subject:sea",
-      "color:orange",
-      "color:green",
-      "city:nazareth"
+      "City:Nazareth",
+      "Color:Orange",
+      "Color:Green",
+      "Category:Architecture"
     ]
   },
   {
@@ -412,12 +412,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "color:black",
-      "color:yellow",
-      "subject:carnaval",
-      "city:belo horizonte",
-      "subject:people",
-      "category:portrait"
+      "Color:Black",
+      "City:Belo Horizonte",
+      "Color:Yellow",
+      "Category:Portrait"
     ]
   },
   {
@@ -432,13 +430,11 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "subject:people",
-      "category:street photography",
-      "color:pink",
-      "subject:carnaval",
-      "city:belo horizonte",
-      "technique:flash",
-      "color:white"
+      "Category:Street Photography",
+      "Color:Pink",
+      "City:Belo Horizonte",
+      "Technique:Flash",
+      "Color:White"
     ]
   },
   {
@@ -453,11 +449,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "subject:people",
-      "subject:carnaval",
-      "city:belo horizonte",
-      "color:red",
-      "category:portrait"
+      "Subject:Carnaval",
+      "City:Belo Horizonte",
+      "Color:Red",
+      "Category:Portrait"
     ]
   },
   {
@@ -472,11 +467,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "color:blue",
-      "color:yellow",
-      "city:belo horizonte",
-      "category:architecture",
-      "subject:architecture"
+      "Color:Blue",
+      "City:Belo Horizonte",
+      "Category:Architecture",
+      "Color:Yellow"
     ]
   },
   {
@@ -491,11 +485,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "subject:people",
-      "color:yellow",
-      "subject:carnaval",
-      "city:belo horizonte",
-      "category:portraits"
+      "Subject:People",
+      "City:Belo Horizonte",
+      "Color:Yellow",
+      "Category:Portrait"
     ]
   },
   {
@@ -510,12 +503,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "color:black",
-      "color:brown",
-      "subject:carnaval",
-      "city:belo horizonte",
-      "subject:people",
-      "category:portrait"
+      "Color:Black",
+      "City:Belo Horizonte",
+      "Color:Brown",
+      "Category:Portrait"
     ]
   },
   {
@@ -530,12 +521,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "subject:people",
-      "color;purple",
-      "color:pink",
-      "city:belo horizonte",
-      "subject:carnaval",
-      "category:portraits"
+      "Category:Portrait",
+      "City:Belo Horizonte",
+      "Color;Purple",
+      "Color:Pink"
     ]
   },
   {
@@ -550,12 +539,11 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "color:black",
-      "color:brown",
-      "subject:carnaval",
-      "city:belo horizonte",
-      "subject:people",
-      "category:portraits"
+      "Color:Black",
+      "Color:Brown",
+      "Subject:Carnaval",
+      "City:Belo Horizonte",
+      "Category:Portrait"
     ]
   },
   {
@@ -570,11 +558,11 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 40mm F2.5 FE",
     "tags": [
-      "technique:blur",
-      "subject:trains",
-      "color:green",
-      "city:belo horizonte",
-      "color:yellow"
+      "Color:Yellow",
+      "Technique:Long Exposition",
+      "City:Belo Horizonte",
+      "Category:Street Photography",
+      "Color:Green"
     ]
   },
   {
@@ -607,12 +595,11 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 85mm F1.8",
     "tags": [
-      "subject:people",
-      "color:green",
-      "color:pink",
-      "color:blue",
-      "city:santo andré",
-      "color:red"
+      "Color:Blue",
+      "Color:Green",
+      "Color:Pink",
+      "Color:Red",
+      "City:Santo André"
     ]
   },
   {
@@ -627,12 +614,11 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 85mm F1.8",
     "tags": [
-      "subject:people",
-      "category:street photography",
-      "technique:black and white",
-      "city:belo horizonte",
-      "color:black",
-      "category:portrait"
+      "Color:Black",
+      "Category:Street Photography",
+      "City:Belo Horizonte",
+      "Technique:Black and White",
+      "Category:Portrait"
     ]
   },
   {
@@ -647,11 +633,10 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "Viltrox 85mm F1.8",
     "tags": [
-      "color:black",
-      "category:street photography",
-      "city:belo horizonte",
-      "subject:people",
-      "technique:black and white"
+      "Color:Black",
+      "City:Belo Horizonte",
+      "Category:Street Photography",
+      "Technique:Black and White"
     ]
   },
   {
@@ -666,7 +651,6 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 50mm F2.5 G",
     "tags": [
-      "Subject:People",
       "Color:Black",
       "City:Belo Horizonte",
       "Category:Architecture",
@@ -685,10 +669,9 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 50mm F2.5 G",
     "tags": [
-      "Subject:People",
-      "Category:Portrait",
-      "City:Belo Horizonte",
       "Color:Black",
+      "City:Belo Horizonte",
+      "Category:Portrait",
       "Technique:Black and White"
     ]
   },
@@ -704,11 +687,11 @@
     "camera": "SONY ILCE-7CM2",
     "lens": "FE 50mm F2.5 G",
     "tags": [
-      "subject:people",
-      "category:street photography",
-      "city:belo horizonte",
-      "color:black",
-      "technique:black and white"
+      "Color:Black",
+      "Category:Street Photography",
+      "City:Belo Horizonte",
+      "Category:Portrait",
+      "Technique:Black and White"
     ]
   }
 ]

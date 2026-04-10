@@ -113,7 +113,7 @@ def build_entry_from_exif(item):
     xp_keywords = []
     if item.get('XPKeywords'):
         xp_keywords = [k.strip() for k in str(item['XPKeywords']).split(';') if k.strip()]
-    keywords = as_list(item.get('Keywords')) or as_list(item.get('Subject')) or xp_keywords
+    keywords = as_list(item.get('Subject')) or as_list(item.get('Keywords')) or xp_keywords
     tags = [k.strip() for k in keywords if k.strip()]
     name = (item.get('Title') or item.get('XPTitle') or item.get('ObjectName') or '').strip()
     return {
@@ -133,7 +133,7 @@ def build_entry_from_exif(item):
 
 # ─── Campos editáveis manualmente (preservados ao reprocessar) ────────────────
 
-MANUAL_FIELDS = {'name', 'tags', 'publicId'}
+MANUAL_FIELDS = {'name', 'publicId'}
 
 
 def load_existing_json():
