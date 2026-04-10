@@ -183,18 +183,22 @@ main {
 }
 
 .gallery {
-  columns: 4;
-  column-gap: 21px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 10px;
+  gap: 21px;
 }
 
 .gallery-item {
-  break-inside: avoid;
-  margin-bottom: 21px;
   cursor: pointer;
   overflow: hidden;
   display: block;
   border-radius: 8px;
   position: relative;
+}
+
+.gallery-item.landscape {
+  grid-column: span 2;
 }
 
 .gallery-item img {
@@ -232,7 +236,7 @@ main {
   padding: 100px 20px;
   font-size: 0.85rem;
   line-height: 1.8;
-  column-span: all;
+  grid-column: 1 / -1;
 }
 
 .empty code {
@@ -373,11 +377,11 @@ main {
 /* ─── Responsivo ──────────────────────────────────────── */
 
 @media (max-width: 1024px) {
-  .gallery { columns: 3; }
+  .gallery { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 680px) {
-  .gallery { columns: 2; }
+  .gallery { grid-template-columns: repeat(2, 1fr); }
   main { padding: 16px 26px; }
   header h1 { font-size: 1.4rem; }
   .viewer-content { max-width: calc(100vw - 80px); }
@@ -387,6 +391,7 @@ main {
 }
 
 @media (max-width: 420px) {
-  .gallery { columns: 1; }
+  .gallery { grid-template-columns: repeat(1, 1fr); }
+  .gallery-item.landscape { grid-column: span 1; }
   main { padding: 12px 18px; }
 }
