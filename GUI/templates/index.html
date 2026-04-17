@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Horizontes — Ferramentas</title>
+  <link rel="stylesheet" href="/static/style.css?v=4">
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════
+       CABEÇALHO  (idêntico ao site da empresa)
+       ════════════════════════════════════════ -->
+  <header class="site-header">
+    <div class="header-inner">
+
+      <div class="logo-wrap">
+        <img
+          src="https://images.squarespace-cdn.com/content/v1/561903c1e4b076f7054b9c34/9abc9648-9a3c-4431-9936-bc94887b5319/horizontes_marca_RGB-01.png"
+          alt="Horizontes Arquitetura + Urbanismo"
+          class="logo-img"
+          onerror="this.style.display='none'; document.querySelector('.logo-fallback').style.display='flex';">
+        <!-- Fallback caso o CDN esteja inacessível -->
+        <div class="logo-fallback" style="display:none">
+          <span class="logo-h">H</span><span class="logo-rest">ORIZONTES</span>
+          <span class="logo-sub">arquitetura + urbanismo</span>
+        </div>
+      </div>
+
+      <nav class="site-nav">
+        <a class="nav-link active" data-tool="report"      href="#">REPORT SEMANAL</a>
+        <a class="nav-link"        data-tool="desembolso"  href="#">CURVA DE DESEMBOLSO</a>
+        <a class="nav-link"        data-tool="cronograma"  href="#">CRONOGRAMAS DE ALOCAÇÃO</a>
+      </nav>
+
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════════════
+       HERO  (papel de parede + card do app)
+       ════════════════════════════════════════ -->
+  <main class="hero">
+
+    <!-- ── REPORT SEMANAL ─────────────────── -->
+    <div class="tool-panel active" id="panel-report">
+      <h2 class="panel-title">Report Semanal</h2>
+      <form id="form-report" class="tool-form" autocomplete="off">
+
+        <div class="form-group">
+          <label>Arquivos Excel</label>
+          <div class="file-zone" id="zone-report">
+            <input type="file" id="file-report" accept=".xlsx,.xls" multiple>
+            <svg class="file-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="file-zone-text" id="file-text-report">Selecionar um ou mais arquivos…</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-report">
+          <span class="btn-text">Gerar Relatório</span>
+          <span class="btn-loading hidden">Processando…</span>
+        </button>
+      </form>
+      <p class="status-msg" id="status-report"></p>
+    </div>
+
+    <!-- ── CURVA DE DESEMBOLSO ────────────── -->
+    <div class="tool-panel" id="panel-desembolso">
+      <h2 class="panel-title">Curva de Desembolso</h2>
+      <form id="form-desembolso" class="tool-form" autocomplete="off">
+
+        <div class="form-group">
+          <label>Arquivo Excel</label>
+          <div class="file-zone" id="zone-desembolso">
+            <input type="file" id="file-desembolso" accept=".xlsx,.xls">
+            <svg class="file-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="file-zone-text" id="file-text-desembolso">Selecionar arquivo…</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="corte-desembolso">Dia de Corte</label>
+          <input type="number" id="corte-desembolso" min="1" max="31" value="25">
+        </div>
+
+        <p class="form-obs">Obs.: O nome do projeto no gráfico será lido a partir do nome do arquivo Excel enviado.</p>
+
+        <button type="submit" class="btn-submit" id="btn-desembolso">
+          <span class="btn-text">Gerar Gráfico</span>
+          <span class="btn-loading hidden">Processando…</span>
+        </button>
+      </form>
+      <p class="status-msg" id="status-desembolso"></p>
+    </div>
+
+    <!-- ── CRONOGRAMA DE EQUIPE ───────────── -->
+    <div class="tool-panel" id="panel-cronograma">
+      <h2 class="panel-title">Cronogramas de Alocação</h2>
+      <form id="form-cronograma" class="tool-form" autocomplete="off">
+
+        <div class="form-group">
+          <label>Arquivo Excel</label>
+          <div class="file-zone" id="zone-cronograma">
+            <input type="file" id="file-cronograma" accept=".xlsx,.xls">
+            <svg class="file-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="file-zone-text" id="file-text-cronograma">Selecionar arquivo…</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Assunto</label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn active" data-type="projetos">Projetos por Cliente</button>
+            <button type="button" class="toggle-btn"        data-type="equipe">Fornecedores</button>
+            <button type="button" class="toggle-btn"        data-type="clientes">Equipe Interna</button>
+          </div>
+          <input type="hidden" id="tipo-cronograma" value="projetos">
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-cronograma">
+          <span class="btn-text">Gerar Cronograma</span>
+          <span class="btn-loading hidden">Processando…</span>
+        </button>
+      </form>
+      <p class="status-msg" id="status-cronograma"></p>
+    </div>
+
+  </main>
+
+  <!-- ════════════════════════════════════════
+       MODAL  (exibe gráficos do Cronograma)
+       ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close" aria-label="Fechar">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+<script src="/static/main.js?v=4"></script>
+</body>
+</html>
