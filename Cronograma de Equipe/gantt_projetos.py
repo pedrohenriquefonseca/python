@@ -19,12 +19,14 @@ meses_pt_en = {
     'Setembro': 'September', 'Outubro': 'October', 'Novembro': 'November', 'Dezembro': 'December'
 }
 
-# Paleta de cores para clientes (expandida)
+# Paleta de cores expandida (24 cores — compartilhada com gantt_clientes)
 cores_clientes_base = [
-    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#daa520',
-    '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78',
-    '#98df8a', '#ff9896', '#c5b0d5', '#c49c94', '#8c564b', '#f7b6d2',
-    '#c7c7c7', '#dbdb8d', '#9edae5', '#ff6347', '#4682b4', '#32cd32'
+    '#F26868', '#96ECAF', '#D5B7EA', '#F2E168',
+    '#96DEEC', '#EAB7D3', '#8AF268', '#9A96EC',
+    '#EAC8B7', '#EBBC3C', '#E596EC', '#DFEAB7',
+    '#68ADF2', '#EC96A8', '#F159AA', '#9C68F2',
+    '#ECD096', '#B7EAE8', '#F268CF', '#DE3962',
+    '#D39E68', '#F5A865', '#40D6E7', '#AAB5C4',
 ]
 
 # Cores específicas para clientes
@@ -184,14 +186,17 @@ def carregar_mapa_cores(arq_json, paleta_base, clientes):
             mapa = json.load(f)
     else:
         mapa = {}
-    
+
+    # Remove clientes ausentes no Excel atual e mantém apenas os presentes
+    mapa = {c: cor for c, cor in mapa.items() if c in clientes}
+
     # Aplicar cores específicas primeiro
     for cliente in clientes:
         if cliente in CORES_ESPECIFICAS:
             mapa[cliente] = CORES_ESPECIFICAS[cliente]
-    
+
     cores_disponiveis = [c for c in paleta_base if c not in mapa.values()]
-    
+
     for cliente in clientes:
         if cliente not in mapa:
             if cores_disponiveis:
@@ -199,7 +204,7 @@ def carregar_mapa_cores(arq_json, paleta_base, clientes):
             else:
                 # Se esgotar a paleta, reutilizar de forma circular
                 mapa[cliente] = paleta_base[len(mapa) % len(paleta_base)]
-    
+
     with open(arq_json, 'w', encoding='utf-8') as f:
         json.dump(mapa, f, indent=4, ensure_ascii=False)
     

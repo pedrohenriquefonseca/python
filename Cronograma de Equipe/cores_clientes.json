@@ -1,14 +1,13 @@
 {
-    "ARENA GRAMADO": "#1f77b4",
-    "CBMM": "#ff7f0e",
-    "DIRECIONAL ENGENHARIA": "#2ca02c",
-    "ERNST YOUNG": "#d62728",
-    "INHOTIM": "#9467bd",
-    "INTEGRA": "#daa520",
-    "MINISTÉRIO PÚBLICO DO PARÁ": "#e377c2",
-    "SUDECAP": "#7f7f7f",
-    "UNOPS CENTRALIDADES": "#bcbd22",
-    "UNOPS URBANISMO": "#17becf",
-    "VALE": "#aec7e8",
-    "SEST": "#ffbb78"
+    "ARENA GRAMADO": "#F26868",
+    "CBMM": "#96ECAF",
+    "DIRECIONAL ENGENHARIA": "#D5B7EA",
+    "ERNST YOUNG": "#F2E168",
+    "INHOTIM": "#96DEEC",
+    "INTEGRA": "#EAB7D3",
+    "MINISTÉRIO PÚBLICO DO PARÁ": "#8AF268",
+    "SUDECAP": "#9A96EC",
+    "UNOPS URBANISMO": "#EAC8B7",
+    "VALE": "#EBBC3C",
+    "SEST": "#E596EC"
 }

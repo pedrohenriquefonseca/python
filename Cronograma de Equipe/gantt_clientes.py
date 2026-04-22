@@ -19,18 +19,18 @@ meses_pt_en = {
     'Setembro': 'September', 'Outubro': 'October', 'Novembro': 'November', 'Dezembro': 'December'
 }
 
-# Paletas de cores expandidas (16 cores cada)
-cores_horizontes_base = [
-    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#daa520',
-    '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78',
-    '#98df8a', '#ff9896', '#c5b0d5', '#c49c94'
+# Paletas de cores expandidas (24 cores)
+PALETA = [
+    '#F26868', '#96ECAF', '#D5B7EA', '#F2E168',
+    '#96DEEC', '#EAB7D3', '#8AF268', '#9A96EC',
+    '#EAC8B7', '#EBBC3C', '#E596EC', '#DFEAB7',
+    '#68ADF2', '#EC96A8', '#F159AA', '#9C68F2',
+    '#ECD096', '#B7EAE8', '#F268CF', '#DE3962',
+    '#D39E68', '#F5A865', '#40D6E7', '#AAB5C4',
 ]
 
-cores_fornecedores_base = [
-    '#17becf', '#bcbd22', '#e377c2', '#7f7f7f', '#aec7e8', '#f7b6d2',
-    '#8c564b', '#9467bd', '#ff7f0e', '#1f77b4', '#ffbb78', '#98df8a',
-    '#ff9896', '#c5b0d5', '#c49c94', '#2ca02c'
-]
+cores_horizontes_base   = PALETA
+cores_fornecedores_base = PALETA
 
 # Arquivos de mapeamento de cores persistente
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -130,10 +130,13 @@ def empilhar_tarefas(df_grupo):
 
 def carregar_mapa_cores(arq_json, paleta_base, recursos):
     if os.path.exists(arq_json):
-        with open(arq_json, 'r') as f:
+        with open(arq_json, 'r', encoding='utf-8') as f:
             mapa = json.load(f)
     else:
         mapa = {}
+
+    # Remove recursos ausentes no Excel atual e mantém apenas os presentes
+    mapa = {r: c for r, c in mapa.items() if r in recursos}
 
     cores_disponiveis = [c for c in paleta_base if c not in mapa.values()]
 
@@ -145,8 +148,8 @@ def carregar_mapa_cores(arq_json, paleta_base, recursos):
                 # Se esgotar a paleta, continua reaproveitando de forma circular
                 mapa[recurso] = paleta_base[len(mapa) % len(paleta_base)]
 
-    with open(arq_json, 'w') as f:
-        json.dump(mapa, f, indent=4)
+    with open(arq_json, 'w', encoding='utf-8') as f:
+        json.dump(mapa, f, indent=4, ensure_ascii=False)
 
     return mapa
 
@@ -215,8 +218,8 @@ def gerar_para_web(arquivo_bytes):
         df = carregar_dados(tmp)
         results = {}
         for grupo, arq_json, paleta, titulo, key in [
-            ('Horizontes',   ARQ_CORES_HORIZONTES,   cores_horizontes_base,   'Relatório de Alocação de Equipe',        'horizontes'),
-            ('Fornecedores', ARQ_CORES_FORNECEDORES,  cores_fornecedores_base, 'Relatório de Alocação de Fornecedores',  'fornecedores'),
+            ('Horizontes',   ARQ_CORES_HORIZONTES,   cores_horizontes_base,   'Cronograma de Projetos Por Equipe Interna',          'horizontes'),
+            ('Fornecedores', ARQ_CORES_FORNECEDORES,  cores_fornecedores_base, 'Cronograma de Projetos por Fornecedores', 'fornecedores'),
         ]:
             df_grupo = preparar_grupo(df, grupo)
             df_aloc, recursos = empilhar_tarefas(df_grupo)
@@ -252,13 +255,13 @@ if __name__ == "__main__":
     df_aloc_h, recursos_h = empilhar_tarefas(df_h)
     if not df_aloc_h.empty:
         cores_dict_h = carregar_mapa_cores(ARQ_CORES_HORIZONTES, cores_horizontes_base, recursos_h)
-        plotar(df_aloc_h, recursos_h, cores_dict_h, 'Relatório de Alocação de Equipe', 'horizontes.png')
+        plotar(df_aloc_h, recursos_h, cores_dict_h, 'Cronograma de Projetos Por Equipe Interna', 'horizontes.png')
 
     # --- Fornecedores ---
     df_f = preparar_grupo(df, 'Fornecedores')
     df_aloc_f, recursos_f = empilhar_tarefas(df_f)
     if not df_aloc_f.empty:
         cores_dict_f = carregar_mapa_cores(ARQ_CORES_FORNECEDORES, cores_fornecedores_base, recursos_f)
-        plotar(df_aloc_f, recursos_f, cores_dict_f, 'Relatório de Alocação de Fornecedores', 'fornecedores.png')
+        plotar(df_aloc_f, recursos_f, cores_dict_f, 'Cronograma de Projetos por Fornecedores', 'fornecedores.png')
 
     print('Gráficos gerados com sucesso!')
