@@ -43,7 +43,7 @@ def _encerrar():
 
 def _agendar_encerramento():
     global _timer_encerramento
-    _timer_encerramento = threading.Timer(6.0, _encerrar)
+    _timer_encerramento = threading.Timer(0.5, _encerrar)
     _timer_encerramento.daemon = True
     _timer_encerramento.start()
 
@@ -74,7 +74,7 @@ def keepalive():
         try:
             yield 'data: ok\n\n'
             while True:
-                time.sleep(10)
+                time.sleep(1)
                 yield ': keepalive\n\n'   # comentário SSE — sem evento no browser
         finally:
             with _lock:
