@@ -4,7 +4,7 @@ Servidor Flask local que importa os scripts existentes da pasta Projetos.
 Execute:  python app.py
 Acesse:   http://localhost:5000
 """
-import os, sys, io, subprocess, threading, tempfile, webbrowser
+import os, sys, io, subprocess, threading, tempfile, webbrowser, time
 
 # Caminhos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,12 +23,35 @@ from Report import gerar_relatorio_web
 from gantt_projetos import gerar_para_web as gerar_projetos_web
 from gantt_clientes import gerar_para_web as gerar_equipe_web
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response, stream_with_context
 
 app = Flask(__name__,
             template_folder=os.path.join(BASE_DIR, 'templates'),
             static_folder=os.path.join(BASE_DIR, 'static'))
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
+
+# ══════════════════════════════════════════════════════════════
+#  ENCERRAMENTO AUTOMÁTICO  (detecta fechamento do browser via SSE)
+# ══════════════════════════════════════════════════════════════
+_lock              = threading.Lock()
+_conexoes_ativas   = 0
+_timer_encerramento = None
+
+def _encerrar():
+    print('\nPortal encerrado — browser fechado.')
+    os._exit(0)
+
+def _agendar_encerramento():
+    global _timer_encerramento
+    _timer_encerramento = threading.Timer(6.0, _encerrar)
+    _timer_encerramento.daemon = True
+    _timer_encerramento.start()
+
+def _cancelar_encerramento():
+    global _timer_encerramento
+    if _timer_encerramento:
+        _timer_encerramento.cancel()
+        _timer_encerramento = None
 
 # ══════════════════════════════════════════════════════════════
 #  ROTAS
@@ -37,6 +60,33 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/api/keepalive')
+def keepalive():
+    global _conexoes_ativas
+
+    def stream():
+        global _conexoes_ativas
+        with _lock:
+            _conexoes_ativas += 1
+            _cancelar_encerramento()
+        try:
+            yield 'data: ok\n\n'
+            while True:
+                time.sleep(10)
+                yield ': keepalive\n\n'   # comentário SSE — sem evento no browser
+        finally:
+            with _lock:
+                _conexoes_ativas -= 1
+                if _conexoes_ativas == 0:
+                    _agendar_encerramento()
+
+    return Response(
+        stream_with_context(stream()),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
 
 
 @app.route('/api/report', methods=['POST'])

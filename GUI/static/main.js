@@ -1,4 +1,9 @@
 /* ═══════════════════════════════════════════════
+   KEEPALIVE  (SSE — server detecta fechamento do browser)
+   ═══════════════════════════════════════════════ */
+new EventSource('/api/keepalive');
+
+/* ═══════════════════════════════════════════════
    ERRO GLOBAL  (torna qualquer falha visível)
    ═══════════════════════════════════════════════ */
 window.addEventListener('error', e => {
