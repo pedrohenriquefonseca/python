@@ -41,6 +41,41 @@ def mes_customizado(data, dia_corte):
         # Fica no mês atual
         return pd.Timestamp(data.year, data.month, 1)
 
+# --- RESOLUÇÃO DE SOBREPOSIÇÃO DE RÓTULOS ---
+
+def resolver_sobreposicao(fig, textos, max_iter=60):
+    """Detecta sobreposição entre rótulos e ajusta suas posições verticalmente."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for _ in range(max_iter):
+        modificado = False
+        for i in range(len(textos)):
+            for j in range(i + 1, len(textos)):
+                t1, t2 = textos[i], textos[j]
+                bb1 = t1.get_window_extent(renderer=renderer)
+                bb2 = t2.get_window_extent(renderer=renderer)
+                if bb1.overlaps(bb2):
+                    overlap_px = min(bb1.y1, bb2.y1) - max(bb1.y0, bb2.y0)
+                    if overlap_px > 0:
+                        ax_t1 = t1.axes
+                        ax_t2 = t2.axes
+                        dy1 = abs(ax_t1.transData.inverted().transform((0, overlap_px / 2 + 2))[1] -
+                                  ax_t1.transData.inverted().transform((0, 0))[1])
+                        dy2 = abs(ax_t2.transData.inverted().transform((0, overlap_px / 2 + 2))[1] -
+                                  ax_t2.transData.inverted().transform((0, 0))[1])
+                        x1, y1 = t1.get_position()
+                        x2, y2 = t2.get_position()
+                        if y1 >= y2:
+                            t1.set_position((x1, y1 + dy1))
+                            t2.set_position((x2, y2 - dy2))
+                        else:
+                            t1.set_position((x1, y1 - dy1))
+                            t2.set_position((x2, y2 + dy2))
+                        fig.canvas.draw()
+                        modificado = True
+        if not modificado:
+            break
+
 # --- PROCESSAMENTO E GRÁFICO ---
 
 def plotar_desembolso(arquivo_path, nome_projeto, dia_corte):
@@ -54,6 +89,8 @@ def plotar_desembolso(arquivo_path, nome_projeto, dia_corte):
     if faltando:
         raise ValueError(f"Planilha incompatível. Colunas ausentes: {', '.join(faltando)}")
 
+    tem_receita = 'Receita' in df.columns and pd.to_numeric(df['Receita'], errors='coerce').fillna(0).sum() > 0
+
     df = df[
         (df['Ativo'] == 'Sim') &
         (df['Nível_da_estrutura_de_tópicos'] == 4)
@@ -62,35 +99,85 @@ def plotar_desembolso(arquivo_path, nome_projeto, dia_corte):
     df['Término'] = df['Término'].astype(str).apply(traduzir_data)
     df['Término'] = pd.to_datetime(df['Término'], format='%d/%m/%y', errors='coerce')
     df['Custo'] = pd.to_numeric(df['Custo'], errors='coerce')
+    if tem_receita:
+        df['Receita'] = pd.to_numeric(df['Receita'], errors='coerce')
 
     # Agrupamento com lógica customizada
     df['Mês_Custom'] = df['Término'].apply(lambda x: mes_customizado(x, dia_corte))
-    df_mensal = df.groupby('Mês_Custom')['Custo'].sum().reset_index()
-    df_mensal = df_mensal[df_mensal['Custo'] > 0]
-    df_mensal['Acumulado'] = df_mensal['Custo'].cumsum()
+    colunas_group = ['Custo', 'Receita'] if tem_receita else ['Custo']
+    df_mensal = df.groupby('Mês_Custom')[colunas_group].sum().reset_index()
+    df_mensal = df_mensal[df_mensal['Custo'] > 0].reset_index(drop=True)
+    df_mensal['Custo'] = df_mensal['Custo'].fillna(0)
+    df_mensal['Custo_Acumulado'] = df_mensal['Custo'].cumsum()
+    if tem_receita:
+        df_mensal['Receita']          = df_mensal['Receita'].fillna(0)
+        df_mensal['Receita_Acumulada'] = df_mensal['Receita'].cumsum()
 
     # --- GRÁFICO ---
 
+    x = range(len(df_mensal))
+
     fig, ax1 = plt.subplots(figsize=(12, 6))
 
+    largura_barra = 0.4
+    COR_TEXTO        = '#000000'
+    COR_LINHA        = '#666666'
+    COR_AMARELO      = '#fca903'
+    COR_LARANJA      = '#E87722'
+    COR_BARRA_RECEITA = '#cccccc'
+    COR_BARRA_CUSTO   = '#999999'
+
     # Barras mensais
-    bars = ax1.bar(range(len(df_mensal)), df_mensal['Custo'], width=0.6, color='lightgray')
+    if tem_receita:
+        bars_receita = ax1.bar([i - largura_barra/2 for i in x], df_mensal['Receita'], width=largura_barra, color=COR_BARRA_RECEITA, label='Receita Mensal', zorder=2)
+        bars_custo   = ax1.bar([i + largura_barra/2 for i in x], df_mensal['Custo'],   width=largura_barra, color=COR_BARRA_CUSTO,   label='Custo Mensal',   zorder=2)
+    else:
+        bars_custo = ax1.bar(list(x), df_mensal['Custo'], width=largura_barra, color=COR_BARRA_RECEITA, label='Receita Mensal', zorder=2)
 
-    # Rótulos dos valores mensais na parte inferior das barras
-    for i, (bar, valor) in enumerate(zip(bars, df_mensal['Custo'])):
-        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_y() + 50,
-                 f'R$ {int(valor):,}'.replace(',', '.'),
-                 ha='center', va='bottom', fontsize=7)
+    # Rótulos verticais dentro das barras — alinhados pelo pé do gráfico
+    col_max = df_mensal['Receita'].max() if tem_receita else 0
+    col_max = max(col_max, df_mensal['Custo'].max())
+    offset_bar = col_max * 0.01
 
-    # Linha acumulada com cor #fca903
+    if tem_receita:
+        for bar, valor in zip(bars_receita, df_mensal['Receita']):
+            if valor > 0:
+                ax1.text(bar.get_x() + bar.get_width()/2, offset_bar,
+                         f'R$ {int(valor):,}'.replace(',', '.'),
+                         ha='center', va='bottom', fontsize=6, rotation=90, color=COR_TEXTO)
+    for bar, valor in zip(bars_custo, df_mensal['Custo']):
+        if valor > 0:
+            ax1.text(bar.get_x() + bar.get_width()/2, offset_bar,
+                     f'R$ {int(valor):,}'.replace(',', '.'),
+                     ha='center', va='bottom', fontsize=6, rotation=90, color=COR_TEXTO)
+
+    # Curvas acumuladas
     ax2 = ax1.twinx()
-    ax2.plot(range(len(df_mensal)), df_mensal['Acumulado'], marker='o', color='#fca903')
+    if tem_receita:
+        ax2.plot(list(x), df_mensal['Receita_Acumulada'], marker='o', color=COR_AMARELO, markerfacecolor=COR_AMARELO, markeredgecolor=COR_AMARELO, label='Receita Acumulada', zorder=3)
+        ax2.plot(list(x), df_mensal['Custo_Acumulado'],   marker='o', color=COR_LARANJA, markerfacecolor=COR_LARANJA, markeredgecolor=COR_LARANJA, label='Custos Acumulados', zorder=3)
+    else:
+        ax2.plot(list(x), df_mensal['Custo_Acumulado'], marker='o', color=COR_AMARELO, markerfacecolor=COR_AMARELO, markeredgecolor=COR_AMARELO, label='Receita Acumulada', zorder=3)
 
-    # Rótulos acumulados
-    max_valor = df_mensal['Acumulado'].max()
+    # Rótulos dos nós das curvas
+    max_valor = df_mensal['Receita_Acumulada'].max() if tem_receita else df_mensal['Custo_Acumulado'].max()
     offset = max_valor * 0.02
-    for i, y in enumerate(df_mensal['Acumulado']):
-        ax2.text(i, y + offset, f'R$ {int(y):,}'.replace(',', '.'), fontsize=8, rotation=90, va='bottom', ha='center')
+    textos_nos = []
+    if tem_receita:
+        for i, y in enumerate(df_mensal['Receita_Acumulada']):
+            t = ax2.text(i, y + offset, f'R$ {int(y):,}'.replace(',', '.'), fontsize=6, rotation=0, va='bottom', ha='center', color=COR_TEXTO)
+            textos_nos.append(t)
+    for i, y in enumerate(df_mensal['Custo_Acumulado']):
+        t = ax2.text(i, y + offset, f'R$ {int(y):,}'.replace(',', '.'), fontsize=6, rotation=0, va='bottom', ha='center', color=COR_TEXTO)
+        textos_nos.append(t)
+
+    # Resolve sobreposições dos rótulos
+    resolver_sobreposicao(fig, textos_nos)
+
+    # Legenda
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(handles1 + handles2, labels1 + labels2, loc='upper left', fontsize=8)
 
     # Rótulos dos eixos
     ax1.set_ylabel('Desembolso Mensal', fontsize=9, fontweight='bold')
