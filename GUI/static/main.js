@@ -277,6 +277,63 @@ document.getElementById('form-desembolso').addEventListener('submit', async e =>
 });
 
 /* ═══════════════════════════════════════════════
+   MODAL  (novos colaboradores)
+   ═══════════════════════════════════════════════ */
+function perguntarGrupos(desconhecidos) {
+  return new Promise(resolve => {
+    const body = document.getElementById('modal-grupos-body');
+    body.innerHTML = '';
+
+    desconhecidos.forEach(nome => {
+      const row = document.createElement('div');
+      row.className = 'grupos-row';
+
+      const label = document.createElement('span');
+      label.className = 'grupos-nome';
+      label.textContent = nome;
+
+      const tg = document.createElement('div');
+      tg.className = 'grupos-toggle toggle-group';
+
+      ['Horizontes', 'Fornecedores'].forEach((grupo, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'toggle-btn' + (i === 0 ? ' active' : '');
+        btn.dataset.grupo = grupo;
+        btn.dataset.recurso = nome;
+        btn.textContent = grupo;
+        btn.addEventListener('click', () => {
+          tg.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+        tg.appendChild(btn);
+      });
+
+      row.appendChild(label);
+      row.appendChild(tg);
+      body.appendChild(row);
+    });
+
+    document.getElementById('modal-grupos').classList.add('visible');
+
+    document.getElementById('modal-grupos-confirmar').onclick = () => {
+      const resultado = {};
+      desconhecidos.forEach(nome => {
+        const ativo = body.querySelector(`[data-recurso="${CSS.escape(nome)}"].active`);
+        if (ativo) resultado[nome] = ativo.dataset.grupo;
+      });
+      document.getElementById('modal-grupos').classList.remove('visible');
+      resolve(resultado);
+    };
+
+    document.getElementById('modal-grupos-cancelar').onclick = () => {
+      document.getElementById('modal-grupos').classList.remove('visible');
+      resolve(null);
+    };
+  });
+}
+
+/* ═══════════════════════════════════════════════
    CRONOGRAMA DE EQUIPE
    ═══════════════════════════════════════════════ */
 document.getElementById('form-cronograma').addEventListener('submit', async e => {
@@ -297,6 +354,32 @@ document.getElementById('form-cronograma').addEventListener('submit', async e =>
   const endpoints = { projetos: '/api/cronograma/projetos', equipe: '/api/cronograma/equipe', clientes: '/api/cronograma/clientes' };
   const labels    = { projetos: 'Projetos por Cliente', equipe: 'Fornecedores', clientes: 'Equipe Interna' };
 
+  // Verificar novos recursos apenas quando equipe ou clientes estiver selecionado
+  let gruposNovos = {};
+  const precisaVerificar = tipos.some(t => t === 'equipe' || t === 'clientes');
+
+  if (precisaVerificar) {
+    setLoading('cronograma', true);
+    try {
+      const fd = new FormData();
+      fd.append('arquivo', arquivo);
+      const res = await fetch('/api/cronograma/verificar', { method: 'POST', body: fd });
+      const j   = await res.json();
+      if (!res.ok || j.error) throw new Error(j.error);
+      if (j.desconhecidos && j.desconhecidos.length > 0) {
+        setLoading('cronograma', false);
+        const resultado = await perguntarGrupos(j.desconhecidos);
+        if (resultado === null) return; // usuário cancelou
+        gruposNovos = resultado;
+        setLoading('cronograma', true);
+      }
+    } catch (err) {
+      setLoading('cronograma', false);
+      showStatus('cronograma', `Erro: ${err.message}`, true);
+      return;
+    }
+  }
+
   setLoading('cronograma', true);
   const todasImgs = [], todosNomes = [], erros = [];
 
@@ -306,24 +389,20 @@ document.getElementById('form-cronograma').addEventListener('submit', async e =>
     try {
       const fd = new FormData();
       fd.append('arquivo', arquivo);
+      if ((tipo === 'equipe' || tipo === 'clientes') && Object.keys(gruposNovos).length)
+        fd.append('grupos_novos', JSON.stringify(gruposNovos));
       const res = await fetch(endpoints[tipo], { method: 'POST', body: fd });
       const j   = await res.json();
       if (!res.ok || j.error) throw new Error(j.error);
 
       const prefixo = `${hoje} - Horizontes - ${labels[tipo]}`;
       if (tipo === 'projetos') {
-        // Projetos por Cliente: um único gráfico
         todasImgs.push(j.image);
         todosNomes.push(`${prefixo}.png`);
       } else if (tipo === 'clientes') {
-        // Projetos: apenas o gráfico Horizontes
         if (j.horizontes) { todasImgs.push(j.horizontes); todosNomes.push(`${prefixo}.png`); }
       } else if (tipo === 'equipe') {
-        // Fornecedores: apenas o gráfico de fornecedores
         if (j.fornecedores) { todasImgs.push(j.fornecedores); todosNomes.push(`${prefixo}.png`); }
-      } else {
-        // Equipe Interna: apenas o gráfico horizontes
-        if (j.horizontes) { todasImgs.push(j.horizontes); todosNomes.push(`${prefixo}.png`); }
       }
     } catch (err) {
       erros.push(`${labels[tipo]}: ${err.message}`);

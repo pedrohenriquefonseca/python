@@ -32,10 +32,11 @@ PALETA = [
 cores_horizontes_base   = PALETA
 cores_fornecedores_base = PALETA
 
-# Arquivos de mapeamento de cores persistente
+# Arquivos de mapeamento persistente
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ARQ_CORES_HORIZONTES = os.path.join(_SCRIPT_DIR, 'cores_horizontes.json')
+ARQ_CORES_HORIZONTES   = os.path.join(_SCRIPT_DIR, 'cores_horizontes.json')
 ARQ_CORES_FORNECEDORES = os.path.join(_SCRIPT_DIR, 'cores_fornecedores.json')
+ARQ_GRUPOS_RECURSOS    = os.path.join(_SCRIPT_DIR, 'grupos_recursos.json')
 
 # Tamanho da figura
 FIGSIZE = (14, 10)
@@ -77,12 +78,57 @@ def carregar_dados(nome_arquivo):
     df = df[df['Ativo'] == 'Sim']
     return df
 
-def preparar_grupo(df, grupo):
-    df_grupo = df[df['Grupo_de_recursos'] == grupo].copy()
-    df_grupo = df_grupo.assign(Nomes_dos_recursos=df_grupo['Nomes_dos_recursos'].str.split(';'))
-    df_grupo = df_grupo.explode('Nomes_dos_recursos')
-    df_grupo['Nomes_dos_recursos'] = df_grupo['Nomes_dos_recursos'].str.strip()
-    return df_grupo
+def _carregar_mapa_grupos():
+    if os.path.exists(ARQ_GRUPOS_RECURSOS):
+        with open(ARQ_GRUPOS_RECURSOS, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def _salvar_mapa_grupos(mapa):
+    with open(ARQ_GRUPOS_RECURSOS, 'w', encoding='utf-8') as f:
+        json.dump(mapa, f, indent=4, ensure_ascii=False, sort_keys=True)
+
+def resolver_grupos(df, modo_web=False):
+    """Carrega o mapa recurso→grupo e resolve desconhecidos (prompt no CLI, erro na web)."""
+    mapa = _carregar_mapa_grupos()
+
+    todos = set()
+    for val in df['Nomes_dos_recursos'].dropna():
+        for r in str(val).split(';'):
+            r = r.strip()
+            if r:
+                todos.add(r)
+
+    desconhecidos = sorted(todos - set(mapa.keys()))
+
+    if desconhecidos:
+        if modo_web:
+            raise ValueError(
+                f"Recursos sem grupo definido: {', '.join(desconhecidos)}. "
+                f"Adicione-os ao arquivo grupos_recursos.json."
+            )
+        for r in desconhecidos:
+            while True:
+                resp = input(f"Grupo de '{r}'? [H]orizontes / [F]ornecedores: ").strip().upper()
+                if resp in ('H', 'HORIZONTES'):
+                    mapa[r] = 'Horizontes'
+                    break
+                elif resp in ('F', 'FORNECEDORES'):
+                    mapa[r] = 'Fornecedores'
+                    break
+                print("  Digite H ou F.")
+        _salvar_mapa_grupos(mapa)
+
+    return mapa
+
+def preparar_grupo(df, grupo, mapa_grupos):
+    """Filtra e explode recursos cujo grupo (do mapa) corresponde ao grupo solicitado."""
+    df2 = df.copy()
+    df2 = df2.assign(Nomes_dos_recursos=df2['Nomes_dos_recursos'].str.split(';'))
+    df2 = df2.explode('Nomes_dos_recursos')
+    df2['Nomes_dos_recursos'] = df2['Nomes_dos_recursos'].str.strip()
+    df2 = df2[df2['Nomes_dos_recursos'].map(lambda r: mapa_grupos.get(r) == grupo)].copy()
+    return df2
 
 def empilhar_tarefas(df_grupo):
     # Filtrar tarefas com data de término anterior à data atual
@@ -207,8 +253,28 @@ def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
 # EXECUÇÃO DO MOTOR
 # ============================
 
-def gerar_para_web(arquivo_bytes):
-    """Para uso no portal web. Retorna dict com imagens PNG como base64 (chaves: 'horizontes', 'fornecedores')."""
+def verificar_recursos_desconhecidos(arquivo_bytes):
+    """Retorna lista de recursos no arquivo que não estão em grupos_recursos.json."""
+    import tempfile as _tmp
+    with _tmp.NamedTemporaryFile(delete=False, suffix='.xlsx') as f:
+        f.write(arquivo_bytes)
+        tmp = f.name
+    try:
+        df = carregar_dados(tmp)
+        mapa = _carregar_mapa_grupos()
+        todos = set()
+        for val in df['Nomes_dos_recursos'].dropna():
+            for r in str(val).split(';'):
+                r = r.strip()
+                if r:
+                    todos.add(r)
+        return sorted(todos - set(mapa.keys()))
+    finally:
+        os.unlink(tmp)
+
+def gerar_para_web(arquivo_bytes, grupos_novos=None):
+    """Para uso no portal web. Retorna dict com imagens PNG como base64 (chaves: 'horizontes', 'fornecedores').
+    grupos_novos: dict {recurso: grupo} com atribuições informadas pelo usuário na UI."""
     import io as _io, base64 as _b64, tempfile as _tmp
 
     with _tmp.NamedTemporaryFile(delete=False, suffix='.xlsx') as f:
@@ -216,12 +282,17 @@ def gerar_para_web(arquivo_bytes):
         tmp = f.name
     try:
         df = carregar_dados(tmp)
+        if grupos_novos:
+            mapa = _carregar_mapa_grupos()
+            mapa.update(grupos_novos)
+            _salvar_mapa_grupos(mapa)
+        mapa_grupos = resolver_grupos(df, modo_web=True)
         results = {}
         for grupo, arq_json, paleta, titulo, key in [
-            ('Horizontes',   ARQ_CORES_HORIZONTES,   cores_horizontes_base,   'Cronograma de Projetos Por Equipe Interna',          'horizontes'),
-            ('Fornecedores', ARQ_CORES_FORNECEDORES,  cores_fornecedores_base, 'Cronograma de Projetos por Fornecedores', 'fornecedores'),
+            ('Horizontes',   ARQ_CORES_HORIZONTES,   cores_horizontes_base,   'Cronograma de Projetos Por Equipe Interna',  'horizontes'),
+            ('Fornecedores', ARQ_CORES_FORNECEDORES,  cores_fornecedores_base, 'Cronograma de Projetos por Fornecedores',   'fornecedores'),
         ]:
-            df_grupo = preparar_grupo(df, grupo)
+            df_grupo = preparar_grupo(df, grupo, mapa_grupos)
             df_aloc, recursos = empilhar_tarefas(df_grupo)
             if not df_aloc.empty:
                 cores_dict = carregar_mapa_cores(arq_json, paleta, recursos)
@@ -249,16 +320,17 @@ if __name__ == "__main__":
     arquivo = arquivos_xlsx[escolha-1]
 
     df = carregar_dados(arquivo)
+    mapa_grupos = resolver_grupos(df, modo_web=False)
 
     # --- Horizontes ---
-    df_h = preparar_grupo(df, 'Horizontes')
+    df_h = preparar_grupo(df, 'Horizontes', mapa_grupos)
     df_aloc_h, recursos_h = empilhar_tarefas(df_h)
     if not df_aloc_h.empty:
         cores_dict_h = carregar_mapa_cores(ARQ_CORES_HORIZONTES, cores_horizontes_base, recursos_h)
         plotar(df_aloc_h, recursos_h, cores_dict_h, 'Cronograma de Projetos Por Equipe Interna', 'horizontes.png')
 
     # --- Fornecedores ---
-    df_f = preparar_grupo(df, 'Fornecedores')
+    df_f = preparar_grupo(df, 'Fornecedores', mapa_grupos)
     df_aloc_f, recursos_f = empilhar_tarefas(df_f)
     if not df_aloc_f.empty:
         cores_dict_f = carregar_mapa_cores(ARQ_CORES_FORNECEDORES, cores_fornecedores_base, recursos_f)

@@ -374,6 +374,82 @@ body {
 .modal-download:hover { border-color: #b5371f; color: #b5371f; }
 
 /* ═══════════════════════════════════════════════
+   MODAL  (novos colaboradores)
+   ═══════════════════════════════════════════════ */
+.modal-grupos-content {
+  max-width: 460px;
+  padding: 40px 44px 36px;
+  align-self: center;
+}
+
+.modal-grupos-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #2c2c2c;
+  padding-bottom: 16px;
+  border-bottom: 1.5px solid #e2e2e2;
+  margin-bottom: 16px;
+}
+
+.modal-grupos-desc {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 24px;
+  letter-spacing: 0.3px;
+}
+
+.grupos-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.grupos-nome {
+  font-size: 13px;
+  color: #2c2c2c;
+  flex: 1;
+}
+
+.grupos-toggle .toggle-btn {
+  font-size: 8.5px;
+  padding: 6px 14px;
+  letter-spacing: 1.4px;
+}
+
+.modal-grupos-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1.5px solid #e2e2e2;
+}
+
+.modal-grupos-actions .btn-submit {
+  flex: 1;
+  margin-top: 0;
+}
+
+.btn-secundario {
+  padding: 13px 20px;
+  background: none;
+  border: 1.5px solid #d0d0d0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #888;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.btn-secundario:hover { border-color: #b5371f; color: #b5371f; }
+
+/* ═══════════════════════════════════════════════
    REPORT SEMANAL  (visualização no modal)
    ═══════════════════════════════════════════════ */
 .report-sep {

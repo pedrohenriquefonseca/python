@@ -4,7 +4,7 @@ Servidor Flask local que importa os scripts existentes da pasta Projetos.
 Execute:  python app.py
 Acesse:   http://localhost:5000
 """
-import os, sys, io, subprocess, threading, tempfile, webbrowser, time
+import os, sys, io, json, subprocess, threading, tempfile, webbrowser, time
 
 # Caminhos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(PROJ_DIR, 'Cronograma de Equipe'))
 # Importar funções dos scripts originais
 from Report import gerar_relatorio_web
 from gantt_projetos import gerar_para_web as gerar_projetos_web
-from gantt_clientes import gerar_para_web as gerar_equipe_web
+from gantt_clientes import gerar_para_web as gerar_equipe_web, verificar_recursos_desconhecidos
 
 from flask import Flask, render_template, request, jsonify, send_file, Response, stream_with_context
 
@@ -146,13 +146,26 @@ def api_cronograma_projetos():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/cronograma/verificar', methods=['POST'])
+def api_cronograma_verificar():
+    try:
+        arq = request.files.get('arquivo')
+        if not arq:
+            return jsonify({'error': 'Arquivo é obrigatório'}), 400
+        desconhecidos = verificar_recursos_desconhecidos(arq.read())
+        return jsonify({'desconhecidos': desconhecidos})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/cronograma/equipe', methods=['POST'])
 def api_cronograma_equipe():
     try:
         arq = request.files.get('arquivo')
         if not arq:
             return jsonify({'error': 'Arquivo é obrigatório'}), 400
-        results = gerar_equipe_web(arq.read())
+        grupos_novos = json.loads(request.form.get('grupos_novos', '{}'))
+        results = gerar_equipe_web(arq.read(), grupos_novos=grupos_novos or None)
         return jsonify({'success': True, **results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -164,7 +177,8 @@ def api_cronograma_clientes():
         arq = request.files.get('arquivo')
         if not arq:
             return jsonify({'error': 'Arquivo é obrigatório'}), 400
-        results = gerar_equipe_web(arq.read())
+        grupos_novos = json.loads(request.form.get('grupos_novos', '{}'))
+        results = gerar_equipe_web(arq.read(), grupos_novos=grupos_novos or None)
         return jsonify({'success': True, **results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
