@@ -19,15 +19,17 @@ meses_pt_en = {
     'Setembro': 'September', 'Outubro': 'October', 'Novembro': 'November', 'Dezembro': 'December'
 }
 
-# Paletas de cores expandidas (24 cores)
+# Paleta de bordas por recurso (cores vivas e distintas)
 PALETA = [
-    '#F26868', '#96ECAF', '#D5B7EA', '#F2E168',
-    '#96DEEC', '#EAB7D3', '#8AF268', '#9A96EC',
-    '#EAC8B7', '#EBBC3C', '#E596EC', '#DFEAB7',
-    '#68ADF2', '#EC96A8', '#F159AA', '#9C68F2',
-    '#ECD096', '#B7EAE8', '#F268CF', '#DE3962',
-    '#D39E68', '#F5A865', '#40D6E7', '#AAB5C4',
+    '#E63946', '#2196F3', '#4CAF50', '#FF9800',
+    '#9C27B0', '#00BCD4', '#F06292', '#8BC34A',
+    '#FF5722', '#3F51B5', '#009688', '#FFC107',
+    '#E91E63', '#03A9F4', '#CDDC39', '#795548',
+    '#673AB7', '#76FF03', '#FF1744', '#00E5FF',
 ]
+
+# Cor de preenchimento uniforme das barras
+COR_BARRA = '#D0D0D0'
 
 cores_horizontes_base   = PALETA
 cores_fornecedores_base = PALETA
@@ -200,53 +202,70 @@ def carregar_mapa_cores(arq_json, paleta_base, recursos):
     return mapa
 
 def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
-    # Verificar se há dados para plotar
     if df_aloc.empty:
         print(f'Nenhuma tarefa ativa encontrada para {titulo}')
         return
-    
+
+    BAR_HEIGHT = 0.82
     hoje = datetime.now()
     data_inicio_min = df_aloc['Início'].min().replace(day=1)
-    data_fim_max = df_aloc['Fim'].max().replace(day=1) + pd.offsets.MonthEnd(1)
+    data_fim_max    = df_aloc['Fim'].max().replace(day=1) + pd.offsets.MonthEnd(1)
+    borda_largura   = (data_fim_max - data_inicio_min).days * 0.008
 
-    plt.figure(figsize=FIGSIZE)
+    fig, ax = plt.subplots(figsize=FIGSIZE)
 
+    textos = []
     for _, row in df_aloc.iterrows():
         inicio, fim = row['Início'], row['Fim']
         duracao, y_pos = fim - inicio, row['Y_absoluto']
-        cor = cores_dict[row['Recurso']]
-        plt.barh(y=y_pos, width=duracao, left=inicio, height=0.7, align='center', color=cor)
-        plt.text(inicio + duracao / 50, y_pos, row['Nome'], va='center', ha='left', fontsize=9, color='black')
+        borda = cores_dict[row['Recurso']]
 
-    plt.axvline(x=hoje, color='red', linestyle='--', linewidth=1)
-    plt.text(hoje, plt.ylim()[1], 'Hoje', color='red', va='bottom', ha='center', fontsize=10, fontweight='normal')
+        ax.barh(y=y_pos, width=duracao, left=inicio, height=BAR_HEIGHT,
+                color=COR_BARRA, edgecolor='white', linewidth=0.5, zorder=2)
+        ax.barh(y=y_pos, width=borda_largura, left=inicio, height=BAR_HEIGHT,
+                color=borda, edgecolor='none', zorder=3)
+        txt_x = inicio + pd.Timedelta(days=borda_largura * 1.2) + duracao / 50
+        t = ax.text(txt_x, y_pos, row['Nome'],
+                    va='center', ha='left', fontsize=7.5, color='#333', zorder=4)
+        textos.append(t)
+
+    y_max = df_aloc['Y_absoluto'].max()
+    y_min = df_aloc['Y_absoluto'].min()
+    ax.axvline(x=hoje, color='red', linestyle='--', linewidth=1, zorder=5)
+    ax.text(hoje, y_max + 0.55, 'Hoje', color='red', va='bottom', ha='center', fontsize=10)
 
     y_labels, y_ticks, y_colors = [], [], []
     for recurso in recursos:
         posicoes = df_aloc[df_aloc['Recurso'] == recurso]['Y_absoluto'].values
-        pos_central = (posicoes.min() + posicoes.max()) / 2
         y_labels.append(recurso)
-        y_ticks.append(pos_central)
+        y_ticks.append((posicoes.min() + posicoes.max()) / 2)
         y_colors.append(cores_dict[recurso])
 
-    plt.yticks(y_ticks, y_labels, fontsize=10, fontweight='bold')
-    ax = plt.gca()
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels(y_labels, fontsize=10, fontweight='bold')
     for ticklabel, color in zip(ax.get_yticklabels(), y_colors):
         ticklabel.set_color(color)
 
-    plt.xlim(data_inicio_min, data_fim_max)
-    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b/%y'))
-    plt.xticks(rotation=0, fontsize=10, color='gray')
-
-    plt.grid(axis='x', linestyle='--', color='lightgray', linewidth=0.8)
-
-    plt.title(titulo, fontsize=16, fontweight='bold', pad=20)
-    plt.xlabel('Data', fontsize=11, fontweight='bold')
-    plt.ylabel('Recursos', fontsize=11, fontweight='bold')
-
+    ax.set_ylim(y_min - 0.6, y_max + 0.6)
+    ax.set_xlim(data_inicio_min, data_fim_max)
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b/%y'))
+    ax.tick_params(axis='x', colors='gray')
+    ax.grid(axis='x', linestyle='--', color='#CCCCCC', linewidth=0.7, zorder=1)
+    ax.set_title(titulo, fontsize=16, fontweight='bold', pad=20)
+    ax.set_xlabel('Data', fontsize=11, fontweight='bold')
+    ax.set_ylabel('Recursos', fontsize=11, fontweight='bold')
     plt.tight_layout()
-    plt.savefig(arquivo_saida, dpi=300)
+
+    # Ajustar fonte para caber na altura da barra
+    fig.canvas.draw()
+    trans = ax.transData
+    bar_h_px = abs(trans.transform((0, BAR_HEIGHT))[1] - trans.transform((0, 0))[1])
+    bar_h_pt = bar_h_px / fig.dpi * 72 * 0.72
+    for t in textos:
+        t.set_fontsize(min(9, bar_h_pt))
+
+    plt.savefig(arquivo_saida, dpi=300, bbox_inches='tight')
     plt.close()
 
 # ============================
