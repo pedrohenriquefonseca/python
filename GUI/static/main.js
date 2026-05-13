@@ -32,7 +32,7 @@ document.querySelectorAll('.nav-link').forEach(link => {
 /* ═══════════════════════════════════════════════
    ZONA DE ARQUIVO  (clique + drag & drop)
    ═══════════════════════════════════════════════ */
-['report', 'desembolso', 'cronograma'].forEach(id => {
+['report', 'desembolso', 'cronograma', 'ferias'].forEach(id => {
   const input = document.getElementById(`file-${id}`);
   const text  = document.getElementById(`file-text-${id}`);
   const zone  = document.getElementById(`zone-${id}`);
@@ -383,6 +383,7 @@ document.getElementById('form-cronograma').addEventListener('submit', async e =>
   setLoading('cronograma', true);
   const todasImgs = [], todosNomes = [], erros = [];
 
+
   for (let i = 0; i < tipos.length; i++) {
     const tipo = tipos[i];
     if (tipos.length > 1) showStatus('cronograma', `Processando ${i + 1} / ${tipos.length}…`);
@@ -420,3 +421,230 @@ document.getElementById('form-cronograma').addEventListener('submit', async e =>
   if (erros.length) showStatus('cronograma', `Erros: ${erros.join(' | ')}`, true);
   else if (todasImgs.length) showStatus('cronograma', todasImgs.length === 1 ? 'Gráfico gerado!' : `${todasImgs.length} gráficos gerados!`);
 });
+
+/* ═══════════════════════════════════════════════
+   ANOTAÇÃO DE FÉRIAS
+   ═══════════════════════════════════════════════ */
+
+// Estado local do funcionário consultado
+let _feriasNome      = '';
+let _feriasHistorico = [];
+
+// Preenche o datalist com os funcionários cadastrados
+async function feriasCarregarLista() {
+  try {
+    const res   = await fetch('/api/ferias/funcionarios');
+    const nomes = await res.json();
+    const dl    = document.getElementById('ferias-datalist');
+    dl.innerHTML = nomes.map(n => `<option value="${n}">`).join('');
+  } catch (_) {}
+}
+feriasCarregarLista();
+
+// Consultar ao clicar no botão ou pressionar Enter
+document.getElementById('btn-ferias-buscar').addEventListener('click', feriasBuscar);
+document.getElementById('ferias-nome').addEventListener('keydown', e => {
+  if (e.key === 'Enter') feriasBuscar();
+});
+
+async function feriasBuscar() {
+  const nome = document.getElementById('ferias-nome').value.trim();
+  if (!nome) { showStatus('ferias', 'Informe o nome do funcionário.', true); return; }
+
+  try {
+    const res  = await fetch('/api/ferias/consultar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome }),
+    });
+    const data = await res.json();
+    _feriasNome = nome;
+
+    if (data.novo) {
+      document.getElementById('ferias-admissao-group').classList.remove('hidden');
+      document.getElementById('ferias-form-section').classList.remove('hidden');
+      document.getElementById('ferias-resultado').classList.add('hidden');
+      showStatus('ferias', 'Funcionário não cadastrado — informe a data de admissão antes de registrar.');
+    } else {
+      document.getElementById('ferias-admissao-group').classList.add('hidden');
+      document.getElementById('ferias-form-section').classList.remove('hidden');
+      _feriasHistorico = data.ferias_tiradas || [];
+      feriasRenderizar(data.saldo, _feriasHistorico, data.proximo);
+      showStatus('ferias', '');
+    }
+  } catch (err) {
+    showStatus('ferias', `Erro: ${err.message}`, true);
+  }
+}
+
+// Preview do total de dias ao alterar as datas
+['ferias-inicio', 'ferias-fim'].forEach(id =>
+  document.getElementById(id).addEventListener('change', feriasAtualizarDias)
+);
+
+function feriasAtualizarDias() {
+  const ini = document.getElementById('ferias-inicio').value;
+  const fim = document.getElementById('ferias-fim').value;
+  const el  = document.getElementById('ferias-dias-count');
+  if (ini && fim) {
+    const d = Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1;
+    el.textContent = d > 0 ? `${d} dia${d !== 1 ? 's' : ''}` : '—';
+    el.classList.toggle('ferias-dias-ok', d > 0);
+  } else {
+    el.textContent = '—';
+    el.classList.remove('ferias-dias-ok');
+  }
+}
+
+// Registrar férias
+document.getElementById('btn-ferias').addEventListener('click', async () => {
+  const nome     = document.getElementById('ferias-nome').value.trim();
+  const inicio   = document.getElementById('ferias-inicio').value;
+  const fim      = document.getElementById('ferias-fim').value;
+  const admissao = document.getElementById('ferias-admissao').value;
+
+  if (!nome || !inicio || !fim) {
+    showStatus('ferias', 'Preencha nome, início e fim das férias.', true);
+    return;
+  }
+
+  const body = { nome, inicio, fim };
+  if (admissao) body.admissao = admissao;
+
+  setLoading('ferias', true);
+  try {
+    const res  = await fetch('/api/ferias/registrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    setLoading('ferias', false);
+
+    if (data.erro) { showStatus('ferias', data.mensagem || data.erro, true); return; }
+
+    // Limpa campos do formulário
+    document.getElementById('ferias-admissao-group').classList.add('hidden');
+    document.getElementById('ferias-admissao').value  = '';
+    document.getElementById('ferias-inicio').value    = '';
+    document.getElementById('ferias-fim').value       = '';
+    document.getElementById('ferias-dias-count').textContent = '—';
+    document.getElementById('ferias-dias-count').classList.remove('ferias-dias-ok');
+
+    _feriasHistorico = data.ferias_tiradas || [];
+    feriasRenderizar(data.saldo, _feriasHistorico, null);
+    showStatus('ferias', `Férias registradas com sucesso — ${data.entry.dias} dias debitados.`);
+    feriasCarregarLista();
+  } catch (err) {
+    setLoading('ferias', false);
+    showStatus('ferias', `Erro: ${err.message}`, true);
+  }
+});
+
+// Cancelar (remover) um registro de férias
+async function feriasCancelar(entryId) {
+  if (!confirm('Remover este registro de férias?')) return;
+
+  try {
+    const res  = await fetch('/api/ferias/cancelar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: _feriasNome, id: entryId }),
+    });
+    const data = await res.json();
+
+    if (data.erro) { showStatus('ferias', data.erro, true); return; }
+
+    _feriasHistorico = data.ferias_tiradas || [];
+    feriasRenderizar(data.saldo, _feriasHistorico, null);
+    showStatus('ferias', 'Registro removido.');
+  } catch (err) {
+    showStatus('ferias', `Erro: ${err.message}`, true);
+  }
+}
+
+// Renderiza saldo e histórico na tela
+function feriasRenderizar(saldo, historico, proximo) {
+  const resultado = document.getElementById('ferias-resultado');
+  resultado.classList.remove('hidden');
+
+  // ── Saldo ──
+  const saldoWrap = document.getElementById('ferias-saldo-wrap');
+  if (!saldo || saldo.length === 0) {
+    const msg = proximo
+      ? `Nenhum período aquisitivo concluído ainda. Próximo saldo de 30 dias disponível em <strong>${proximo.concedido_em}</strong>.`
+      : 'Nenhum período aquisitivo concluído ainda.';
+    saldoWrap.innerHTML = `<p class="form-obs ferias-obs-vazio">${msg}</p>`;
+  } else {
+    const totalRestante = saldo.reduce((acc, p) => acc + p.dias_restantes, 0);
+    saldoWrap.innerHTML = `
+      <div class="ferias-section-header">
+        <h3 class="ferias-section-title">Saldo de Férias</h3>
+        <span class="ferias-total-badge">Total disponível: <strong>${totalRestante} dias</strong></span>
+      </div>
+      <table class="ferias-table">
+        <thead>
+          <tr>
+            <th>Período Aquisitivo</th>
+            <th>Concedido</th>
+            <th>Usado</th>
+            <th>Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${saldo.map(p => `
+            <tr class="${p.dias_restantes === 0 ? 'ferias-row-zerado' : ''}">
+              <td>${p.label}</td>
+              <td class="ferias-cell-num">${p.dias_totais} dias</td>
+              <td class="ferias-cell-num">${p.dias_usados} dias</td>
+              <td class="ferias-cell-num ${p.dias_restantes > 0 ? 'ferias-saldo-positivo' : 'ferias-saldo-zero'}">
+                ${p.dias_restantes} dias
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      ${proximo ? `<p class="form-obs ferias-obs-proximo">Próximo período (Ano ${proximo.ano}) disponível em ${proximo.concedido_em}.</p>` : ''}
+    `;
+  }
+
+  // ── Histórico ──
+  const histWrap = document.getElementById('ferias-historico-wrap');
+  const lista    = [...historico].sort((a, b) => a.inicio.localeCompare(b.inicio));
+
+  if (lista.length === 0) {
+    histWrap.innerHTML = '<p class="form-obs ferias-obs-vazio">Nenhuma férias registrada.</p>';
+  } else {
+    histWrap.innerHTML = `
+      <h3 class="ferias-section-title ferias-section-title--hist">Histórico de Férias</h3>
+      <table class="ferias-table">
+        <thead>
+          <tr>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Dias</th>
+            <th>Períodos Debitados</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lista.map(ft => `
+            <tr>
+              <td>${ft.inicio}</td>
+              <td>${ft.fim}</td>
+              <td class="ferias-cell-num">${ft.dias}</td>
+              <td class="ferias-cell-debitos">${ft.debitos.map(d => `Ano ${d.periodo_ano}: ${d.dias}d`).join(' + ')}</td>
+              <td class="ferias-cell-acao">
+                <button class="ferias-btn-cancelar" data-id="${ft.id}" title="Remover registro">✕</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    histWrap.querySelectorAll('.ferias-btn-cancelar').forEach(btn =>
+      btn.addEventListener('click', () => feriasCancelar(btn.dataset.id))
+    );
+  }
+}

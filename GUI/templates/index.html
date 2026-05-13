@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Horizontes — Ferramentas</title>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
 
@@ -31,6 +31,7 @@
         <a class="nav-link active" data-tool="report"      href="#">REPORT SEMANAL</a>
         <a class="nav-link"        data-tool="desembolso"  href="#">CURVA DE DESEMBOLSO</a>
         <a class="nav-link"        data-tool="cronograma"  href="#">CRONOGRAMAS DE ALOCAÇÃO</a>
+        <a class="nav-link"        data-tool="ferias"      href="#">ANOTAÇÃO DE FÉRIAS</a>
       </nav>
 
     </div>
@@ -122,6 +123,56 @@
         </button>
       </form>
       <p class="status-msg" id="status-cronograma"></p>
+    </div>
+
+    <!-- ── ANOTAÇÃO DE FÉRIAS ────────────── -->
+    <div class="tool-panel" id="panel-ferias">
+      <h2 class="panel-title">Anotação de Férias</h2>
+
+      <!-- Busca de funcionário -->
+      <div class="form-group ferias-busca-group">
+        <label for="ferias-nome">Funcionário</label>
+        <input type="text" id="ferias-nome" class="ferias-input-nome" placeholder="Nome completo…" list="ferias-datalist" autocomplete="off">
+        <datalist id="ferias-datalist"></datalist>
+        <button type="button" id="btn-ferias-buscar" class="btn-submit">Consultar</button>
+      </div>
+
+      <!-- Admissão (só aparece para funcionário novo) -->
+      <div class="form-group hidden" id="ferias-admissao-group">
+        <label for="ferias-admissao">Data de Admissão</label>
+        <input type="date" id="ferias-admissao" class="ferias-input-date">
+        <p class="form-obs ferias-obs-novo">Funcionário não cadastrado. Informe a data de admissão para continuar.</p>
+      </div>
+
+      <!-- Formulário de registro -->
+      <div id="ferias-form-section" class="hidden">
+        <div class="ferias-datas-row">
+          <div class="form-group">
+            <label for="ferias-inicio">Início das Férias</label>
+            <input type="date" id="ferias-inicio" class="ferias-input-date">
+          </div>
+          <div class="form-group">
+            <label for="ferias-fim">Fim das Férias</label>
+            <input type="date" id="ferias-fim" class="ferias-input-date">
+          </div>
+          <div class="form-group ferias-dias-group">
+            <label>Total de Dias</label>
+            <span id="ferias-dias-count" class="ferias-dias-count">—</span>
+          </div>
+        </div>
+        <button type="button" id="btn-ferias" class="btn-submit">
+          <span class="btn-text">Registrar Férias</span>
+          <span class="btn-loading hidden">Processando…</span>
+        </button>
+      </div>
+
+      <p class="status-msg" id="status-ferias"></p>
+
+      <!-- Saldo + histórico -->
+      <div id="ferias-resultado" class="hidden">
+        <div id="ferias-saldo-wrap"></div>
+        <div id="ferias-historico-wrap"></div>
+      </div>
     </div>
 
   </main>

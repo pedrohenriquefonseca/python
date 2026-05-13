@@ -489,3 +489,186 @@ body {
   max-width: 780px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
+
+/* ═══════════════════════════════════════════════
+   ANOTAÇÃO DE FÉRIAS
+   ═══════════════════════════════════════════════ */
+
+/* Linha de busca: input + botão lado a lado */
+.ferias-busca-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+/* Sobrescreve as regras globais de input e btn-submit dentro da linha de busca */
+.ferias-busca-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.ferias-busca-row .btn-submit {
+  width: auto;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.ferias-input-nome {
+  padding: 11px 14px;
+  border: 1.5px solid #d0d0d0;
+  background: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  color: #2c2c2c;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ferias-input-nome:focus { border-color: #2c2c2c; }
+
+.btn-ferias-buscar {
+  white-space: nowrap;
+  padding: 11px 22px;
+}
+
+/* Inputs de data */
+.ferias-input-date {
+  padding: 10px 14px;
+  border: 1.5px solid #d0d0d0;
+  background: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  color: #2c2c2c;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.ferias-input-date:focus { border-color: #2c2c2c; }
+
+/* Linha de datas + contador */
+.ferias-datas-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.ferias-datas-row .form-group { margin-bottom: 0; flex: 1; min-width: 140px; }
+
+.ferias-dias-group { flex: 0 0 auto !important; min-width: unset !important; }
+
+.ferias-dias-count {
+  display: block;
+  font-size: 22px;
+  font-weight: 300;
+  color: #aaa;
+  letter-spacing: 0.5px;
+  padding: 6px 0 4px;
+  transition: color 0.2s;
+}
+.ferias-dias-count.ferias-dias-ok { color: #2a7d4f; }
+
+/* Nota de novo funcionário */
+.ferias-obs-novo {
+  margin-top: 6px;
+  color: #b5371f !important;
+}
+
+/* Seções de resultado */
+.ferias-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 28px 0 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ferias-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #2c2c2c;
+  margin: 28px 0 12px;
+}
+.ferias-section-title--hist { margin-top: 32px; }
+
+.ferias-total-badge {
+  font-size: 12px;
+  color: #555;
+}
+.ferias-total-badge strong { color: #2a7d4f; }
+
+/* Tabelas */
+.ferias-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  color: #2c2c2c;
+}
+
+.ferias-table thead th {
+  text-align: left;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #999;
+  padding: 0 12px 10px 0;
+  border-bottom: 1.5px solid #e2e2e2;
+}
+
+.ferias-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+.ferias-table tbody tr:hover { background: #fafafa; }
+.ferias-table tbody tr.ferias-row-zerado { opacity: 0.5; }
+
+.ferias-table tbody td {
+  padding: 10px 12px 10px 0;
+  vertical-align: middle;
+}
+
+.ferias-cell-num {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ferias-cell-debitos {
+  color: #777;
+  font-size: 11.5px;
+}
+
+.ferias-cell-acao { text-align: right; width: 32px; }
+
+/* Saldo: cores */
+.ferias-saldo-positivo { color: #2a7d4f; font-weight: 600; }
+.ferias-saldo-zero     { color: #bbb; }
+
+/* Botão remover */
+.ferias-btn-cancelar {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+.ferias-btn-cancelar:hover { color: #b5371f; }
+
+/* Mensagens auxiliares */
+.ferias-obs-vazio  { color: #aaa !important; margin-top: 20px; }
+.ferias-obs-proximo { margin-top: 10px; }
+.ferias-busca-group { margin-bottom: 20px; }
+
+/* Painel de férias mais largo para acomodar as tabelas */
+#panel-ferias { width: 760px; }
+
+/* Impede quebra de linha em células de texto das tabelas */
+.ferias-table td,
+.ferias-table th { white-space: nowrap; }

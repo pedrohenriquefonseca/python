@@ -17,13 +17,17 @@ matplotlib.use('Agg')
 # Adicionar pastas dos scripts ao path para importação
 sys.path.insert(0, os.path.join(PROJ_DIR, 'Report Semanal'))
 sys.path.insert(0, os.path.join(PROJ_DIR, 'Cronograma de Equipe'))
+sys.path.insert(0, os.path.join(PROJ_DIR, 'Ferias'))
 
 # Importar funções dos scripts originais
 from Report import gerar_relatorio_web
 from gantt_projetos import gerar_para_web as gerar_projetos_web
 from gantt_clientes import gerar_para_web as gerar_equipe_web, verificar_recursos_desconhecidos
+import ferias as ferias_mod
 
 from flask import Flask, render_template, request, jsonify, send_file, Response, stream_with_context
+
+ferias_mod.DB_PATH = os.path.join(PROJ_DIR, 'Ferias', 'ferias_db.json')
 
 app = Flask(__name__,
             template_folder=os.path.join(BASE_DIR, 'templates'),
@@ -182,6 +186,46 @@ def api_cronograma_clientes():
         return jsonify({'success': True, **results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════
+#  FÉRIAS
+# ══════════════════════════════════════════════════════════════
+
+@app.route('/api/ferias/funcionarios', methods=['GET'])
+def api_ferias_funcionarios():
+    return jsonify(ferias_mod.listar_funcionarios())
+
+
+@app.route('/api/ferias/consultar', methods=['POST'])
+def api_ferias_consultar():
+    data = request.get_json(silent=True) or {}
+    nome = data.get('nome', '').strip()
+    if not nome:
+        return jsonify({'erro': 'Nome é obrigatório.'}), 400
+    return jsonify(ferias_mod.consultar_funcionario(nome))
+
+
+@app.route('/api/ferias/registrar', methods=['POST'])
+def api_ferias_registrar():
+    data     = request.get_json(silent=True) or {}
+    nome     = data.get('nome', '').strip()
+    inicio   = data.get('inicio', '').strip()
+    fim      = data.get('fim', '').strip()
+    admissao = data.get('admissao', '').strip() or None
+    if not all([nome, inicio, fim]):
+        return jsonify({'erro': 'Nome, início e fim são obrigatórios.'}), 400
+    return jsonify(ferias_mod.registrar_ferias(nome, inicio, fim, admissao))
+
+
+@app.route('/api/ferias/cancelar', methods=['POST'])
+def api_ferias_cancelar():
+    data     = request.get_json(silent=True) or {}
+    nome     = data.get('nome', '').strip()
+    entry_id = data.get('id', '').strip()
+    if not all([nome, entry_id]):
+        return jsonify({'erro': 'Nome e id são obrigatórios.'}), 400
+    return jsonify(ferias_mod.cancelar_ferias(nome, entry_id))
 
 
 # ══════════════════════════════════════════════════════════════
