@@ -1,0 +1,2393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PMO Dashboard — Horizontes Arq</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg:#f0f4f8; --white:#fff; --border:#dde3ec;
+  --primary:#1d4ed8; --primary-d:#1639a8; --primary-lt:#eff6ff;
+  --sidebar-bg:#1e2433; --sidebar-border:rgba(255,255,255,.08);
+  --sidebar-hover:rgba(255,255,255,.07); --sidebar-active:rgba(255,255,255,.11);
+  --green:#16a34a; --green-lt:#f0fdf4;
+  --yellow:#ca8a04; --yellow-lt:#fefce8;
+  --red:#dc2626; --red-lt:#fef2f2;
+  --purple:#7c3aed; --purple-lt:#f5f3ff;
+  --amber:#d97706; --amber-lt:#fffbeb;
+  --text:#1e293b; --muted:#64748b;
+  --sidebar-w:220px; --sidebar-w-collapsed:60px; --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;overflow:hidden;}
+a{color:inherit;text-decoration:none;}
+
+.layout{display:flex;height:100%;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--sidebar-bg);color:#fff;
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;
+  transition:width .2s ease;}
+.sidebar-toggle{position:absolute;top:20px;right:-12px;width:24px;height:24px;border-radius:50%;
+  border:1px solid var(--sidebar-border);background:#2b3349;color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.75rem;line-height:1;
+  z-index:101;transition:transform .2s ease,background .15s;padding:0;}
+.sidebar-toggle:hover{background:var(--sidebar-hover);}
+.sidebar.collapsed{width:var(--sidebar-w-collapsed);}
+.sidebar.collapsed .sidebar-toggle{transform:rotate(180deg);}
+.sidebar.collapsed .brand,
+.sidebar.collapsed .nav-section,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .sidebar-footer{display:none;}
+.sidebar.collapsed .sidebar-nav{padding-top:48px;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:10px 0;gap:0;border-left:none;}
+.sidebar.collapsed .nav-icon{width:auto;}
+.brand{padding:22px 20px 20px;border-bottom:1px solid var(--sidebar-border);}
+.brand-name{font-size:1rem;font-weight:800;}
+.brand-sub{font-size:.68rem;opacity:.55;margin-top:2px;}
+.sidebar-nav{padding:12px 0;flex:1;overflow-y:auto;}
+.nav-section{padding:8px 16px 4px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;opacity:.38;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:.82rem;
+  cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:var(--sidebar-hover);}
+.nav-item.active{background:var(--sidebar-active);border-left-color:#6366f1;font-weight:600;}
+.nav-icon{font-size:.85rem;width:16px;text-align:center;flex-shrink:0;}
+.sidebar-footer{padding:14px 20px;font-size:.68rem;opacity:.35;border-top:1px solid var(--sidebar-border);}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;height:100%;overflow:hidden;
+  transition:margin-left .2s ease;}
+.sidebar.collapsed ~ .main{margin-left:var(--sidebar-w-collapsed);}
+
+/* TOPBAR */
+.topbar{background:var(--white);border-bottom:1px solid var(--border);
+  padding:14px 28px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;}
+.topbar-left h1{font-size:1rem;font-weight:700;}
+.topbar-left p{font-size:.72rem;color:var(--muted);margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:.75rem;
+  padding:4px 10px;border-radius:999px;border:1px solid;}
+.status-pill.ok{color:var(--green);background:var(--green-lt);border-color:#bbf7d0;}
+.status-pill.err{color:var(--red);background:var(--red-lt);border-color:#fecaca;}
+.status-pill.loading{color:var(--muted);background:#f1f5f9;border-color:var(--border);}
+.status-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+.btn{padding:7px 16px;border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer;border:none;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-d);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+
+/* FILTER BAR */
+.filter-bar{background:var(--white);border-bottom:1px solid var(--border);
+  padding:10px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.filter-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap;}
+.filter-pills{display:flex;gap:5px;flex-wrap:wrap;}
+.fpill{padding:4px 12px;border-radius:999px;font-size:.73rem;font-weight:600;
+  cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .15s;}
+.fpill.on{background:var(--primary-lt);border-color:var(--primary);color:var(--primary);}
+.filter-sep{width:1px;height:24px;background:var(--border);}
+select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
+  border:1px solid var(--border);background:var(--white);color:var(--text);cursor:pointer;}
+.clear-btn{font-size:.72rem;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:4px;}
+.clear-btn:hover{color:var(--red);background:var(--red-lt);}
+
+/* CONTENT */
+.content{padding:24px 28px;flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:22px;}
+.view{display:none;flex-direction:column;gap:22px;}
+.view.active{display:flex;}
+#view-projetos.active{flex:1;min-height:0;}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;border-top:3px solid transparent;}
+.kpi.c-blue{border-top-color:var(--primary);} .kpi.c-green{border-top-color:var(--green);}
+.kpi.c-yellow{border-top-color:var(--yellow);} .kpi.c-red{border-top-color:var(--red);}
+.kpi.c-gray{border-top-color:#94a3b8;}
+.kpi-lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.kpi-val{font-size:1.8rem;font-weight:800;line-height:1.1;margin:4px 0 2px;}
+.kpi-sub{font-size:.7rem;color:var(--muted);}
+.kpi.c-blue .kpi-val{color:var(--primary);} .kpi.c-green .kpi-val{color:var(--green);}
+.kpi.c-yellow .kpi-val{color:var(--yellow);} .kpi.c-red .kpi-val{color:var(--red);}
+
+/* CARDS */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.card-title{font-size:.88rem;font-weight:700;}
+.card-sub{font-size:.7rem;color:var(--muted);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.grid-3{display:grid;grid-template-columns:3fr 2fr;gap:18px;}
+
+/* TIMELINE */
+.tl-wrap{overflow-x:auto;}
+.tl-header{display:flex;padding-bottom:6px;border-bottom:2px solid var(--border);}
+.tl-name-col{width:200px;flex-shrink:0;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);}
+.tl-months{flex:1;display:grid;grid-template-columns:repeat(12,1fr);}
+.tl-month{font-size:.63rem;color:var(--muted);text-align:center;}
+.tl-body{display:flex;flex-direction:column;}
+.tl-row{display:flex;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
+.tl-row:last-child{border-bottom:none;}
+.tl-pname{width:200px;flex-shrink:0;font-size:.78rem;font-weight:500;}
+.tl-bars-area{flex:1;position:relative;height:34px;}
+.tl-bar{position:absolute;border-radius:3px;}
+.tl-bar.bl{height:7px;top:20px;background:#e2e8f0;border:1px solid #cbd5e1;}
+.tl-bar.ac{height:12px;top:4px;}
+.today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.5;pointer-events:none;z-index:2;}
+.today-lbl{position:absolute;top:-16px;transform:translateX(-50%);font-size:.58rem;color:var(--red);font-weight:700;white-space:nowrap;}
+.tl-legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;}
+.tl-leg-item{display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--muted);}
+.tl-leg-rect{width:14px;height:7px;border-radius:2px;}
+.tl-today-mark{width:2px;height:12px;background:var(--red);opacity:.6;}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:.8rem;}
+thead tr{background:#f8fafc;}
+thead th{font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+  padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;}
+tbody td{padding:10px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tbody tr:hover td{background:#f8fafc;}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.68rem;font-weight:700;}
+.b-green{background:var(--green-lt);color:var(--green);}
+.b-yellow{background:var(--yellow-lt);color:var(--yellow);}
+.b-red{background:var(--red-lt);color:var(--red);}
+.var-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:.72rem;font-weight:700;}
+.var-pos{background:var(--red-lt);color:var(--red);}
+.var-zero{background:var(--green-lt);color:var(--green);}
+.adh-wrap{display:flex;align-items:center;gap:6px;}
+.adh-bar{height:5px;border-radius:3px;background:#e2e8f0;width:70px;overflow:hidden;}
+.adh-fill{height:100%;border-radius:3px;}
+
+/* CLIENT VIEW */
+.client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.client-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.client-card-header{padding:14px 18px;display:flex;align-items:center;gap:10px;}
+.client-badge-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.client-card-name{font-size:.88rem;font-weight:700;}
+.client-card-body{padding:0 18px 16px;display:flex;flex-direction:column;gap:10px;}
+.client-stat{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;}
+.client-stat-lbl{color:var(--muted);}
+.client-stat-val{font-weight:700;}
+.client-projects-list{display:flex;flex-direction:column;gap:5px;padding-top:8px;border-top:1px solid var(--border);}
+.client-proj-row{display:flex;align-items:center;justify-content:space-between;font-size:.75rem;}
+
+/* MAP */
+#map-container{height:520px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+.map-legend{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;font-size:.72rem;color:var(--muted);}
+.map-leg-item{display:flex;align-items:center;gap:6px;}
+
+/* CHARTS */
+.chart-wrap{position:relative;height:200px;}
+.chart-wrap-tall{position:relative;height:260px;}
+
+/* GANTT */
+.gantt-outer{overflow:auto;flex:1;min-height:0;border-radius:6px;}
+.gantt-outer::-webkit-scrollbar{height:10px;width:10px;}
+.gantt-outer::-webkit-scrollbar-track{background:#f1f5f9;border-radius:6px;}
+.gantt-outer::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:6px;border:2px solid #f1f5f9;}
+.gantt-outer::-webkit-scrollbar-thumb:hover{background:#64748b;}
+.gantt-outer::-webkit-scrollbar-corner{background:#f1f5f9;}
+.gantt-header-row{display:flex;position:sticky;top:0;z-index:20;height:26px;}
+.gantt-header-left{width:520px;flex-shrink:0;position:sticky;left:0;z-index:25;
+  background:#f8fafc;border-bottom:2px solid var(--border);border-right:2px solid var(--border);
+  display:flex;align-items:center;padding:0 8px;}
+.gantt-header-right{flex-shrink:0;background:#f8fafc;border-bottom:2px solid var(--border);position:relative;}
+.gantt-data-row{display:flex;border-bottom:1px solid var(--border);}
+.gantt-data-row:hover .gantt-left-cell{background:#f8fafc;}
+.gantt-left-cell{width:520px;flex-shrink:0;position:sticky;left:0;z-index:10;
+  background:var(--white);border-right:2px solid var(--border);
+  display:flex;align-items:center;height:22px;padding:0 8px;}
+.gantt-right-cell{flex-shrink:0;position:relative;height:22px;}
+.gcol-name{flex:1;font-size:.77rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 6px;min-width:120px;display:flex;align-items:center;gap:2px;}
+.gcol-pct{width:68px;font-size:.72rem;text-align:right;flex-shrink:0;padding:0 6px;border-left:1px solid var(--border);}
+.gcol-dur{width:60px;font-size:.72rem;text-align:right;flex-shrink:0;color:#1e293b;padding:0 6px;border-left:1px solid var(--border);}
+.gcol-date{width:62px;font-size:.69rem;flex-shrink:0;color:#1e293b;padding:0 6px;border-left:1px solid var(--border);}
+.gh-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;color:#1e293b;}
+.gcol-toggle{cursor:pointer;font-size:.6rem;color:#1e293b;user-select:none;flex-shrink:0;width:14px;text-align:center;display:inline-block;transition:color .15s;}
+.gcol-toggle:hover{color:#334155;}
+.gcol-toggle-ph{display:inline-block;width:14px;flex-shrink:0;}
+.gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:#f1f5f9;z-index:1;pointer-events:none;}
+.gantt-today-line{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;opacity:.55;z-index:5;pointer-events:none;}
+.gantt-today-lbl{position:absolute;top:2px;transform:translateX(-50%);font-size:.58rem;color:#1e293b;font-weight:700;white-space:nowrap;z-index:6;}
+.row-project{background:#eef2ff !important;}
+.row-summary{background:#f8fafc;}
+
+/* LOADING */
+#loading-overlay{position:fixed;inset:0;background:rgba(240,244,248,.88);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:200;gap:14px;}
+.spinner{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:var(--primary);
+  border-radius:50%;animation:spin .75s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:.85rem;color:var(--muted);}
+
+/* ERROR BANNER */
+#error-banner{display:none;background:#fef2f2;border:1px solid #fecaca;color:var(--red);
+  padding:10px 28px;font-size:.8rem;}
+
+/* SCOPE TOGGLE */
+.toggle-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+.toggle-track{width:36px;height:20px;border-radius:999px;background:#e2e8f0;
+  position:relative;transition:background .2s;flex-shrink:0;border:1px solid #cbd5e1;}
+.toggle-wrap.on .toggle-track{background:var(--primary);border-color:var(--primary);}
+.toggle-thumb{width:14px;height:14px;border-radius:50%;background:#fff;
+  position:absolute;top:2px;left:2px;transition:transform .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.toggle-wrap.on .toggle-thumb{transform:translateX(16px);}
+.toggle-label{font-size:.75rem;font-weight:600;color:var(--muted);white-space:nowrap;transition:color .2s;}
+.toggle-wrap.on .toggle-label{color:var(--primary);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+
+/* ── GUI TOOLS ─────────────────────────────────────────────── */
+.hidden{display:none !important;}
+.tool-hero{flex:1;display:flex;justify-content:center;}
+.tool-panel{
+  display:none;background:var(--white);
+  border:1px solid var(--border);border-radius:var(--radius);
+  width:100%;max-width:580px;
+  padding:28px 32px 32px;
+  font-family:'Segoe UI',system-ui,sans-serif;
+}
+.tool-panel.active{display:block;}
+#panel-ferias{max-width:820px;}
+.panel-title{
+  font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+  color:#2c2c2c;margin-bottom:30px;padding-bottom:16px;
+  border-bottom:1.5px solid #e2e2e2;
+}
+.tool-form{display:flex;flex-direction:column;gap:22px;}
+.gui-form-group{display:flex;flex-direction:column;gap:9px;}
+.gui-form-group label{
+  font-size:9.5px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:#999;
+}
+.gui-form-group input[type="text"],
+.gui-form-group input[type="number"],
+.gui-form-group input[type="date"]{
+  border:none;border-bottom:1.5px solid #d0d0d0;
+  padding:9px 0;font-size:14px;color:#2c2c2c;
+  background:transparent;outline:none;
+  font-family:inherit;transition:border-color .2s;width:100%;
+}
+.gui-form-group input[type="text"]:focus,
+.gui-form-group input[type="number"]:focus{border-bottom-color:#b5371f;}
+.gui-form-group input::placeholder{color:#c8c8c8;}
+.file-zone{
+  border:1.5px dashed #c8c8c8;padding:14px 18px;
+  display:flex;align-items:center;gap:12px;cursor:pointer;
+  position:relative;transition:border-color .2s,background .2s;
+}
+.file-zone input[type="file"]{
+  position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;
+}
+.gui-file-icon{
+  width:18px;height:18px;flex-shrink:0;stroke:#aaa;fill:none;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke .2s;pointer-events:none;
+}
+.file-zone-text{
+  font-size:12.5px;color:#aaa;pointer-events:none;
+  transition:color .2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.file-zone:hover,.file-zone.drag-over{border-color:#b5371f;background:rgba(181,55,31,.04);}
+.file-zone:hover .gui-file-icon,.file-zone.drag-over .gui-file-icon{stroke:#b5371f;}
+.file-zone:hover .file-zone-text,.file-zone.drag-over .file-zone-text{color:#b5371f;}
+.file-zone.has-file{border-color:#888;border-style:solid;}
+.file-zone.has-file .file-zone-text{color:#2c2c2c;}
+.file-zone.has-file .gui-file-icon{stroke:#2c2c2c;}
+.gui-toggle-group{display:flex;}
+.gui-toggle-btn{
+  flex:1;padding:9px 0;border:1.5px solid #d0d0d0;background:transparent;
+  font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;
+  color:#aaa;cursor:pointer;font-family:inherit;transition:all .2s;
+}
+.gui-toggle-btn:first-child{border-right-width:0;}
+.gui-toggle-btn.active{background:#2c2c2c;border-color:#2c2c2c;color:#fff;}
+.gui-toggle-btn:not(.active):hover{border-color:#b5371f;color:#b5371f;}
+.form-obs-gui{
+  font-size:10.5px;color:#aaa;letter-spacing:.3px;line-height:1.5;margin-top:-6px;
+}
+.btn-gui{
+  margin-top:6px;padding:13px 0;width:100%;background:#2c2c2c;color:#fff;
+  border:none;font-size:10px;font-weight:700;letter-spacing:2.8px;
+  text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .2s;
+}
+.btn-gui:hover{background:#b5371f;}
+.btn-gui:disabled{background:#aaa;cursor:not-allowed;}
+.btn-gui-sec{
+  padding:13px 20px;background:none;border:1.5px solid #d0d0d0;
+  font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#888;cursor:pointer;font-family:inherit;transition:all .2s;
+}
+.btn-gui-sec:hover{border-color:#b5371f;color:#b5371f;}
+.gui-status{margin-top:14px;font-size:11.5px;min-height:17px;text-align:center;letter-spacing:.3px;}
+.gui-status.success{color:#2a7d4f;}
+.gui-status.error{color:#b5371f;}
+/* Modal */
+.gui-modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.72);
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:48px 24px;z-index:1000;opacity:0;pointer-events:none;
+  transition:opacity .28s ease;overflow-y:auto;
+}
+.gui-modal-overlay.visible{opacity:1;pointer-events:all;}
+.gui-modal-content{
+  background:#fff;max-width:1200px;width:100%;
+  padding:48px 40px 40px;position:relative;
+  font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+.gui-modal-close{
+  position:absolute;top:16px;right:20px;background:none;border:none;
+  font-size:20px;cursor:pointer;color:#888;line-height:1;padding:4px;transition:color .2s;
+}
+.gui-modal-close:hover{color:#b5371f;}
+.modal-img-wrap{margin-bottom:32px;}
+.modal-img-wrap:last-child{margin-bottom:0;}
+.modal-img-wrap img{display:block;max-width:100%;margin-bottom:10px;}
+.btn-modal-dl{
+  background:none;border:1.5px solid #d0d0d0;padding:6px 16px;
+  font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;
+  color:#888;cursor:pointer;font-family:inherit;transition:all .2s;
+}
+.btn-modal-dl:hover{border-color:#b5371f;color:#b5371f;}
+/* Modal grupos */
+.gui-modal-grupos .gui-modal-content{max-width:460px;padding:40px 44px 36px;align-self:center;}
+.modal-grupos-title{
+  font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+  color:#2c2c2c;padding-bottom:16px;border-bottom:1.5px solid #e2e2e2;margin-bottom:16px;
+}
+.modal-grupos-desc{font-size:12px;color:#999;margin-bottom:24px;letter-spacing:.3px;}
+.grupos-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;}
+.grupos-nome{font-size:13px;color:#2c2c2c;flex:1;}
+.grupos-toggle .gui-toggle-btn{font-size:8.5px;padding:6px 14px;letter-spacing:1.4px;}
+.modal-grupos-actions{display:flex;gap:10px;margin-top:28px;padding-top:20px;border-top:1.5px solid #e2e2e2;}
+.modal-grupos-actions .btn-gui{flex:1;margin-top:0;}
+/* Report */
+.report-sep{border:none;border-top:1.5px solid #e2e2e2;margin:40px 0;}
+.report-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:28px;padding-bottom:16px;border-bottom:1.5px solid #e2e2e2;
+}
+.report-acoes{display:flex;gap:10px;}
+.report-title{font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#2c2c2c;}
+.report-body{font-size:14px;line-height:1.75;color:#333;max-width:780px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
+/* Férias */
+.ferias-input-nome{
+  padding:11px 14px;border:1.5px solid #d0d0d0;background:#fff;
+  font-size:13px;font-family:inherit;color:#2c2c2c;outline:none;transition:border-color .2s;
+  width:100%;
+}
+.ferias-input-nome:focus{border-color:#2c2c2c;}
+.ferias-input-date{
+  padding:10px 14px;border:1.5px solid #d0d0d0;background:#fff;
+  font-size:13px;font-family:inherit;color:#2c2c2c;outline:none;width:100%;transition:border-color .2s;
+}
+.ferias-input-date:focus{border-color:#2c2c2c;}
+.ferias-datas-row{display:flex;gap:20px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;}
+.ferias-datas-row .gui-form-group{margin-bottom:0;flex:1;min-width:140px;}
+.ferias-dias-group{flex:0 0 auto !important;min-width:unset !important;}
+.ferias-dias-count{display:block;font-size:22px;font-weight:300;color:#aaa;letter-spacing:.5px;padding:6px 0 4px;transition:color .2s;}
+.ferias-dias-count.ferias-dias-ok{color:#2a7d4f;}
+.ferias-obs-novo{margin-top:6px;color:#b5371f !important;}
+.ferias-section-header{display:flex;align-items:baseline;justify-content:space-between;margin:28px 0 12px;flex-wrap:wrap;gap:8px;}
+.ferias-section-title{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#2c2c2c;margin:28px 0 12px;}
+.ferias-section-title--hist{margin-top:32px;}
+.ferias-total-badge{font-size:12px;color:#555;}
+.ferias-total-badge strong{color:#2a7d4f;}
+.ferias-table{width:100%;border-collapse:collapse;font-size:12.5px;color:#2c2c2c;}
+.ferias-table thead th{
+  text-align:left;font-size:9px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:#999;padding:0 12px 10px 0;border-bottom:1.5px solid #e2e2e2;
+}
+.ferias-table tbody tr{border-bottom:1px solid #f0f0f0;transition:background .15s;}
+.ferias-table tbody tr:hover{background:#fafafa;}
+.ferias-table tbody tr.ferias-row-zerado{opacity:.5;}
+.ferias-table tbody td{padding:10px 12px 10px 0;vertical-align:middle;}
+.ferias-cell-num{text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.ferias-cell-debitos{color:#777;font-size:11.5px;}
+.ferias-cell-acao{text-align:right;width:32px;}
+.ferias-saldo-positivo{color:#2a7d4f;font-weight:600;}
+.ferias-saldo-zero{color:#bbb;}
+.ferias-btn-cancelar{background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .2s;}
+.ferias-btn-cancelar:hover{color:#b5371f;}
+.ferias-obs-vazio{color:#aaa !important;margin-top:20px;}
+.ferias-obs-proximo{margin-top:10px;}
+.ferias-busca-group{margin-bottom:20px;}
+.ferias-table td,.ferias-table th{white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- ── Modal de Login Microsoft ───────────────────────────────────────────── -->
+<div id="auth-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:40px 48px;max-width:460px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.25);">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" style="height:32px;margin-bottom:20px;" alt="Microsoft">
+    <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:8px;color:#1a1a2e;">Login necessário</h2>
+    <p style="font-size:.9rem;color:#555;margin-bottom:24px;">Acesse o link abaixo e insira o código para conectar ao PWA.</p>
+
+    <div id="auth-loading" style="color:#555;font-size:.9rem;">Gerando código de acesso…</div>
+
+    <div id="auth-info" style="display:none;">
+      <a id="auth-link" href="#" target="_blank"
+        style="display:inline-block;background:#0078d4;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.95rem;margin-bottom:20px;">
+        Abrir microsoft.com/devicelogin ↗
+      </a>
+      <p style="font-size:.85rem;color:#444;margin-bottom:8px;">Digite o código:</p>
+      <div id="auth-code" style="font-size:2rem;font-weight:700;letter-spacing:6px;color:#0078d4;font-family:monospace;background:#f0f6ff;border-radius:8px;padding:12px 24px;display:inline-block;margin-bottom:20px;"></div>
+      <p id="auth-status-msg" style="font-size:.82rem;color:#888;">Aguardando login no browser…</p>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Conectando ao PWA…</div>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Recolher/expandir menu" aria-label="Recolher/expandir menu">‹</button>
+  <div class="brand">
+    <div class="brand-name">PMO Dashboard</div>
+    <div class="brand-sub">Horizontes Arquitetura</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Visualização</div>
+    <div class="nav-item active" onclick="showView('overview')" id="nav-overview">
+      <span class="nav-icon">◉</span><span class="nav-label">Visão Geral</span>
+    </div>
+    <div class="nav-item" onclick="showView('projetos')" id="nav-projetos">
+      <span class="nav-icon">◈</span><span class="nav-label">Por Projeto</span>
+    </div>
+    <div class="nav-item" onclick="showView('clientes')" id="nav-clientes">
+      <span class="nav-icon">◐</span><span class="nav-label">Por Cliente</span>
+    </div>
+    <div class="nav-item" onclick="showView('cidades')" id="nav-cidades">
+      <span class="nav-icon">◫</span><span class="nav-label">Por Cidade</span>
+    </div>
+    <div class="nav-section" style="margin-top:8px;">Sistema</div>
+    <div class="nav-item" id="nav-report"     onclick="showView('report')"><span class="nav-icon">📋</span><span class="nav-label">Report Semanal</span></div>
+    <div class="nav-item" id="nav-desembolso" onclick="showView('desembolso')"><span class="nav-icon">📈</span><span class="nav-label">Curva de Desembolso</span></div>
+    <div class="nav-item" id="nav-cronograma" onclick="showView('cronograma')"><span class="nav-icon">📆</span><span class="nav-label">Cronogramas de Alocação</span></div>
+    <div class="nav-item" id="nav-ferias"     onclick="showView('ferias')"><span class="nav-icon">🌴</span><span class="nav-label">Anotação de Férias</span></div>
+    <div class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Configurações</span></div>
+    <div class="nav-section" style="margin-top:8px;">Links Úteis</div>
+    <a class="nav-item" href="https://horizontesarq.sharepoint.com/sites/pwa/Projects.aspx" target="_blank" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🔗</span><span class="nav-label">PWA Horizontes</span>
+    </a>
+    <a class="nav-item" href="https://github.com/pedrohenriquefonseca/python" target="_blank" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🔗</span><span class="nav-label">Github</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer" id="sidebar-footer">PWA · Carregando…</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+
+  <div id="error-banner"></div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1 id="view-title">Visão Geral</h1>
+      <p id="view-sub">Carregando projetos…</p>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill loading" id="status-pill">
+        <span class="status-dot"></span>
+        <span id="status-text">Conectando…</span>
+      </div>
+      <span style="font-size:.72rem;color:var(--muted);" id="last-update"></span>
+      <button class="btn btn-primary" id="refresh-btn" onclick="triggerRefresh()" disabled>↻ Atualizar</button>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <!-- Toggle Correntes / Todos -->
+    <div class="toggle-wrap" id="scope-toggle" onclick="toggleScope()" title="Alternar entre projetos correntes e todos">
+      <div class="toggle-track">
+        <div class="toggle-thumb" id="scope-thumb"></div>
+      </div>
+      <span class="toggle-label" id="scope-label">Somente correntes</span>
+    </div>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Cliente</span>
+    <div class="filter-pills" id="client-filters"></div>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Coordenador</span>
+    <div class="filter-pills" id="coord-filters"></div>
+    <span class="clear-btn" onclick="clearFilters()">✕ Limpar</span>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- VISÃO GERAL -->
+    <div class="view active" id="view-overview">
+      <div class="kpi-grid" id="kpi-overview"></div>
+      <!-- Linha de Base vs Execução Real — largura total -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Linha de Base vs Execução Real</div>
+            <div class="card-sub">Superior = real · Inferior = linha de base · Linha vermelha = hoje</div>
+          </div>
+        </div>
+        <div class="tl-wrap">
+          <div class="tl-header">
+            <div class="tl-name-col">Projeto</div>
+            <div style="flex:1;position:relative;height:100%;overflow:hidden;" id="tl-header-months"></div>
+          </div>
+          <div class="tl-body" id="tl-overview-body" style="position:relative;"></div>
+          <div class="tl-legend">
+            <div class="tl-leg-item"><div class="tl-leg-rect" style="background:#e2e8f0;border:1px solid #cbd5e1;"></div>Linha de Base</div>
+            <div class="tl-leg-item"><div class="tl-leg-rect" style="background:#3b82f6;"></div>Em Andamento</div>
+            <div class="tl-leg-item"><div class="tl-leg-rect" style="background:#16a34a;"></div>No Prazo</div>
+            <div class="tl-leg-item"><div class="tl-leg-rect" style="background:#ca8a04;"></div>Atenção</div>
+            <div class="tl-leg-item"><div class="tl-leg-rect" style="background:#dc2626;"></div>Atrasado</div>
+            <div class="tl-leg-item"><div class="tl-today-mark"></div>Hoje</div>
+          </div>
+        </div>
+      </div>
+      <!-- Duração Média | Aderência por Cliente -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Aderência por Coordenador (%)</div></div>
+          <div id="wrap-adh-coord" style="position:relative;"><canvas id="chart-adh-coord"></canvas></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;">
+          <div class="card-head"><div class="card-title">Aderência por Cliente (%)</div></div>
+          <div id="wrap-adh-client" style="position:relative;"><canvas id="chart-adh-client"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tabela de aderência por projeto -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Aderência por Projeto — em andamento</div>
+        </div>
+        <div id="adh-table-wrap"></div>
+      </div>
+
+    </div>
+
+    <!-- POR PROJETO -->
+    <div class="view" id="view-projetos">
+      <div class="card" style="padding:13px 20px;">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <span style="font-size:.75rem;font-weight:600;color:var(--muted);">Projeto</span>
+          <select id="proj-selector" class="fselect"
+            style="font-size:.84rem;font-weight:600;min-width:230px;"
+            onchange="onProjectSelect()"></select>
+          <div id="proj-selector-meta" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"></div>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div class="gantt-outer" id="gantt-outer">
+          <div style="padding:48px;text-align:center;color:var(--muted);font-size:.85rem;">
+            Selecione um projeto para ver o cronograma.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- POR CLIENTE -->
+    <div class="view" id="view-clientes">
+      <div class="client-grid" id="client-cards"></div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Comparativo entre Clientes</div></div>
+        <div class="grid-2">
+          <div><div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">Aderência Média (%)</div>
+            <div class="chart-wrap"><canvas id="chart-client-adh"></canvas></div></div>
+          <div><div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">Variação Média (dias)</div>
+            <div class="chart-wrap"><canvas id="chart-client-var"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- POR CIDADE -->
+    <div class="view" id="view-cidades">
+      <div class="kpi-grid" id="kpi-cities" style="grid-template-columns:repeat(4,1fr);"></div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Distribuição Geográfica de Projetos</div>
+            <div class="card-sub">Tamanho do círculo proporcional ao número de projetos na cidade · Clique para detalhes</div>
+          </div>
+        </div>
+        <div id="map-container"></div>
+        <div class="map-legend" id="map-legend"></div>
+      </div>
+    </div>
+
+    <!-- TOOL: REPORT SEMANAL -->
+    <div class="view" id="view-report">
+      <div class="tool-hero">
+        <div class="tool-panel active" id="panel-report">
+          <h2 class="panel-title">Report Semanal</h2>
+          <form id="form-report" class="tool-form" autocomplete="off">
+            <div class="gui-form-group">
+              <label for="proj-report">Projeto</label>
+              <select id="proj-report" class="fselect" style="font-size:.84rem;font-weight:600;width:100%;"></select>
+            </div>
+            <p class="form-obs-gui">Obs.: Os dados são lidos diretamente do snapshot do PWA — sem necessidade de exportar Excel.</p>
+            <button type="submit" class="btn-gui" id="btn-report">
+              <span class="btn-text">Gerar Relatório</span>
+              <span class="btn-loading hidden">Processando…</span>
+            </button>
+          </form>
+          <p class="gui-status" id="status-report"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOL: CURVA DE DESEMBOLSO -->
+    <div class="view" id="view-desembolso">
+      <div class="tool-hero">
+        <div class="tool-panel active" id="panel-desembolso">
+          <h2 class="panel-title">Curva de Desembolso</h2>
+          <form id="form-desembolso" class="tool-form" autocomplete="off">
+            <div class="gui-form-group">
+              <label>Arquivo Excel</label>
+              <div class="file-zone" id="zone-desembolso">
+                <input type="file" id="file-desembolso" accept=".xlsx,.xls">
+                <svg class="gui-file-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span class="file-zone-text" id="file-text-desembolso">Selecionar arquivo…</span>
+              </div>
+            </div>
+            <div class="gui-form-group">
+              <label for="corte-desembolso">Dia de Corte</label>
+              <input type="number" id="corte-desembolso" min="1" max="31" value="25">
+            </div>
+            <p class="form-obs-gui">Obs.: O nome do projeto no gráfico será lido a partir do nome do arquivo Excel enviado.</p>
+            <button type="submit" class="btn-gui" id="btn-desembolso">
+              <span class="btn-text">Gerar Gráfico</span>
+              <span class="btn-loading hidden">Processando…</span>
+            </button>
+          </form>
+          <p class="gui-status" id="status-desembolso"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOL: CRONOGRAMAS DE ALOCAÇÃO (direto do snapshot do PWA) -->
+    <div class="view" id="view-cronograma">
+      <div class="tool-hero">
+        <div class="tool-panel active" id="panel-cronograma">
+          <h2 class="panel-title">Cronogramas de Alocação</h2>
+          <p class="form-obs-gui" style="margin-top:-8px;">Gerado automaticamente a partir dos dados do Project Online — sem upload de Excel.</p>
+          <form id="form-cronograma" class="tool-form" autocomplete="off">
+            <div class="gui-form-group">
+              <label>Assunto</label>
+              <div class="gui-toggle-group">
+                <button type="button" class="gui-toggle-btn active" data-type="projetos">Projetos por Cliente</button>
+                <button type="button" class="gui-toggle-btn" data-type="equipe">Fornecedores</button>
+                <button type="button" class="gui-toggle-btn" data-type="clientes">Equipe Interna</button>
+              </div>
+            </div>
+            <button type="submit" class="btn-gui" id="btn-cronograma">
+              <span class="btn-text">Gerar Cronograma</span>
+              <span class="btn-loading hidden">Processando…</span>
+            </button>
+          </form>
+          <p class="gui-status" id="status-cronograma"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOL: ANOTAÇÃO DE FÉRIAS -->
+    <div class="view" id="view-ferias">
+      <div class="tool-hero">
+        <div class="tool-panel active" id="panel-ferias">
+          <h2 class="panel-title">Anotação de Férias</h2>
+          <div class="gui-form-group ferias-busca-group">
+            <label for="ferias-nome">Funcionário</label>
+            <input type="text" id="ferias-nome" class="ferias-input-nome" placeholder="Nome completo…" list="ferias-datalist" autocomplete="off">
+            <datalist id="ferias-datalist"></datalist>
+            <button type="button" id="btn-ferias-buscar" class="btn-gui" style="margin-top:8px;">Consultar</button>
+          </div>
+          <div class="gui-form-group hidden" id="ferias-admissao-group">
+            <label for="ferias-admissao">Data de Admissão</label>
+            <input type="date" id="ferias-admissao" class="ferias-input-date">
+            <p class="form-obs-gui ferias-obs-novo">Funcionário não cadastrado. Informe a data de admissão para continuar.</p>
+          </div>
+          <div id="ferias-form-section" class="hidden">
+            <div class="ferias-datas-row">
+              <div class="gui-form-group">
+                <label for="ferias-inicio">Início das Férias</label>
+                <input type="date" id="ferias-inicio" class="ferias-input-date">
+              </div>
+              <div class="gui-form-group">
+                <label for="ferias-fim">Fim das Férias</label>
+                <input type="date" id="ferias-fim" class="ferias-input-date">
+              </div>
+              <div class="gui-form-group ferias-dias-group">
+                <label>Total de Dias</label>
+                <span id="ferias-dias-count" class="ferias-dias-count">—</span>
+              </div>
+            </div>
+            <button type="button" id="btn-ferias" class="btn-gui">
+              <span class="btn-text">Registrar Férias</span>
+              <span class="btn-loading hidden">Processando…</span>
+            </button>
+          </div>
+          <p class="gui-status" id="status-ferias"></p>
+          <div id="ferias-resultado" class="hidden">
+            <div id="ferias-saldo-wrap"></div>
+            <div id="ferias-historico-wrap"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- MODAIS GUI -->
+  <div class="gui-modal-overlay" id="gui-modal">
+    <div class="gui-modal-content">
+      <button class="gui-modal-close" id="gui-modal-close" aria-label="Fechar">✕</button>
+      <div id="gui-modal-body"></div>
+    </div>
+  </div>
+  <div class="gui-modal-overlay gui-modal-grupos" id="gui-modal-grupos">
+    <div class="gui-modal-content" style="max-width:460px;padding:40px 44px 36px;align-self:center;">
+      <p class="modal-grupos-title">Novos colaboradores encontrados</p>
+      <p class="modal-grupos-desc">Defina o grupo de cada recurso para continuar:</p>
+      <div id="gui-modal-grupos-body"></div>
+      <div class="modal-grupos-actions">
+        <button type="button" id="gui-modal-grupos-cancelar" class="btn-gui-sec">Cancelar</button>
+        <button type="button" id="gui-modal-grupos-confirmar" class="btn-gui">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONFIGURAÇÃO
+═══════════════════════════════════════════════════════════════ */
+const API = '';  // Flask corre em localhost:5000, mesmo origin
+
+const CITY_COORDS = {
+  // ── Cidades com projetos Horizontes ────────────────────────────
+  'Belo Horizonte': { lat:-19.9167, lng:-43.9345 },
+  'Brumadinho':     { lat:-20.1417, lng:-44.2017 },
+  'Ourilândia':     { lat:-6.7603,  lng:-51.0806 },  // Ourilândia do Norte – PA
+  'Poços de Caldas':{ lat:-21.7883, lng:-46.5611 },
+  'São Paulo':      { lat:-23.5505, lng:-46.6333 },
+  // ── Outras capitais/cidades (expansão futura) ───────────────────
+  'Porto Alegre':   { lat:-30.0277, lng:-51.2287 },
+  'Florianópolis':  { lat:-27.5954, lng:-48.5480 },
+  'Curitiba':       { lat:-25.4284, lng:-49.2733 },
+  'Rio de Janeiro': { lat:-22.9068, lng:-43.1729 },
+  'Brasília':       { lat:-15.7801, lng:-47.9292 },
+  'Salvador':       { lat:-12.9714, lng:-38.5014 },
+  'Recife':         { lat:-8.0476,  lng:-34.8770 },
+  'Manaus':         { lat:-3.1190,  lng:-60.0217 },
+  'Fortaleza':      { lat:-3.7172,  lng:-38.5434 },
+  'Goiânia':        { lat:-16.6864, lng:-49.2643 },
+  'Vitória':        { lat:-20.3155, lng:-40.3128 },
+  'Belém':          { lat:-1.4558,  lng:-48.5044 },
+  'Campo Grande':   { lat:-20.4697, lng:-54.6201 },
+  'Cuiabá':         { lat:-15.5989, lng:-56.0949 },
+  'Macapá':         { lat:0.0389,   lng:-51.0664 },
+  'Porto Velho':    { lat:-8.7612,  lng:-63.9004 },
+  'Palmas':         { lat:-10.2491, lng:-48.3243 },
+  'Maceió':         { lat:-9.6658,  lng:-35.7350 },
+  'Natal':          { lat:-5.7945,  lng:-35.2110 },
+  'João Pessoa':    { lat:-7.1195,  lng:-34.8450 },
+  'Teresina':       { lat:-5.0919,  lng:-42.8034 },
+  'São Luís':       { lat:-2.5297,  lng:-44.3028 },
+  'Aracaju':        { lat:-10.9472, lng:-37.0731 },
+  'Rio Branco':     { lat:-9.9754,  lng:-67.8249 },
+  'Boa Vista':      { lat:2.8235,   lng:-60.6758 },
+};
+
+const COLOR_PALETTE = [
+  { main:'#3b82f6', bg:'#eff6ff', border:'#bfdbfe' },
+  { main:'#7c3aed', bg:'#f5f3ff', border:'#ddd6fe' },
+  { main:'#d97706', bg:'#fffbeb', border:'#fde68a' },
+  { main:'#059669', bg:'#ecfdf5', border:'#a7f3d0' },
+  { main:'#dc2626', bg:'#fef2f2', border:'#fecaca' },
+  { main:'#0891b2', bg:'#ecfeff', border:'#a5f3fc' },
+  { main:'#be185d', bg:'#fdf2f8', border:'#fbcfe8' },
+];
+
+const STATUS_CONFIG = {
+  ok:      { label:'No Prazo', badge:'b-green',  color:'#16a34a' },
+  warning: { label:'Atenção',  badge:'b-yellow', color:'#ca8a04' },
+  late:    { label:'Atrasado', badge:'b-red',    color:'#dc2626' },
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   ESTADO
+═══════════════════════════════════════════════════════════════ */
+let ALL_PROJECTS = [];
+let CLIENT_COLORS = {};
+let _colorIdx = 0;
+let activeClients = new Set();
+let activeCoords  = new Set();
+let activeView = 'overview';
+let onlyActive = true;   // toggle: somente projetos correntes (pctConcluido < 100)
+const charts = {};
+let leafletMap = null;
+let _lastProjData = [];
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════ */
+function clientColor(name) {
+  if (!CLIENT_COLORS[name]) {
+    CLIENT_COLORS[name] = COLOR_PALETTE[_colorIdx % COLOR_PALETTE.length];
+    _colorIdx++;
+  }
+  return CLIENT_COLORS[name];
+}
+
+function avg(arr, fn) {
+  if (!arr.length) return 0;
+  return arr.reduce((s,x) => s + fn(x), 0) / arr.length;
+}
+
+function fmt(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function fmtS(d) {
+  // Formato curto dd/mm para uso em colunas compactas do Gantt
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y.slice(-2)}`;
+}
+
+function adhColor(v) {
+  return v >= 95 ? '#16a34a' : v >= 80 ? '#ca8a04' : '#dc2626';
+}
+
+function datePct(ds) {
+  if (!ds) return 0;
+  const d = new Date(ds);
+  const s = new Date(d.getFullYear(), 0, 1);
+  const e = new Date(d.getFullYear(), 11, 31);
+  return Math.max(0, Math.min(100, (d - s) / (e - s + 86400000) * 100));
+}
+
+function destroyChart(k) {
+  if (charts[k]) { charts[k].destroy(); delete charts[k]; }
+}
+
+function showError(msg) {
+  const b = document.getElementById('error-banner');
+  b.textContent = '⚠ ' + msg;
+  b.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('error-banner').style.display = 'none';
+}
+
+function setLoading(on, text) {
+  document.getElementById('loading-overlay').style.display = on ? 'flex' : 'none';
+  if (text) document.getElementById('loading-text').textContent = text;
+}
+
+function setStatus(state, text) {
+  const pill = document.getElementById('status-pill');
+  pill.className = 'status-pill ' + state;
+  document.getElementById('status-text').textContent = text;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CARREGAR DADOS DA API
+═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   AUTENTICAÇÃO MICROSOFT (device flow)
+═══════════════════════════════════════════════════════════════ */
+let _pollTimer = null;
+
+function showAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  modal.style.display = 'flex';
+  document.getElementById('auth-loading').style.display = 'block';
+  document.getElementById('auth-info').style.display = 'none';
+
+  fetch(API + '/api/auth/start', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { document.getElementById('auth-loading').textContent = 'Erro: ' + data.error; return; }
+      document.getElementById('auth-loading').style.display = 'none';
+      document.getElementById('auth-info').style.display = 'block';
+      document.getElementById('auth-link').href = data.verification_uri;
+      document.getElementById('auth-link').textContent = '↗ Abrir ' + data.verification_uri.replace('https://', '');
+      document.getElementById('auth-code').textContent = data.user_code;
+      _pollTimer = setInterval(pollAuth, 3000);
+    })
+    .catch(e => { document.getElementById('auth-loading').textContent = 'Erro ao conectar ao servidor.'; });
+}
+
+function hideAuthModal() {
+  document.getElementById('auth-modal').style.display = 'none';
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+async function pollAuth() {
+  try {
+    const r = await fetch(API + '/api/auth/poll');
+    const data = await r.json();
+    if (data.error) {
+      document.getElementById('auth-status-msg').textContent = 'Erro: ' + data.error;
+      clearInterval(_pollTimer); _pollTimer = null;
+      return;
+    }
+    if (data.authenticated) {
+      document.getElementById('auth-status-msg').textContent = '✓ Autenticado! Carregando projetos…';
+      clearInterval(_pollTimer); _pollTimer = null;
+      setTimeout(() => { hideAuthModal(); loadProjects(); }, 800);
+    }
+  } catch(e) {}
+}
+
+function fmtTimestamp(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleString('pt-BR', {
+    day:'2-digit', month:'2-digit',
+    hour:'2-digit', minute:'2-digit',
+  });
+}
+
+async function loadStatus() {
+  try {
+    const r = await fetch(API + '/api/status');
+    const s = await r.json();
+    const lu = document.getElementById('last-update');
+    if (s.finished_at) {
+      lu.textContent = `Snapshot: ${fmtTimestamp(s.finished_at)} · ${s.projects||0} proj · ${s.tasks||0} tarefas`;
+      if (!s.ok) {
+        lu.style.color = 'var(--red)';
+        lu.textContent = '⚠ Última coleta falhou — ' + lu.textContent;
+      } else {
+        lu.style.color = 'var(--muted)';
+      }
+    } else {
+      lu.textContent = 'Sem snapshot ainda — aguarde a próxima coleta agendada';
+      lu.style.color = 'var(--muted)';
+    }
+  } catch (e) { /* ignora */ }
+}
+
+async function triggerRefresh() {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Atualizando…';
+  try {
+    await fetch(API + '/api/refresh', { method: 'POST' });
+    // Aguarda o fetcher rodar (~90s) e recarrega
+    const poll = setInterval(async () => {
+      const r = await fetch(API + '/api/status');
+      const s = await r.json();
+      const finishedRecently = s.finished_at &&
+        (new Date() - new Date(s.finished_at)) < 5 * 60 * 1000;
+      if (finishedRecently) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.textContent = '↻ Atualizar';
+        loadProjects();
+        loadStatus();
+      }
+    }, 3000);
+    setTimeout(() => {
+      clearInterval(poll);
+      btn.disabled = false;
+      btn.textContent = '↻ Atualizar';
+    }, 180000);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '↻ Atualizar';
+    showError('Falha ao acionar refresh: ' + e.message);
+  }
+}
+
+async function loadProjects() {
+  setLoading(true, 'Carregando dados…');
+  document.getElementById('refresh-btn').disabled = true;
+  setStatus('loading', 'Carregando…');
+  hideError();
+
+  try {
+    const resp = await fetch(API + '/api/projects');
+    if (resp.status === 503) {
+      const err = await resp.json();
+      setStatus('err', 'Sem dados');
+      showError(err.error || 'Nenhum snapshot disponível. Rode python fetcher.py.');
+      return;
+    }
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      throw new Error(err.error || resp.statusText);
+    }
+    ALL_PROJECTS = await resp.json();
+
+    CLIENT_COLORS = {};
+    _colorIdx = 0;
+
+    // Aplica estado inicial do toggle (somente correntes ligado por padrão)
+    const scopeWrap = document.getElementById('scope-toggle');
+    const scopeLbl  = document.getElementById('scope-label');
+    if (onlyActive) {
+      scopeWrap.classList.add('on');
+      scopeLbl.textContent = 'Exibir somente projetos em andamento';
+    } else {
+      scopeWrap.classList.remove('on');
+      scopeLbl.textContent = 'Exibir todos os projetos';
+    }
+
+    buildFilterBar();
+    setStatus('ok', 'Dados carregados');
+    const now = new Date();
+    document.getElementById('view-sub').textContent =
+      `${ALL_PROJECTS.length} projeto(s) · ${now.toLocaleDateString('pt-BR', {month:'long', year:'numeric'})}`;
+    document.getElementById('sidebar-footer').textContent = 'PWA · horizontesarq';
+
+    renderCurrentView();
+  } catch (err) {
+    setStatus('err', 'Erro');
+    showError(`Não foi possível carregar os projetos: ${err.message}`);
+    console.error(err);
+  } finally {
+    setLoading(false);
+    document.getElementById('refresh-btn').disabled = false;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FILTER BAR DINÂMICA
+═══════════════════════════════════════════════════════════════ */
+function buildFilterBar() {
+  const scopeProjects = onlyActive ? ALL_PROJECTS.filter(p => p.pctConcluido < 100) : ALL_PROJECTS;
+  const clients = [...new Set(scopeProjects.map(p => p.client))].sort();
+  const coords  = [...new Set(scopeProjects.map(p => p.coordenador))].sort();
+  // Sincroniza sets ativos com escopo atual
+  activeClients = new Set(clients);
+  activeCoords  = new Set(coords);
+
+  // Pills de clientes (coloridas)
+  document.getElementById('client-filters').innerHTML = clients.map(cl => {
+    const col = clientColor(cl);
+    return `<button class="fpill on" data-client="${cl}" onclick="toggleClient(this)">${cl}</button>`;
+  }).join('');
+  document.querySelectorAll('#client-filters .fpill.on').forEach(b => {
+    const col = clientColor(b.dataset.client);
+    b.style.background  = col.bg;
+    b.style.borderColor = col.main;
+    b.style.color       = col.main;
+  });
+
+  // Pills de coordenadores (estilo neutro)
+  document.getElementById('coord-filters').innerHTML = coords.map(co =>
+    `<button class="fpill on" data-coord="${co}" onclick="toggleCoord(this)">${co}</button>`
+  ).join('');
+  document.querySelectorAll('#coord-filters .fpill.on').forEach(b => {
+    b.style.background  = '#eff6ff';
+    b.style.borderColor = '#3b82f6';
+    b.style.color       = '#1d4ed8';
+  });
+}
+
+function toggleClient(btn) {
+  const cl = btn.dataset.client;
+  const col = clientColor(cl);
+  if (activeClients.has(cl)) {
+    if (activeClients.size === 1) return;
+    activeClients.delete(cl);
+    btn.classList.remove('on');
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  } else {
+    activeClients.add(cl);
+    btn.classList.add('on');
+    btn.style.background  = col.bg;
+    btn.style.borderColor = col.main;
+    btn.style.color       = col.main;
+  }
+  applyFilters();
+}
+
+function toggleCoord(btn) {
+  const co = btn.dataset.coord;
+  if (activeCoords.has(co)) {
+    if (activeCoords.size === 1) return;
+    activeCoords.delete(co);
+    btn.classList.remove('on');
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  } else {
+    activeCoords.add(co);
+    btn.classList.add('on');
+    btn.style.background  = '#eff6ff';
+    btn.style.borderColor = '#3b82f6';
+    btn.style.color       = '#1d4ed8';
+  }
+  renderCurrentView();
+}
+
+function applyFilters() {
+  renderCurrentView();
+}
+
+function clearFilters() {
+  buildFilterBar();   // reconstrói pills com tudo ativo
+  renderCurrentView();
+}
+
+function toggleScope() {
+  onlyActive = !onlyActive;
+  const wrap = document.getElementById('scope-toggle');
+  const lbl  = document.getElementById('scope-label');
+  if (onlyActive) {
+    wrap.classList.add('on');
+    lbl.textContent = 'Exibir somente projetos em andamento';
+  } else {
+    wrap.classList.remove('on');
+    lbl.textContent = 'Exibir todos os projetos';
+  }
+  // Reconstrói os filtros de cliente com o novo escopo
+  buildFilterBar();
+  applyFilters();
+}
+
+function getFiltered() {
+  return ALL_PROJECTS.filter(p =>
+    (!onlyActive  || p.pctConcluido < 100) &&
+    activeClients.has(p.client) &&
+    activeCoords.has(p.coordenador)
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VIEW SWITCHING
+═══════════════════════════════════════════════════════════════ */
+const VIEW_META = {
+  overview:   { title:'Visão Geral',              sub:'' },
+  projetos:   { title:'Por Projeto',              sub:'Cronograma completo com Gantt' },
+  clientes:   { title:'Por Cliente',              sub:'Métricas agregadas por cliente' },
+  cidades:    { title:'Por Cidade',               sub:'Distribuição geográfica dos projetos' },
+  report:     { title:'Report Semanal',           sub:'' },
+  desembolso: { title:'Curva de Desembolso',      sub:'' },
+  cronograma: { title:'Cronogramas de Alocação',  sub:'' },
+  ferias:     { title:'Anotação de Férias',        sub:'' },
+};
+
+const TOOL_VIEWS = new Set(['report','desembolso','cronograma','ferias']);
+
+function showView(v) {
+  const isTool = TOOL_VIEWS.has(v);
+  document.querySelector('.filter-bar').style.display = isTool ? 'none' : '';
+  document.querySelector('.content').classList.toggle('tool-mode', isTool);
+  activeView = v;
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.querySelectorAll('.nav-item[id]').forEach(el => el.classList.remove('active'));
+  document.getElementById('nav-' + v).classList.add('active');
+  document.getElementById('view-title').textContent = VIEW_META[v].title;
+  if (v === 'report') popularSeletorReport();
+  if (!isTool && ALL_PROJECTS.length) renderCurrentView();
+}
+
+/* Popula o seletor de projetos do Report Semanal a partir do snapshot já carregado */
+function popularSeletorReport() {
+  const sel = document.getElementById('proj-report');
+  if (!sel) return;
+  const prev = sel.value;
+  // Apenas projetos ativos (avanço < 100%), todos eles — independente dos filtros da barra
+  const ativos = ALL_PROJECTS.filter(p => (p.pctConcluido ?? 0) < 100);
+  if (!ativos.length) {
+    sel.innerHTML = '<option value="">Nenhum projeto ativo disponível</option>';
+    return;
+  }
+  const lista = [...ativos].sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt-BR'));
+  sel.innerHTML = lista.map(p =>
+    `<option value="${p.id}">${p.name}${p.cliente ? ' (' + p.cliente + ')' : ''}</option>`
+  ).join('');
+  if (prev && lista.find(p => String(p.id) === prev)) sel.value = prev;
+}
+
+function renderCurrentView() {
+  const data = getFiltered();
+  if (activeView === 'overview') renderOverview(data);
+  if (activeView === 'projetos') renderProjetos(data);
+  if (activeView === 'clientes') renderClientes(data);
+  if (activeView === 'cidades')  renderCidades(data);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   KPI CARDS
+═══════════════════════════════════════════════════════════════ */
+function renderKPIs(data, containerId, extra) {
+  const ok   = data.filter(p => p.status === 'ok').length;
+  const late = data.filter(p => p.status === 'late').length;
+  const warn = data.filter(p => p.status === 'warning').length;
+  const adhAvg = avg(data, p => p.adh).toFixed(0);
+  const varAvg = avg(data, p => p.variance).toFixed(1);
+  const cards = [
+    { c:'c-blue',   lbl:'Projetos',        val:data.length, sub:`${ok} no prazo · ${warn} atenção · ${late} atraso` },
+    { c:'c-green',  lbl:'Aderência Média', val:`${adhAvg}%`, sub:'Aderência ao planejamento' },
+    { c:'c-yellow', lbl:'Variação Média',  val:`+${varAvg} d`, sub:'Dias corridos de atraso' },
+    { c:'c-red',    lbl:'Atrasados',       val:late, sub:'Acima de 10 dias corridos' },
+    ...(extra || [{ c:'c-gray', lbl:'Cidades', val:new Set(data.map(p=>p.city)).size, sub:'Municípios cobertos' }]),
+  ];
+  document.getElementById(containerId).innerHTML = cards.map(k =>
+    `<div class="kpi ${k.c}">
+      <div class="kpi-lbl">${k.lbl}</div>
+      <div class="kpi-val">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TIMELINE (VISÃO GERAL) — range dinâmico, grid mensal, hoje
+═══════════════════════════════════════════════════════════════ */
+function renderTimeline(data) {
+  // Coleta todas as datas para definir o range total
+  const allMs = [];
+  data.forEach(p => {
+    if (p.blStart) allMs.push(new Date(p.blStart).getTime());
+    if (p.blEnd)   allMs.push(new Date(p.blEnd).getTime());
+    if (p.acStart) allMs.push(new Date(p.acStart).getTime());
+    if (p.acEnd)   allMs.push(new Date(p.acEnd).getTime());
+  });
+  if (!allMs.length) return;
+
+  // Snap para limites de mês
+  const rawMin     = new Date(Math.min(...allMs));
+  const rawMax     = new Date(Math.max(...allMs));
+  const rangeStart = new Date(rawMin.getFullYear(), rawMin.getMonth(), 1);
+  const rangeEnd   = new Date(rawMax.getFullYear(), rawMax.getMonth() + 1, 1);
+  const totalMs    = rangeEnd - rangeStart;
+
+  function toPct(d) {
+    if (!d) return 0;
+    return Math.max(0, Math.min(100, (new Date(d) - rangeStart) / totalMs * 100));
+  }
+
+  // Meses do intervalo
+  const months = [];
+  let cur = new Date(rangeStart);
+  while (cur < rangeEnd) {
+    const next  = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    const left  = toPct(cur);
+    const width = toPct(next) - left;
+    const lbl   = cur.toLocaleDateString('pt-BR', { month:'short' })
+                     .replace('.', '')
+                     .replace(/^\w/, c => c.toUpperCase())
+                  + '/' + String(cur.getFullYear()).slice(2);
+    months.push({ left, width, lbl });
+    cur = next;
+  }
+
+  // ── CABEÇALHO: flex com larguras proporcionais ────────────────
+  document.getElementById('tl-header-months').innerHTML = months.map(m =>
+    `<div style="flex:0 0 ${m.width}%;overflow:hidden;border-left:1px solid #e2e8f0;
+       display:flex;align-items:center;justify-content:center;min-width:0;">
+       <span style="font-size:.6rem;font-weight:600;color:#94a3b8;white-space:nowrap;
+         padding:0 2px;">${m.lbl}</span>
+     </div>`
+  ).join('');
+  // Garante display:flex no container pai
+  document.getElementById('tl-header-months').style.display = 'flex';
+
+  // ── OVERLAY ÚNICO sobre toda a área de barras ─────────────────
+  // Fica em tl-overview-body (position:relative), alinhado ao início das barras
+  // left = 200px (largura de .tl-pname)
+  const TL_NAME_W = 200;
+  const todayPct  = toPct(new Date());
+
+  const overlayHtml =
+    `<div style="position:absolute;top:0;bottom:0;left:${TL_NAME_W}px;right:0;
+       pointer-events:none;z-index:2;">
+       ${months.slice(1).map(m =>
+         `<div style="position:absolute;top:0;bottom:0;left:${m.left}%;width:1px;
+            background:#e2e8f0;"></div>`
+       ).join('')}
+       <div style="position:absolute;top:0;bottom:0;left:${todayPct}%;width:2px;
+          background:#ef4444;opacity:.7;">
+         <span style="position:absolute;top:2px;left:3px;font-size:.6rem;
+           color:#ef4444;font-weight:700;white-space:nowrap;
+           background:rgba(255,255,255,.9);padding:1px 4px;border-radius:2px;
+           box-shadow:0 1px 3px rgba(0,0,0,.1);">Hoje</span>
+       </div>
+     </div>`;
+
+  // ── LINHAS DOS PROJETOS (sem grade interna — vem do overlay) ──
+  const rowsHtml = data.map(p => {
+    const blL = toPct(p.blStart), blW = Math.max(.4, toPct(p.blEnd)  - blL);
+    const acL = toPct(p.acStart), acW = Math.max(.4, toPct(p.acEnd)  - acL);
+    const col = STATUS_CONFIG[p.status]?.color || '#3b82f6';
+    return `<div class="tl-row">
+      <div class="tl-pname" title="${p.name}">${p.name}</div>
+      <div class="tl-bars-area" style="position:relative;">
+        <div class="tl-bar bl" style="left:${blL}%;width:${blW}%;"></div>
+        <div class="tl-bar ac" style="left:${acL}%;width:${acW}%;background:${col};"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('tl-overview-body').innerHTML = overlayHtml + rowsHtml;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VISÃO GERAL
+═══════════════════════════════════════════════════════════════ */
+function renderOverview(data) {
+  renderKPIs(data, 'kpi-overview');
+  renderTimeline(data);
+
+  const clients        = [...new Set(data.map(p => p.client))];
+  const clientProjects = clients.map(cl => data.filter(p => p.client === cl).map(p => p.name || '').filter(Boolean));
+  const adhByClient    = clients.map(cl => +(avg(data.filter(p=>p.client===cl), p=>p.adh).toFixed(1)));
+  const bgC            = clients.map(cl => clientColor(cl).bg);
+  const bdC            = clients.map(cl => clientColor(cl).main);
+
+  // Aderência por Cliente — altura dinâmica + rótulos dentro das barras
+  const BAR_H_CLI  = 52;
+  const _nCoords   = new Set(data.map(p => p.coordenador).filter(Boolean)).size;
+  const _sharedH   = Math.max(clients.length, _nCoords) * BAR_H_CLI + 24;
+  const clientWrap = document.getElementById('wrap-adh-client');
+  clientWrap.style.height = _sharedH + 'px';
+
+  const clientLabelPlugin = {
+    id: 'clientLabels',
+    afterDraw(chart) {
+      const ctx   = chart.ctx;
+      const meta  = chart.getDatasetMeta(0);
+      const ds    = chart.data.datasets[0];
+      const projs = ds._projects || [];
+      meta.data.forEach((bar, i) => {
+        const { x, y, base, height } = bar.getProps(['x','y','base','height'], true);
+        const barW = x - base;
+        // % à direita
+        ctx.save();
+        ctx.font = 'bold 11px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle = '#374151';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ds.data[i] + '%', x + 6, y);
+        // nomes dos projetos dentro da barra
+        if (barW > 24 && projs[i] && projs[i].length) {
+          ctx.font = '9px "Segoe UI",system-ui,sans-serif';
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(base + 6, y - height / 2, barW - 12, height);
+          ctx.clip();
+          const names  = projs[i];
+          const lineH  = 11;
+          const lines  = [];
+          let cur = '';
+          names.forEach((n, ni) => {
+            const sep     = ni === 0 ? '' : '  ·  ';
+            const attempt = cur + sep + n;
+            if (ctx.measureText(attempt).width > barW - 14 && cur) {
+              lines.push(cur); cur = n;
+            } else { cur = attempt; }
+          });
+          if (cur) lines.push(cur);
+          const totalH = lines.length * lineH;
+          const startY = y - totalH / 2 + lineH / 2;
+          lines.forEach((l, li) => ctx.fillText(l, base + 8, startY + li * lineH));
+          ctx.restore();
+        }
+        ctx.restore();
+      });
+    }
+  };
+
+  destroyChart('adh-c');
+  charts['adh-c'] = new Chart(document.getElementById('chart-adh-client'), {
+    type: 'bar',
+    data: { labels: clients, datasets: [{ data: adhByClient, backgroundColor: bgC, borderColor: bdC, borderWidth: 2, borderRadius: 6, _projects: clientProjects }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 46 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => [' ' + c.raw + '%', ...(clientProjects[c.dataIndex]||[]).map(n => '  • ' + n)] } }
+      },
+      scales: {
+        x: { min:0, max:100, ticks:{ color:'#64748b', font:{size:10}, callback: v => v+'%' }, grid:{ color:'#f1f5f9' } },
+        y: { ticks:{ color:'#64748b', font:{size:10} }, grid:{ display:false } }
+      }
+    },
+    plugins: [clientLabelPlugin]
+  });
+
+  // Tabela de aderência por projeto
+  const ativos = data.filter(p => p.pctConcluido < 100);
+  const STATUS_ADH = v => v >= 95 ? {lbl:'No Prazo', cls:'b-green'} : v >= 80 ? {lbl:'Atenção', cls:'b-yellow'} : {lbl:'Atrasado', cls:'b-red'};
+  const fmtDate = s => { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR'); };
+  document.getElementById('adh-table-wrap').innerHTML = ativos.length === 0
+    ? '<p style="color:var(--muted);font-size:.8rem;padding:8px 0;">Nenhum projeto em andamento.</p>'
+    : `<table>
+        <thead><tr>
+          <th>Projeto</th>
+          <th>Cliente</th>
+          <th>Coordenador</th>
+          <th style="text-align:right;">% Conc.</th>
+          <th style="text-align:right;">% Prev.</th>
+          <th style="text-align:right;">Término BL</th>
+          <th style="text-align:right;">Término Plan.</th>
+          <th style="text-align:right;">Dur. BL (dc)</th>
+          <th style="text-align:right;">Dur. Plan. (dc)</th>
+          <th style="text-align:right;">Últ. Publicação</th>
+          <th>Status</th>
+          <th style="text-align:right;">Aderência</th>
+        </tr></thead>
+        <tbody>
+          ${[...ativos].sort((a,b) => a.adh - b.adh).map(p => {
+            const sa = STATUS_ADH(p.adh);
+            return `<tr>
+              <td style="font-weight:500;white-space:nowrap;">${p.name || '—'}</td>
+              <td style="white-space:nowrap;">${p.client || '—'}</td>
+              <td style="white-space:nowrap;">${p.coordenador || '—'}</td>
+              <td style="text-align:right;">${(p.pctConcluido||0).toFixed(1)}%</td>
+              <td style="text-align:right;">${(p.pctPrevisto||0).toFixed(1)}%</td>
+              <td style="text-align:right;white-space:nowrap;">${fmtDate(p.blEnd)}</td>
+              <td style="text-align:right;white-space:nowrap;">${fmtDate(p.acEnd)}</td>
+              <td style="text-align:right;">${p.planDays != null ? p.planDays + ' d' : '—'}</td>
+              <td style="text-align:right;">${p.realDays != null ? p.realDays + ' d' : '—'}</td>
+              <td style="text-align:right;white-space:nowrap;">${fmtDate(p.ultimaPublicacao) || '—'}</td>
+              <td><span class="badge ${sa.cls}">${sa.lbl}</span></td>
+              <td style="text-align:right;font-weight:700;color:${p.adh>=95?'var(--green)':p.adh>=80?'var(--yellow)':'var(--red)'};">${(p.adh||0).toFixed(1)}%</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+       </table>`;
+
+  // Aderência por Coordenador
+  const coords        = [...new Set(data.map(p => p.coordenador).filter(Boolean))].sort();
+  const coordProjects = coords.map(co => data.filter(p => p.coordenador === co).map(p => p.name || '').filter(Boolean));
+  const adhByCoord    = coords.map(co => +(avg(data.filter(p => p.coordenador === co), p => p.adh).toFixed(1)));
+  const coordColors   = adhByCoord.map(v => v >= 95 ? '#16a34a' : v >= 80 ? '#ca8a04' : '#dc2626');
+  const coordBgs      = adhByCoord.map(v => v >= 95 ? '#bbf7d0' : v >= 80 ? '#fde68a' : '#fecaca');
+
+  const BAR_H = 52;
+  const coordWrap = document.getElementById('wrap-adh-coord');
+  coordWrap.style.height = Math.max(clients.length, coords.length) * BAR_H + 24 + 'px';
+
+  const coordLabelPlugin = {
+    id: 'coordLabels',
+    afterDraw(chart) {
+      const ctx  = chart.ctx;
+      const meta = chart.getDatasetMeta(0);
+      const ds   = chart.data.datasets[0];
+      const projs = ds._projects || [];
+      meta.data.forEach((bar, i) => {
+        const { x, y, base, height } = bar.getProps(['x','y','base','height'], true);
+        const barW = x - base;
+        // % à direita
+        ctx.save();
+        ctx.font = 'bold 11px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle = '#374151';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ds.data[i] + '%', x + 6, y);
+        // nomes dos projetos dentro da barra
+        if (barW > 24 && projs[i] && projs[i].length) {
+          ctx.font = '9px "Segoe UI",system-ui,sans-serif';
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(base + 6, y - height / 2, barW - 12, height);
+          ctx.clip();
+          // quebrar em linhas se necessário
+          const names = projs[i];
+          const lineH = 11;
+          const lines = [];
+          let cur = '';
+          names.forEach((n, ni) => {
+            const sep = ni === 0 ? '' : '  ·  ';
+            const attempt = cur + sep + n;
+            if (ctx.measureText(attempt).width > barW - 14 && cur) {
+              lines.push(cur); cur = n;
+            } else { cur = attempt; }
+          });
+          if (cur) lines.push(cur);
+          const totalH = lines.length * lineH;
+          const startY = y - totalH / 2 + lineH / 2;
+          lines.forEach((l, li) => ctx.fillText(l, base + 8, startY + li * lineH));
+          ctx.restore();
+        }
+        ctx.restore();
+      });
+    }
+  };
+
+  destroyChart('adh-coord');
+  charts['adh-coord'] = new Chart(document.getElementById('chart-adh-coord'), {
+    type: 'bar',
+    data: { labels: coords, datasets: [{ data: adhByCoord, backgroundColor: coordBgs, borderColor: coordColors, borderWidth: 2, borderRadius: 4, _projects: coordProjects }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 46 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => [' ' + c.raw + '%', ...(coordProjects[c.dataIndex]||[]).map(n => '  • ' + n)] } }
+      },
+      scales: {
+        x: { min:0, max:100, ticks:{ color:'#64748b', font:{size:10}, callback: v => v+'%' }, grid:{ color:'#f1f5f9' } },
+        y: { ticks:{ color:'#64748b', font:{size:10} }, grid:{ display:false } }
+      }
+    },
+    plugins: [coordLabelPlugin]
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POR PROJETO — seletor + Gantt via API
+═══════════════════════════════════════════════════════════════ */
+function renderProjetos(data) {
+  _lastProjData = data;
+  const sel = document.getElementById('proj-selector');
+  if (!sel) return;
+  const prev = sel.value;
+  if (!data || !data.length) {
+    sel.innerHTML = '<option>Nenhum projeto disponível</option>';
+    const outer = document.getElementById('gantt-outer');
+    if (outer) outer.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">Nenhum projeto carregado.</div>';
+    return;
+  }
+  sel.innerHTML = data.map(p =>
+    `<option value="${p.id}">${p.name}${p.city ? ' — ' + p.city : ''}${p.client ? ' (' + p.client + ')' : ''}</option>`
+  ).join('');
+  if (prev && data.find(p => String(p.id) === prev)) sel.value = prev;
+  onProjectSelect();
+}
+
+function onProjectSelect() {
+  const id   = document.getElementById('proj-selector').value;
+  const proj = _lastProjData.find(p => String(p.id) === id);
+  if (!proj) return;
+
+  const s   = STATUS_CONFIG[proj.status] || STATUS_CONFIG.ok;
+  const col = clientColor(proj.client);
+  const metaItem = (lbl, val, clr) =>
+    `<span style="display:flex;flex-direction:column;gap:1px;">
+       <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;">${lbl}</span>
+       <span style="font-size:.75rem;font-weight:600;color:${clr||'var(--text)'};">${val||'—'}</span>
+     </span>`;
+  const fmtDate = sd => { if (!sd) return '—'; const d = new Date(sd); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR'); };
+  document.getElementById('proj-selector-meta').innerHTML = `
+    <span class="badge ${s.badge}" style="align-self:center;">${s.label}</span>
+    <div style="width:1px;height:32px;background:var(--border);flex-shrink:0;"></div>
+    ${metaItem('Cliente', proj.cliente, col.main)}
+    ${metaItem('Nº Horizontes', proj.numero)}
+    ${metaItem('Coordenador', proj.coordenador)}
+    ${metaItem('Cidade', proj.cidade)}
+    <div style="width:1px;height:32px;background:var(--border);flex-shrink:0;"></div>
+    <span id="proj-meta-inicio-plan" style="display:flex;flex-direction:column;gap:1px;">
+       <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;">Início</span>
+       <span style="font-size:.75rem;font-weight:600;color:var(--text);">—</span>
+     </span>
+    <span id="proj-meta-termino-plan" style="display:flex;flex-direction:column;gap:1px;">
+       <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;">Término</span>
+       <span style="font-size:.75rem;font-weight:600;color:var(--text);">—</span>
+     </span>
+    <span id="proj-meta-duracao-plan" style="display:flex;flex-direction:column;gap:1px;">
+       <span style="font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;">Duração</span>
+       <span style="font-size:.75rem;font-weight:600;color:var(--text);">—</span>
+     </span>`;
+
+  // Mostra spinner no Gantt enquanto busca tarefas
+  document.getElementById('gantt-outer').innerHTML =
+    `<div style="padding:32px;text-align:center;"><div class="spinner" style="margin:0 auto;"></div>
+     <div class="loading-text" style="margin-top:10px;">Carregando tarefas do PWA…</div></div>`;
+
+  fetch(`${API}/api/tasks/${id}`)
+    .then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.error || r.statusText); }))
+    .then(tasks => {
+      renderGantt(tasks);
+      // Início/Término exibidos vêm da tarefa-resumo do projeto (Nível de
+      // Estrutura de Tópicos = 0), usando as datas ATUAIS (Start/Finish),
+      // não a linha de base.
+      const lvl0 = (tasks || []).find(t => t.level === 0 || t.type === 'project');
+      if (lvl0) {
+        const ini = fmtDate(lvl0.start);
+        const fim = fmtDate(lvl0.end);
+        // Duração atual em dias corridos (calendário), calculada entre Início e Término atuais
+        let dur = '—';
+        if (lvl0.days != null) {
+          dur = lvl0.days + ' dias';
+        } else if (lvl0.start && lvl0.end) {
+          const d = Math.round((new Date(lvl0.end) - new Date(lvl0.start)) / 86400000);
+          if (!isNaN(d)) dur = d + ' dias';
+        }
+        const iniEl = document.querySelector('#proj-meta-inicio-plan span:last-child');
+        const fimEl = document.querySelector('#proj-meta-termino-plan span:last-child');
+        const durEl = document.querySelector('#proj-meta-duracao-plan span:last-child');
+        if (iniEl) iniEl.textContent = ini;
+        if (fimEl) fimEl.textContent = fim;
+        if (durEl) durEl.textContent = dur;
+      }
+    })
+    .catch(err => {
+      document.getElementById('gantt-outer').innerHTML =
+        `<div style="padding:32px;text-align:center;color:var(--red);font-size:.85rem;">
+          ⚠ Erro ao carregar tarefas: ${err.message}</div>`;
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GANTT RENDERER
+═══════════════════════════════════════════════════════════════ */
+function renderGantt(tasks) {
+  if (!tasks || !tasks.length) {
+    document.getElementById('gantt-outer').innerHTML =
+      `<div style="padding:32px;text-align:center;color:var(--muted);">Nenhuma tarefa encontrada para este projeto.</div>`;
+    return;
+  }
+
+  const starts = tasks.map(t => t.start).filter(Boolean).map(d => new Date(d));
+  const ends   = tasks.map(t => t.end).filter(Boolean).map(d => new Date(d));
+  const projStart = new Date(Math.min(...starts));
+  const projEnd   = new Date(Math.max(...ends));
+  const totalDays = Math.max(1, Math.ceil((projEnd - projStart) / 86400000) + 10);
+  const outerEl   = document.getElementById('gantt-outer');
+  const availW    = Math.max(200, (outerEl ? outerEl.clientWidth : 900) - 520);
+  const PX        = availW / totalDays;
+  const totalPx   = availW;
+  const today     = new Date();
+  const todayPx   = Math.max(0, Math.min(totalPx, (today - projStart) / 86400000 * PX));
+
+  const months = [];
+  let cur = new Date(projStart.getFullYear(), projStart.getMonth(), 1);
+  while (cur <= projEnd) {
+    const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    const lPx  = Math.max(0, (cur - projStart) / 86400000 * PX);
+    const wPx  = Math.min((next - cur) / 86400000 * PX, totalPx - lPx);
+    months.push({ label: cur.toLocaleString('pt-BR', { month:'short', year:'2-digit' }), left:lPx, width:wPx });
+    cur = next;
+  }
+  const gridLines = months.map(m => `<div class="gantt-grid-line" style="left:${m.left}px;"></div>`).join('');
+
+  // Determina quais tarefas têm filhos (para botão de colapso)
+  const hasChildren = new Set();
+  tasks.forEach((t, i) => {
+    for (let j = i + 1; j < tasks.length; j++) {
+      if (tasks[j].level <= t.level) break;
+      hasChildren.add(String(t.id));
+      break;
+    }
+  });
+
+  const rowsHtml = tasks.map(t => {
+    if (!t.start || !t.end) return '';
+    const lvl = t.level || 0;
+    const bL  = Math.max(0, (new Date(t.start) - projStart) / 86400000 * PX);
+    const bW  = Math.max(3, (new Date(t.end) - new Date(t.start)) / 86400000 * PX);
+    const indent  = lvl * 12;
+    const nameFw  = t.type === 'project' ? '800' : lvl <= 3 ? '700' : '400';
+    const nameClr = '#1e293b';
+    const rowCls  = t.type === 'project' ? 'row-project' : t.type === 'summary' ? 'row-summary' : '';
+    const canToggle = hasChildren.has(String(t.id)) && lvl >= 1 && lvl <= 3;
+    const toggleBtn = canToggle
+      ? `<span class="gcol-toggle" data-collapsed="false" onclick="ganttToggle('${t.id}')">▼</span>`
+      : `<span class="gcol-toggle-ph"></span>`;
+
+    // ── Barra do Gantt ──────────────────────────────────────────
+    let barHtml;
+    if (t.type === 'project') {
+      // Linha do projeto: barra cheia azul
+      barHtml = `
+        <div style="position:absolute;left:${bL}px;top:5px;width:${bW}px;height:20px;
+          border-radius:3px;background:#4f46e5;overflow:hidden;z-index:3;">
+          <div style="height:100%;width:${t.pct||0}%;background:rgba(255,255,255,.22);"></div>
+          <div style="position:absolute;inset:0;padding:0 6px;display:flex;align-items:center;overflow:hidden;">
+            <span style="font-size:.62rem;color:#1e293b;white-space:nowrap;overflow:hidden;">${t.name}</span>
+          </div>
+        </div>`;
+    } else if (lvl >= 1 && lvl <= 3) {
+      // Tarefa resumo: forma П — linha no topo + duas laterais, sem fundo, datas fora
+      const startLblX = Math.max(0, bL - 38);
+      barHtml = `
+        <div style="position:absolute;left:${bL}px;top:3px;width:${bW}px;height:14px;
+          border-top:2px solid #1e293b;
+          border-left:2px solid #1e293b;
+          border-right:2px solid #1e293b;
+          background:transparent;z-index:3;box-sizing:border-box;overflow:hidden;">
+          <span style="position:absolute;left:3px;top:2px;font-size:.6rem;font-weight:600;color:#1e293b;white-space:nowrap;">${t.name}</span>
+        </div>
+`;
+    } else {
+      // Tarefa detalhe: cor por estado/nome/criticidade
+      const isAnalise  = (t.name || '').toLowerCase().includes('análise') || (t.name || '').toLowerCase().includes('analise');
+      const isDone     = (t.pct || 0) >= 100;
+      const col = isDone     ? '#22c55e'
+                : isAnalise  ? '#94a3b8'
+                : t.critical ? '#f97316'
+                :               '#60a5fa';
+      barHtml = `
+        <div style="position:absolute;left:${bL}px;top:4px;width:${bW}px;height:14px;
+          border-radius:2px;background:${col};overflow:hidden;z-index:3;">
+          <div style="height:100%;width:${t.pct||0}%;background:rgba(255,255,255,.28);border-radius:2px 0 0 2px;"></div>
+          <div style="position:absolute;inset:0;padding:0 4px;display:flex;align-items:center;overflow:hidden;">
+            <span style="font-size:.58rem;color:#1e293b;white-space:nowrap;overflow:hidden;">${t.name}</span>
+          </div>
+        </div>`;
+    }
+
+    return `<div class="gantt-data-row ${rowCls}" data-taskid="${t.id}" data-level="${lvl}" data-hidden-by="">
+      <div class="gantt-left-cell ${rowCls}">
+        <div class="gcol-name" style="padding-left:${indent}px;font-weight:${nameFw};color:${nameClr};" title="${t.name}">
+          ${toggleBtn}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.name}</span>
+        </div>
+        <div class="gcol-pct" style="color:${adhColor(t.pct||0)};font-weight:700;">${t.pct||0}%</div>
+        <div class="gcol-dur">${t.duracao ? t.duracao + ' dias' : '—'}</div>
+        <div class="gcol-date">${fmtS(t.start)}</div>
+        <div class="gcol-date">${fmtS(t.end)}</div>
+      </div>
+      <div class="gantt-right-cell" style="width:${totalPx}px;">
+        ${gridLines}
+        <div class="gantt-today-line" style="left:${todayPx}px;"></div>
+        ${barHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('gantt-outer').innerHTML = `
+    <div class="gantt-header-row">
+      <div class="gantt-header-left">
+        <div class="gcol-name gh-lbl">Nome da Tarefa</div>
+        <div class="gcol-pct gh-lbl" style="text-align:right;">% Concluído</div>
+        <div class="gcol-dur gh-lbl" style="text-align:right;">Duração</div>
+        <div class="gcol-date gh-lbl">Início</div>
+        <div class="gcol-date gh-lbl">Término</div>
+      </div>
+      <div class="gantt-header-right" style="width:${totalPx}px;">
+        <div style="position:relative;height:100%;width:${totalPx}px;">
+          ${months.map(m => `<div style="position:absolute;left:${m.left}px;width:${m.width}px;height:100%;
+            border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <span style="font-size:.65rem;font-weight:700;color:#1e293b;padding:0 3px;white-space:nowrap;">${m.label}</span>
+          </div>`).join('')}
+          <div class="gantt-today-line" style="left:${todayPx}px;">
+            <div class="gantt-today-lbl">Hoje</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${rowsHtml}`;
+}
+
+/* Colapso/expansão de tarefas resumo no Gantt */
+window.ganttToggle = function(taskId) {
+  const tid  = String(taskId);
+  const rows = Array.from(document.querySelectorAll('#gantt-outer .gantt-data-row[data-taskid]'));
+  const parentRow = rows.find(r => r.dataset.taskid === tid);
+  if (!parentRow) return;
+
+  const toggle      = parentRow.querySelector('.gcol-toggle');
+  const parentLevel = parseInt(parentRow.dataset.level);
+  const collapsing  = toggle.dataset.collapsed !== 'true';
+
+  toggle.dataset.collapsed = collapsing ? 'true' : 'false';
+  toggle.textContent        = collapsing ? '▶' : '▼';
+
+  let inScope = false;
+  rows.forEach(row => {
+    if (row === parentRow) { inScope = true; return; }
+    if (!inScope) return;
+    if (parseInt(row.dataset.level) <= parentLevel) { inScope = false; return; }
+
+    const hiddenBy = (row.dataset.hiddenBy || '').split(',').filter(Boolean);
+    if (collapsing) {
+      if (!hiddenBy.includes(tid)) hiddenBy.push(tid);
+    } else {
+      const i = hiddenBy.indexOf(tid);
+      if (i >= 0) hiddenBy.splice(i, 1);
+    }
+    row.dataset.hiddenBy  = hiddenBy.join(',');
+    row.style.display     = hiddenBy.length > 0 ? 'none' : '';
+  });
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   POR CLIENTE
+═══════════════════════════════════════════════════════════════ */
+function renderClientes(data) {
+  const clients = [...new Set(data.map(p => p.client))];
+
+  document.getElementById('client-cards').innerHTML = clients.map(cl => {
+    const pd  = data.filter(p => p.client === cl);
+    const col = clientColor(cl);
+    const adh = avg(pd, p => p.adh).toFixed(0);
+    const vr  = avg(pd, p => p.variance).toFixed(1);
+    const late = pd.filter(p => p.status==='late').length;
+    const ok   = pd.filter(p => p.status==='ok').length;
+    return `<div class="client-card" style="border-top:4px solid ${col.main};">
+      <div class="client-card-header" style="background:${col.bg};">
+        <div class="client-badge-dot" style="background:${col.main};"></div>
+        <div>
+          <div class="client-card-name">${cl}</div>
+          <div style="font-size:.68rem;color:#64748b;">${pd.length} projetos · ${[...new Set(pd.map(p=>p.city))].join(', ')}</div>
+        </div>
+      </div>
+      <div class="client-card-body">
+        <div class="client-stat"><span class="client-stat-lbl">Aderência Média</span>
+          <span class="client-stat-val" style="color:${adhColor(+adh)};">${adh}%</span></div>
+        <div class="client-stat"><span class="client-stat-lbl">Variação Média</span>
+          <span class="client-stat-val" style="color:${+vr>0?'#dc2626':'#16a34a'};">${+vr>0?'+':''}${vr} d</span></div>
+        <div class="client-stat"><span class="client-stat-lbl">No Prazo / Atrasados</span>
+          <span class="client-stat-val">${ok} <span style="color:#64748b;font-weight:400;">/ </span><span style="color:#dc2626;">${late}</span></span></div>
+        <div class="client-projects-list">
+          ${pd.map(p=>`<div class="client-proj-row">
+            <span class="client-proj-name">${p.name}${p.city?' · '+p.city:''}</span>
+            <span class="badge ${STATUS_CONFIG[p.status]?.badge||'b-green'}" style="font-size:.62rem;">
+              ${p.variance===0?'● 0 d':'▲ +'+p.variance+' d'}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const bgC = clients.map(cl => clientColor(cl).bg);
+  const bdC = clients.map(cl => clientColor(cl).main);
+  destroyChart('c-adh'); destroyChart('c-var');
+  charts['c-adh'] = new Chart(document.getElementById('chart-client-adh'), {
+    type:'bar', data:{ labels:clients, datasets:[{ data:clients.map(cl=>+(avg(data.filter(p=>p.client===cl),p=>p.adh).toFixed(1))), backgroundColor:bgC, borderColor:bdC, borderWidth:2, borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#f1f5f9'}}, y:{min:0,max:100,ticks:{color:'#64748b',font:{size:10},callback:v=>v+'%'},grid:{color:'#f1f5f9'}} } }
+  });
+  charts['c-var'] = new Chart(document.getElementById('chart-client-var'), {
+    type:'bar', data:{ labels:clients, datasets:[{ data:clients.map(cl=>+(avg(data.filter(p=>p.client===cl),p=>p.variance).toFixed(1))), backgroundColor:bgC, borderColor:bdC, borderWidth:2, borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#f1f5f9'}}, y:{min:0,ticks:{color:'#64748b',font:{size:10},callback:v=>'+'+v+' d'},grid:{color:'#f1f5f9'}} } }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POR CIDADE — mapa Leaflet
+═══════════════════════════════════════════════════════════════ */
+function renderCidades(data) {
+  const cityMap = {};
+  data.forEach(p => {
+    if (!cityMap[p.city]) cityMap[p.city] = { projects:[], clients:new Set() };
+    cityMap[p.city].projects.push(p);
+    cityMap[p.city].clients.add(p.client);
+  });
+  const cities = Object.keys(cityMap);
+  const maxCount = Math.max(1, ...cities.map(c => cityMap[c].projects.length));
+
+  const topCity = cities.sort((a,b) => cityMap[b].projects.length - cityMap[a].projects.length)[0];
+  document.getElementById('kpi-cities').innerHTML = `
+    <div class="kpi c-blue"><div class="kpi-lbl">Cidades</div><div class="kpi-val">${cities.length}</div><div class="kpi-sub">Municípios cobertos</div></div>
+    <div class="kpi c-green"><div class="kpi-lbl">Maior Concentração</div><div class="kpi-val" style="font-size:1.1rem;padding-top:5px;">${topCity||'—'}</div><div class="kpi-sub">${topCity?cityMap[topCity].projects.length:0} projeto(s)</div></div>
+    <div class="kpi c-yellow"><div class="kpi-lbl">Média por Cidade</div><div class="kpi-val">${(data.length/Math.max(1,cities.length)).toFixed(1)}</div><div class="kpi-sub">Projetos / cidade</div></div>
+    <div class="kpi c-gray"><div class="kpi-lbl">Clientes</div><div class="kpi-val">${new Set(data.map(p=>p.client)).size}</div><div class="kpi-sub">Clientes ativos</div></div>`;
+
+  if (!leafletMap) {
+    leafletMap = L.map('map-container', { zoomControl:true }).setView([-15.5, -50], 4);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution:'© OpenStreetMap © CartoDB', maxZoom:18
+    }).addTo(leafletMap);
+  } else {
+    leafletMap.eachLayer(l => { if (l instanceof L.CircleMarker || l instanceof L.Marker) leafletMap.removeLayer(l); });
+  }
+
+  const boundsArr = [];
+
+  cities.forEach(cityName => {
+    const coord = CITY_COORDS[cityName];
+    if (!coord) { console.warn('Cidade sem coordenada:', cityName); return; }
+    const info  = cityMap[cityName];
+    const count = info.projects.length;
+    const radius = 8 + (count / maxCount) * 30;
+    const adhAvg = avg(info.projects, p => p.adh);
+    const lateCount = info.projects.filter(p => p.status==='late').length;
+    const clientList = [...info.clients].map(c => `<span style="color:${clientColor(c).main};font-weight:600;">${c}</span>`).join(', ');
+
+    boundsArr.push([coord.lat, coord.lng]);
+
+    L.circleMarker([coord.lat, coord.lng], {
+      radius, fillColor:'#4f46e5', color:'#fff', weight:2, fillOpacity:.75
+    }).bindPopup(`<div style="font-size:13px;min-width:180px;line-height:1.6;">
+      <strong>${cityName}</strong><br/>
+      ${count} projeto(s)<br/>
+      ${clientList}<br/>
+      Aderência média: <strong>${adhAvg.toFixed(0)}%</strong><br/>
+      <span style="color:${lateCount>0?'#dc2626':'#16a34a'};">${lateCount} atrasado(s)</span>
+    </div>`).addTo(leafletMap);
+
+    L.marker([coord.lat, coord.lng], {
+      icon: L.divIcon({
+        html:`<div style="background:white;border:1px solid #dde3ec;border-radius:4px;
+          padding:2px 5px;font-size:10px;font-weight:600;color:#1e293b;
+          white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.12);">${cityName}</div>`,
+        className:'', iconAnchor:[0, -radius - 4]
+      })
+    }).addTo(leafletMap);
+  });
+
+  // Enquadra o mapa automaticamente nas cidades com projetos
+  if (boundsArr.length === 1) {
+    leafletMap.setView(boundsArr[0], 8);
+  } else if (boundsArr.length > 1) {
+    leafletMap.fitBounds(boundsArr, { padding:[50, 50] });
+  }
+
+  document.getElementById('map-legend').innerHTML = `
+    <div class="map-leg-item"><span style="width:12px;height:12px;border-radius:50%;background:#4f46e5;display:inline-block;"></span>Cidade com projetos</div>
+    <div class="map-leg-item" style="font-style:italic;">Tamanho proporcional ao nº de projetos</div>`;
+
+  setTimeout(() => leafletMap.invalidateSize(), 100);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR — recolher/expandir
+═══════════════════════════════════════════════════════════════ */
+const SIDEBAR_COLLAPSE_KEY = 'pmo-sidebar-collapsed';
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const collapsed = sb.classList.toggle('collapsed');
+  localStorage.setItem(SIDEBAR_COLLAPSE_KEY, collapsed ? '1' : '0');
+  const btn = document.getElementById('sidebar-toggle');
+  if (btn) btn.title = collapsed ? 'Expandir menu' : 'Recolher menu';
+}
+
+(function initSidebar() {
+  if (localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === '1') {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.add('collapsed');
+    const btn = document.getElementById('sidebar-toggle');
+    if (btn) btn.title = 'Expandir menu';
+  }
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+loadProjects();
+loadStatus();
+setInterval(loadStatus, 60_000);
+
+/* ═══════════════════════════════════════════════════════════════
+   GUI TOOLS
+═══════════════════════════════════════════════════════════════ */
+
+/* Zona de arquivo — clique + drag & drop */
+['desembolso'].forEach(id => {
+  const input = document.getElementById(`file-${id}`);
+  const text  = document.getElementById(`file-text-${id}`);
+  const zone  = document.getElementById(`zone-${id}`);
+  if (!input || !text || !zone) return;
+  function setFiles(files) {
+    if (!files || !files.length) return;
+    text.textContent = files.length === 1 ? files[0].name : `${files.length} arquivos selecionados`;
+    zone.classList.add('has-file');
+  }
+  input.addEventListener('change', () => setFiles(input.files));
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) {
+      const dt = new DataTransfer();
+      const lista = input.multiple ? e.dataTransfer.files : [e.dataTransfer.files[0]];
+      Array.from(lista).forEach(f => dt.items.add(f));
+      input.files = dt.files; setFiles(dt.files);
+    }
+  });
+});
+
+/* Toggle Projetos / Fornecedores / Equipe Interna — escopado ao próprio grupo */
+document.querySelectorAll('#form-cronograma .gui-toggle-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    const grupo = btn.closest('.gui-toggle-group');
+    if (e.ctrlKey) {
+      const ativos = grupo.querySelectorAll('.gui-toggle-btn.active');
+      if (btn.classList.contains('active') && ativos.length === 1) return;
+      btn.classList.toggle('active');
+    } else {
+      grupo.querySelectorAll('.gui-toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  });
+});
+
+/* Utilitários */
+function guiSetLoading(id, on) {
+  const btn = document.getElementById(`btn-${id}`);
+  if (!btn) return;
+  btn.disabled = on;
+  btn.querySelector('.btn-text').classList.toggle('hidden', on);
+  btn.querySelector('.btn-loading').classList.toggle('hidden', !on);
+}
+
+function guiShowStatus(id, msg, isError = false) {
+  const el = document.getElementById(`status-${id}`);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = `gui-status ${isError ? 'error' : 'success'}`;
+  if (!isError) setTimeout(() => { el.textContent = ''; el.className = 'gui-status'; }, 5000);
+}
+
+/* Modal principal */
+const guiModal     = document.getElementById('gui-modal');
+const guiModalBody = document.getElementById('gui-modal-body');
+document.getElementById('gui-modal-close').addEventListener('click', fecharGuiModal);
+guiModal.addEventListener('click', e => { if (e.target === guiModal) fecharGuiModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharGuiModal(); });
+
+function fecharGuiModal() { guiModal.classList.remove('visible'); }
+
+function mostrarModal(imagens, nomes) {
+  guiModalBody.innerHTML = '';
+  imagens.forEach((src, i) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'modal-img-wrap';
+    const img = document.createElement('img');
+    img.src = `data:image/png;base64,${src}`;
+    const btn = document.createElement('button');
+    btn.className = 'btn-modal-dl'; btn.textContent = 'Baixar imagem';
+    btn.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = img.src; a.download = nomes[i] || `cronograma_${i+1}.png`; a.click();
+    });
+    wrapper.appendChild(img); wrapper.appendChild(btn);
+    guiModalBody.appendChild(wrapper);
+  });
+  guiModal.classList.add('visible');
+}
+
+function mostrarRelatorios(relatorios) {
+  guiModalBody.innerHTML = '';
+  relatorios.forEach(({ nome, content, filename }, idx) => {
+    if (idx > 0) { const sep = document.createElement('hr'); sep.className = 'report-sep'; guiModalBody.appendChild(sep); }
+    const wrap   = document.createElement('div'); wrap.className = 'report-wrap';
+    const header = document.createElement('div'); header.className = 'report-header';
+    const title  = document.createElement('span'); title.className = 'report-title'; title.textContent = nome;
+    const btnDl  = document.createElement('button'); btnDl.className = 'btn-modal-dl'; btnDl.textContent = 'Baixar .md';
+    btnDl.addEventListener('click', () => {
+      const blob = new Blob([content], { type:'text/markdown' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a'); a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    });
+    const btnCopy = document.createElement('button'); btnCopy.className = 'btn-modal-dl'; btnCopy.textContent = 'Copiar tudo';
+    btnCopy.addEventListener('click', () => {
+      navigator.clipboard.writeText(content).then(() => {
+        btnCopy.textContent = 'Copiado!';
+        setTimeout(() => { btnCopy.textContent = 'Copiar tudo'; }, 2000);
+      });
+    });
+    const acoes = document.createElement('div'); acoes.className = 'report-acoes';
+    acoes.appendChild(btnCopy); acoes.appendChild(btnDl);
+    header.appendChild(title); header.appendChild(acoes);
+    const body = document.createElement('div'); body.className = 'report-body';
+    body.innerHTML = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    wrap.appendChild(header); wrap.appendChild(body);
+    guiModalBody.appendChild(wrap);
+  });
+  guiModal.classList.add('visible');
+}
+
+/* Report Semanal — direto do snapshot JSON do PWA */
+document.getElementById('form-report').addEventListener('submit', async e => {
+  e.preventDefault();
+  const sel  = document.getElementById('proj-report');
+  const id   = sel.value;
+  const proj = ALL_PROJECTS.find(p => String(p.id) === id);
+  if (!id || !proj) { guiShowStatus('report', 'Selecione um projeto.', true); return; }
+  const nome = proj.name;
+  guiSetLoading('report', true);
+  try {
+    const res = await fetch('/api/report-json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: id, nome_projeto: nome }),
+    });
+    const j = await res.json();
+    if (!res.ok || j.error) throw new Error(j.error);
+    mostrarRelatorios([{ nome, content: j.content, filename: j.filename }]);
+    guiShowStatus('report', 'Relatório gerado!');
+  } catch(err) {
+    guiShowStatus('report', `Erro: ${err.message}`, true);
+  } finally { guiSetLoading('report', false); }
+});
+
+/* Curva de Desembolso */
+document.getElementById('form-desembolso').addEventListener('submit', async e => {
+  e.preventDefault();
+  const arquivo = document.getElementById('file-desembolso').files[0];
+  const corte   = document.getElementById('corte-desembolso').value;
+  if (!arquivo) { guiShowStatus('desembolso','Selecione um arquivo Excel.',true); return; }
+  const nome = arquivo.name.replace(/\.[^/.]+$/, '');
+  guiSetLoading('desembolso', true);
+  try {
+    const fd = new FormData();
+    fd.append('arquivo', arquivo); fd.append('nome_projeto', nome); fd.append('dia_corte', corte);
+    const res = await fetch('/api/desembolso', { method:'POST', body:fd });
+    const j   = await res.json();
+    if (!res.ok || j.error) throw new Error(j.error);
+    guiShowStatus('desembolso', j.message);
+  } catch(err) {
+    guiShowStatus('desembolso', `Erro: ${err.message}`, true);
+  } finally { guiSetLoading('desembolso', false); }
+});
+
+/* Modal novos colaboradores */
+function perguntarGrupos(desconhecidos) {
+  return new Promise(resolve => {
+    const body = document.getElementById('gui-modal-grupos-body');
+    body.innerHTML = '';
+    desconhecidos.forEach(nome => {
+      const row = document.createElement('div'); row.className = 'grupos-row';
+      const lbl = document.createElement('span'); lbl.className = 'grupos-nome'; lbl.textContent = nome;
+      const tg  = document.createElement('div'); tg.className = 'grupos-toggle gui-toggle-group';
+      ['Horizontes','Fornecedores'].forEach((grupo, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gui-toggle-btn' + (i === 0 ? ' active' : '');
+        btn.dataset.grupo = grupo; btn.dataset.recurso = nome; btn.textContent = grupo;
+        btn.addEventListener('click', () => {
+          tg.querySelectorAll('.gui-toggle-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+        tg.appendChild(btn);
+      });
+      row.appendChild(lbl); row.appendChild(tg); body.appendChild(row);
+    });
+    document.getElementById('gui-modal-grupos').classList.add('visible');
+    document.getElementById('gui-modal-grupos-confirmar').onclick = () => {
+      const resultado = {};
+      desconhecidos.forEach(nome => {
+        const ativo = body.querySelector(`[data-recurso="${CSS.escape(nome)}"].active`);
+        if (ativo) resultado[nome] = ativo.dataset.grupo;
+      });
+      document.getElementById('gui-modal-grupos').classList.remove('visible');
+      resolve(resultado);
+    };
+    document.getElementById('gui-modal-grupos-cancelar').onclick = () => {
+      document.getElementById('gui-modal-grupos').classList.remove('visible');
+      resolve(null);
+    };
+  });
+}
+
+/* Cronogramas de Alocação — direto do snapshot do PWA (sem upload) */
+document.getElementById('form-cronograma').addEventListener('submit', async e => {
+  e.preventDefault();
+  const tipos = Array.from(document.querySelectorAll('#form-cronograma .gui-toggle-btn.active')).map(b => b.dataset.type);
+  if (!tipos.length) { guiShowStatus('cronograma','Selecione ao menos um assunto.',true); return; }
+  const hoje  = (() => { const d = new Date(); return `${String(d.getFullYear()).slice(2)}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; })();
+  const endpoints = { projetos:'/api/cronograma/projetos', equipe:'/api/cronograma/equipe', clientes:'/api/cronograma/clientes' };
+  const labels    = { projetos:'Projetos por Cliente', equipe:'Fornecedores', clientes:'Equipe Interna' };
+  const jsonHeaders = { 'Content-Type':'application/json' };
+  let gruposNovos = {};
+  if (tipos.some(t => t === 'equipe' || t === 'clientes')) {
+    guiSetLoading('cronograma', true);
+    try {
+      const res = await fetch('/api/cronograma/verificar', { method:'POST', headers:jsonHeaders, body:'{}' });
+      const j   = await res.json();
+      if (!res.ok || j.error) throw new Error(j.error);
+      if (j.desconhecidos && j.desconhecidos.length) {
+        guiSetLoading('cronograma', false);
+        const resultado = await perguntarGrupos(j.desconhecidos);
+        if (resultado === null) return;
+        gruposNovos = resultado;
+        guiSetLoading('cronograma', true);
+      }
+    } catch(err) { guiSetLoading('cronograma', false); guiShowStatus('cronograma',`Erro: ${err.message}`,true); return; }
+  }
+  guiSetLoading('cronograma', true);
+  const todasImgs = [], todosNomes = [], erros = [];
+  for (let i = 0; i < tipos.length; i++) {
+    const tipo = tipos[i];
+    if (tipos.length > 1) guiShowStatus('cronograma', `Processando ${i+1} / ${tipos.length}…`);
+    try {
+      const body = (tipo === 'equipe' || tipo === 'clientes') ? JSON.stringify({ grupos_novos: gruposNovos }) : '{}';
+      const res  = await fetch(endpoints[tipo], { method:'POST', headers:jsonHeaders, body });
+      const j    = await res.json();
+      if (!res.ok || j.error) throw new Error(j.error);
+      const prefixo = `${hoje} - Horizontes - ${labels[tipo]}`;
+      if (tipo === 'projetos') { todasImgs.push(j.image); todosNomes.push(`${prefixo}.png`); }
+      else if (tipo === 'clientes' && j.horizontes) { todasImgs.push(j.horizontes); todosNomes.push(`${prefixo}.png`); }
+      else if (tipo === 'equipe' && j.fornecedores) { todasImgs.push(j.fornecedores); todosNomes.push(`${prefixo}.png`); }
+    } catch(err) { erros.push(`${labels[tipo]}: ${err.message}`); }
+  }
+  todasImgs.forEach((b64, i) => { const a = document.createElement('a'); a.href = `data:image/png;base64,${b64}`; a.download = todosNomes[i]; a.click(); });
+  guiSetLoading('cronograma', false);
+  if (erros.length) guiShowStatus('cronograma', `Erros: ${erros.join(' | ')}`, true);
+  else if (todasImgs.length) guiShowStatus('cronograma', todasImgs.length === 1 ? 'Gráfico gerado!' : `${todasImgs.length} gráficos gerados!`);
+});
+
+/* Anotação de Férias */
+let _feriasNome = '', _feriasHistorico = [];
+
+function feriasCarregarLista() {
+  fetch('/api/ferias/funcionarios').then(r => r.json()).then(nomes => {
+    const dl = document.getElementById('ferias-datalist');
+    if (dl) dl.innerHTML = nomes.map(n => `<option value="${n}">`).join('');
+  }).catch(() => {});
+}
+
+document.getElementById('btn-ferias-buscar').addEventListener('click', feriasBuscar);
+document.getElementById('ferias-nome').addEventListener('keydown', e => { if (e.key === 'Enter') feriasBuscar(); });
+
+async function feriasBuscar() {
+  const nome = document.getElementById('ferias-nome').value.trim();
+  if (!nome) { guiShowStatus('ferias','Informe o nome do funcionário.',true); return; }
+  try {
+    const res  = await fetch('/api/ferias/consultar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nome }) });
+    const data = await res.json();
+    _feriasNome = nome;
+    if (data.novo) {
+      document.getElementById('ferias-admissao-group').classList.remove('hidden');
+      document.getElementById('ferias-form-section').classList.remove('hidden');
+      document.getElementById('ferias-resultado').classList.add('hidden');
+      guiShowStatus('ferias','Funcionário não cadastrado — informe a data de admissão antes de registrar.');
+    } else {
+      document.getElementById('ferias-admissao-group').classList.add('hidden');
+      document.getElementById('ferias-form-section').classList.remove('hidden');
+      _feriasHistorico = data.ferias_tiradas || [];
+      feriasRenderizar(data.saldo, _feriasHistorico, data.proximo);
+      guiShowStatus('ferias','');
+    }
+  } catch(err) { guiShowStatus('ferias',`Erro: ${err.message}`,true); }
+}
+
+['ferias-inicio','ferias-fim'].forEach(id => document.getElementById(id).addEventListener('change', feriasAtualizarDias));
+
+function feriasAtualizarDias() {
+  const ini = document.getElementById('ferias-inicio').value;
+  const fim = document.getElementById('ferias-fim').value;
+  const el  = document.getElementById('ferias-dias-count');
+  if (ini && fim) {
+    const d = Math.round((new Date(fim) - new Date(ini)) / 86400000) + 1;
+    el.textContent = d > 0 ? `${d} dia${d !== 1 ? 's' : ''}` : '—';
+    el.classList.toggle('ferias-dias-ok', d > 0);
+  } else { el.textContent = '—'; el.classList.remove('ferias-dias-ok'); }
+}
+
+document.getElementById('btn-ferias').addEventListener('click', async () => {
+  const nome     = document.getElementById('ferias-nome').value.trim();
+  const inicio   = document.getElementById('ferias-inicio').value;
+  const fim      = document.getElementById('ferias-fim').value;
+  const admissao = document.getElementById('ferias-admissao').value;
+  if (!nome || !inicio || !fim) { guiShowStatus('ferias','Preencha nome, início e fim das férias.',true); return; }
+  const body = { nome, inicio, fim };
+  if (admissao) body.admissao = admissao;
+  guiSetLoading('ferias', true);
+  try {
+    const res  = await fetch('/api/ferias/registrar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const data = await res.json();
+    guiSetLoading('ferias', false);
+    if (data.erro) { guiShowStatus('ferias', data.mensagem || data.erro, true); return; }
+    document.getElementById('ferias-admissao-group').classList.add('hidden');
+    document.getElementById('ferias-admissao').value = '';
+    document.getElementById('ferias-inicio').value   = '';
+    document.getElementById('ferias-fim').value      = '';
+    document.getElementById('ferias-dias-count').textContent = '—';
+    document.getElementById('ferias-dias-count').classList.remove('ferias-dias-ok');
+    _feriasHistorico = data.ferias_tiradas || [];
+    feriasRenderizar(data.saldo, _feriasHistorico, null);
+    guiShowStatus('ferias', `Férias registradas — ${data.entry.dias} dias debitados.`);
+    feriasCarregarLista();
+  } catch(err) { guiSetLoading('ferias', false); guiShowStatus('ferias',`Erro: ${err.message}`,true); }
+});
+
+async function feriasCancelar(entryId) {
+  if (!confirm('Remover este registro de férias?')) return;
+  try {
+    const res  = await fetch('/api/ferias/cancelar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nome:_feriasNome, id:entryId }) });
+    const data = await res.json();
+    if (data.erro) { guiShowStatus('ferias', data.erro, true); return; }
+    _feriasHistorico = data.ferias_tiradas || [];
+    feriasRenderizar(data.saldo, _feriasHistorico, null);
+    guiShowStatus('ferias','Registro removido.');
+  } catch(err) { guiShowStatus('ferias',`Erro: ${err.message}`,true); }
+}
+
+function feriasRenderizar(saldo, historico, proximo) {
+  document.getElementById('ferias-resultado').classList.remove('hidden');
+  const saldoWrap = document.getElementById('ferias-saldo-wrap');
+  if (!saldo || !saldo.length) {
+    const msg = proximo
+      ? `Nenhum período aquisitivo concluído ainda. Próximo saldo disponível em <strong>${proximo.concedido_em}</strong>.`
+      : 'Nenhum período aquisitivo concluído ainda.';
+    saldoWrap.innerHTML = `<p class="form-obs-gui ferias-obs-vazio">${msg}</p>`;
+  } else {
+    const total = saldo.reduce((a, p) => a + p.dias_restantes, 0);
+    saldoWrap.innerHTML = `
+      <div class="ferias-section-header">
+        <h3 class="ferias-section-title">Saldo de Férias</h3>
+        <span class="ferias-total-badge">Total disponível: <strong>${total} dias</strong></span>
+      </div>
+      <table class="ferias-table"><thead><tr>
+        <th>Período Aquisitivo</th><th>Concedido</th><th>Usado</th><th>Saldo</th>
+      </tr></thead><tbody>
+        ${saldo.map(p => `<tr class="${p.dias_restantes===0?'ferias-row-zerado':''}">
+          <td>${p.label}</td>
+          <td class="ferias-cell-num">${p.dias_totais} dias</td>
+          <td class="ferias-cell-num">${p.dias_usados} dias</td>
+          <td class="ferias-cell-num ${p.dias_restantes>0?'ferias-saldo-positivo':'ferias-saldo-zero'}">${p.dias_restantes} dias</td>
+        </tr>`).join('')}
+      </tbody></table>
+      ${proximo ? `<p class="form-obs-gui ferias-obs-proximo">Próximo período (Ano ${proximo.ano}) disponível em ${proximo.concedido_em}.</p>` : ''}`;
+  }
+  const histWrap = document.getElementById('ferias-historico-wrap');
+  const lista    = [...historico].sort((a,b) => a.inicio.localeCompare(b.inicio));
+  if (!lista.length) {
+    histWrap.innerHTML = '<p class="form-obs-gui ferias-obs-vazio">Nenhuma férias registrada.</p>';
+  } else {
+    histWrap.innerHTML = `
+      <h3 class="ferias-section-title ferias-section-title--hist">Histórico de Férias</h3>
+      <table class="ferias-table"><thead><tr>
+        <th>Início</th><th>Fim</th><th>Dias</th><th>Períodos Debitados</th><th></th>
+      </tr></thead><tbody>
+        ${lista.map(ft => `<tr>
+          <td>${ft.inicio}</td><td>${ft.fim}</td>
+          <td class="ferias-cell-num">${ft.dias}</td>
+          <td class="ferias-cell-debitos">${ft.debitos.map(d=>`Ano ${d.periodo_ano}: ${d.dias}d`).join(' + ')}</td>
+          <td class="ferias-cell-acao"><button class="ferias-btn-cancelar" data-id="${ft.id}" title="Remover">✕</button></td>
+        </tr>`).join('')}
+      </tbody></table>`;
+    histWrap.querySelectorAll('.ferias-btn-cancelar').forEach(btn =>
+      btn.addEventListener('click', () => feriasCancelar(btn.dataset.id))
+    );
+  }
+}
+
+/* Carrega lista de férias quando a view é aberta */
+const _origShowView = showView;
+showView = function(v) {
+  _origShowView(v);
+  if (v === 'ferias') feriasCarregarLista();
+};
+
+// ── SSE keepalive: servidor encerra quando o browser fechar ───────────────
+new EventSource('/api/keepalive');
+</script>
+</body>
+</html>

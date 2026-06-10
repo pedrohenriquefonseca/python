@@ -1,0 +1,607 @@
+================================================================================
+  PMO DASHBOARD — HORIZONTES ARQUITETURA
+  Documentação completa para recriar o projeto do zero
+================================================================================
+
+Esse documento contém TUDO que foi descoberto durante a integração do dashboard
+com o Microsoft Project Online (PWA). Use isso como referência única se for
+recriar o projeto.
+
+
+================================================================================
+  1. OBJETIVO E CONTEXTO
+================================================================================
+
+Dashboard web em Flask + HTML que mostra dados dos projetos do PWA da Horizontes.
+Origem dos dados: Microsoft Project Online (PWA / SharePoint Online).
+Autenticação: OAuth2 via MSAL (suporta MFA).
+Idioma: pt-BR.
+
+
+================================================================================
+  2. INFRAESTRUTURA E CREDENCIAIS
+================================================================================
+
+PWA URL:
+    https://horizontesarq.sharepoint.com/sites/pwa
+
+Tenant Azure AD:
+    Tenant ID: c4cae996-6b0f-4e97-86b8-3f59107fe51c
+
+App Registration no Azure AD:
+    Client ID: 23bdfa12-e9f6-4759-90bf-e6d65bd5fd09
+    Tipo:      Public client (sem secret)
+    Auth:      Device code flow (suporta MFA)
+    Redirect:  Mobile and desktop applications
+    Permissão: SharePoint > AllSites.Read (delegated)
+
+Conta de testes:
+    pedrohenrique@horizontesarquitetura.com.br
+
+Grupos SharePoint do PWA em que a conta está:
+    [11] Administradores para o Project Web App
+    [8]  Visitantes da Project Web App
+    [13] Visualizadores de portfólio para o Project Web App
+
+
+================================================================================
+  3. ARMADILHA CRÍTICA DE PERMISSÕES (importante!)
+================================================================================
+
+Este tenant tem a configuração de segurança interna do PWA QUEBRADA:
+
+  - A UI de admin "PWA Settings > Security > Manage Groups" retorna HTTP 500
+  - Os grupos SharePoint ("Administradores para o Project Web App" etc.) NÃO
+    estão vinculados aos grupos de segurança internos do Project Server
+  - Resultado: mesmo um admin SharePoint só recebe duas permissões PWA:
+        Projects.Add  e  Resources.Add
+  - PSI SOAP (/_vti_bin/PSI/*) responde 401 "Attempted unauthorized operation"
+  - /_api/ProjectData/* (OData reporting) responde 403 GeneralSecurityAccessDenied
+  - /_api/ProjectServer/Projects('id')/Tasks responde 404 "This project either
+    does not exist..."
+
+O que NÃO funciona neste tenant:
+  ✗ /_api/ProjectData/Tasks                  → 403
+  ✗ /_api/ProjectData/Assignments            → 403
+  ✗ /_api/ProjectData/Resources              → 403
+  ✗ /_api/ProjectServer/Projects(id)/Tasks   → 404
+  ✗ /_api/ProjectServer/Projects(id)/Draft   → 404 (subresources)
+  ✗ /_api/ProjectServer/ProjectResources     → 403
+  ✗ /_api/ProjectServer/SecurityGroups       → 404
+  ✗ /_vti_bin/PSI/*.asmx                     → 401
+  ✗ PWA admin .aspx pages                    → 401 (precisam de cookie)
+
+
+================================================================================
+  4. A DESCOBERTA QUE DESTRAVOU TUDO
+================================================================================
+
+Embora /Projects(id)/Tasks retorne 404, fazer um filter+expand na LISTA
+contorna a checagem de permissão e devolve as tarefas:
+
+   FUNCIONA:
+   GET /_api/ProjectServer/Projects?
+       $filter=Id eq guid'<PROJECT_ID>'
+       &$expand=Tasks,Tasks/Assignments,Tasks/Assignments/Resource
+
+   NÃO funciona:
+   GET /_api/ProjectServer/Projects('<PROJECT_ID>')/Tasks
+
+Esse mesmo padrão (filter+expand na lista) destravou:
+  - Tasks
+  - Assignments
+  - Custom field values (via Draft/IncludeCustomFields)
+  - Resource names (via Tasks/Assignments/Resource)
+
+
+================================================================================
+  5. LIMITES DA API DESCOBERTOS
+================================================================================
+
+5.1 — $expand com sub-coleções: limite de 20 projetos por request.
+      Acima disso retorna 500 "Too many projects: 27. You cannot load
+      dependent objects for more than 20 projects."
+      SOLUÇÃO: batches de 15 projetos com filter OR.
+
+5.2 — $select dentro de $expand: NÃO SUPORTADO.
+      Tentativa: $expand=Tasks($select=Id,Name) → HTTP 400
+      Tem que aceitar TODOS os campos do expand.
+
+5.3 — $filter aninhado em coleções: NÃO SUPORTADO.
+      Tentativa: $filter=CustomFields/LookupEntries/Id eq guid'...' → HTTP 400
+
+5.4 — _get_all sem $top falha em coleções com expand.
+      Sempre passe $top=200 (ou maior que o total esperado).
+
+5.5 — A pagina raiz /_api/ProjectServer (sem ID) FUNCIONA e lista todas
+      as coleções disponíveis no servidor.
+
+
+================================================================================
+  6. AUTENTICAÇÃO MSAL (device flow)
+================================================================================
+
+Scope:    ["https://horizontesarq.sharepoint.com/AllSites.Read"]
+Authority: https://login.microsoftonline.com/<TENANT_ID>
+
+Fluxo:
+  1. app.initiate_device_flow(scopes=SCOPES)
+     → retorna { user_code, verification_uri }
+  2. Usuário abre https://login.microsoft.com/device e digita o código
+  3. Faz login normal (com MFA se exigido)
+  4. app.acquire_token_by_device_flow(flow) devolve o token
+
+O token vem com:
+  - access_token (válido por ~1h)
+  - refresh_token (válido por 90 dias)
+
+A biblioteca MSAL cuida da renovação silenciosa.
+O cache fica em .token_cache.json (NÃO COMMITAR).
+
+Importante: após mudança de grupo de segurança no SharePoint, o token
+antigo ainda reflete a membership antiga. Tem que apagar o cache e
+re-autenticar (pwa_client.logout() + start_device_flow()).
+
+
+================================================================================
+  7. ESTRUTURA DA RESPOSTA DE /Projects
+================================================================================
+
+GET /_api/ProjectServer/Projects?$top=1
+
+Devolve um JSON em OData v3 (não v4):
+{
+  "d": {
+    "results": [
+      {
+        "__metadata": { ... },
+        "Id": "aaa8ed5d-24e3-ef11-9651-14755b998b8f",
+        "Name": "0724 - Direcional Santa Amélia",
+        "StartDate": "2025-02-05T06:00:00",
+        "FinishDate": "2025-05-02T18:00:00",
+        "PercentComplete": 0,
+        ...
+        "ProjectSummaryTask":  {"__deferred": ...},
+        "Draft":               {"__deferred": ...},
+        "Tasks":               {"__deferred": ...},
+        "Assignments":         {"__deferred": ...},
+        ...
+      }
+    ]
+  }
+}
+
+Cada link "__deferred" é uma sub-coleção que pode ser expandida com $expand.
+
+
+================================================================================
+  8. EXTRAÇÃO DE CUSTOM FIELDS DO PROJETO
+================================================================================
+
+Via $expand=Draft/IncludeCustomFields, o servidor adiciona ao projeto
+propriedades nomeadas como:
+
+    Custom_x005f_<cf_id_sem_hifens>
+
+Para custom field SCALAR (FieldType=15, número/texto):
+    Custom_x005f_0e73e9fa58d2ee11bc6b00155de08238 = "724.00000"
+
+Para custom field LOOKUP (FieldType=21):
+    Custom_x005f_bf41a3bdbbd1ee118cb900155de49236 = {
+      "__metadata": { "type": "Collection(Edm.String)" },
+      "results":    [ "Entry_b696dba5bbd1ee11b61a00155de44640" ]
+    }
+
+Para resolver Entry_xxxx em texto legível ("Belo Horizonte" etc.), tem
+que cruzar com a LookupTable correspondente:
+
+    GET /_api/ProjectServer/LookupTables?$expand=Entries
+
+Cada Entry tem:
+    Id, FullValue, InternalName ("Entry_" + Id sem hifens)
+
+
+CUSTOM FIELDS DESCOBERTOS (entity=Project):
+
+  Cidade        → bf41a3bd-bbd1-ee11-8cb9-00155de49236  (lookup)
+  Cliente       → 4bb21a18-69e1-ee11-b3a1-00155de44340  (lookup)
+  Coordenador   → 58ddf97d-9bd4-ee11-a15a-00155de04e43  (lookup)
+  Número H.     → 0e73e9fa-58d2-ee11-bc6b-00155de08238  (número)
+  Status        → d51e0c2e-42d2-ee11-ab3a-00155de43a39  (lookup)
+  Tipo Projeto  → 02ecf97c-26e2-ee11-9730-00155de09043  (lookup)
+
+
+LOOKUP TABLES PRINCIPAIS:
+
+  Cidade        → b596dba5-bbd1-ee11-b61a-00155de44640  (6 entradas)
+  Cliente       → 0c9d5e8c-68e1-ee11-b3a1-00155de44340  (7 entradas)
+  Coordenador   → 7b6b2323-40d2-ee11-a725-00155de0463a  (8 entradas)
+  Status        → ab3e65b8-41d2-ee11-8957-00155de4433a  (4 entradas)
+
+
+CLIENTES (valores possíveis):
+  Direcional Engenharia S/A
+  Saint Gobain
+  Sudecap
+  Unops
+  Vale
+  Horizontes Arquitetura e Urbanismo
+  Integra
+
+CIDADES (valores possíveis):
+  Belo Horizonte, Brumadinho, Mário Campos, Ourilândia,
+  Poços de Caldas, São Paulo
+
+COORDENADORES (valores possíveis):
+  Cris Coutinho, Gabriel Velloso, Iris Dias, Marcelo Palhares Santiago,
+  Mari Carneiro, Matheus Carvalho, Pedro Henrique Fonseca e Silva,
+  Silvia Guastaferro
+
+
+================================================================================
+  9. CAMPOS DE TAREFA DISPONÍVEIS VIA $expand=Tasks
+================================================================================
+
+Ao expandir Tasks na lista de projetos, cada task vem com ~150 campos.
+Os úteis para nós:
+
+  Id, Name                                    → identificação
+  OutlineLevel, OutlinePosition               → hierarquia
+  IsSummary, IsMilestone, IsProjectSummary    → tipo
+  Start, Finish                               → datas reais (ScheduledStart/Finish)
+  ActualStart, ActualFinish                   → datas executadas
+  BaselineStart, BaselineFinish               → linha de base
+  Duration                                    → "57d" (string formatada)
+  DurationMilliseconds                        → 1641600000 (mais preciso)
+  BaselineDurationMilliseconds                → idem para BL
+  PercentComplete                             → 0..100
+  Work, ActualWork, RemainingWork             → horas (string "1.080h")
+  WorkBreakdownStructure                      → WBS "1.2.3"
+
+Para converter DurationMilliseconds em dias úteis: ms / (480*60*1000)
+(480 minutos = 8h de trabalho por dia padrão MSP).
+
+Para dias corridos (calendário): diferença em dias entre Start e Finish.
+
+
+================================================================================
+  10. NOMES DOS RECURSOS POR TAREFA
+================================================================================
+
+Não precisa fazer fetch separado de ProjectResources (que dá 403).
+Usar nested expand de 3 níveis:
+
+  $expand=Tasks,Tasks/Assignments,Tasks/Assignments/Resource
+
+Cada Task vem com Assignments[].Resource.Name preenchido.
+
+Aviso: a Task SUMMARY (a primeira, OutlineLevel=1) tem 0 assignments.
+Os recursos aparecem só nas tasks folha (não-summary).
+
+
+================================================================================
+  11. % PREVISTO
+================================================================================
+
+Não é exposto pela API. CALCULADO por fórmula clássica MS Project:
+
+  ref_start = baseline_start OR actual_start OR project_start
+  ref_end   = baseline_end   OR actual_end   OR project_end
+
+  Se hoje < ref_start: 0%
+  Se hoje > ref_end:   100%
+  Senão: (hoje - ref_start) / (ref_end - ref_start) * 100
+
+
+================================================================================
+  12. DIMENSÕES FINAIS USADAS NO DASHBOARD
+================================================================================
+
+PROJETO (8 campos):
+  Nome, Cliente, Número Horizontes, Coordenador, Cidade,
+  % Concluída (Project.PercentComplete),
+  % Previsto (calculado),
+  Última Publicação (LastPublishedDate → "ultimaPublicacao")
+
+TAREFA (10 campos):
+  Nome, Nomes dos Recursos, Duração (dias úteis), Dias Corridos,
+  Início, Início da Linha de Base, Término, Término da Linha de Base,
+  Nível da Estrutura de Tópicos,
+  Crítico (IsCritical → "critical": bool)
+
+
+================================================================================
+  13. ESTRUTURA DE ARQUIVOS DO PROJETO
+================================================================================
+
+C:\Apps Python\Repos\Python\Dashboard\
+├── pwa_client.py        — Cliente HTTP, MSAL auth, fetch_projects, fetch_tasks
+├── app.py               — Flask: rotas /api/projects, /api/tasks/<id>, /api/auth/*
+├── index.html           — Frontend (Chart.js + Leaflet)
+├── fetcher.py           — Job batch que roda 3x/dia e gera data/*.json
+├── data/
+│   ├── projects.json    — Snapshot de todos os projetos
+│   ├── tasks_<pid>.json — Snapshot das tarefas por projeto
+│   └── last_update.json — Timestamp do último fetch + status
+├── config.py            — Flags estáticas (ainda quase vazio)
+├── requirements.txt     — msal, requests, flask, flask_cors
+├── .token_cache.json    — Cache MSAL (NÃO COMMITAR)
+├── .gitignore
+├── setup_scheduler.ps1  — Script para criar a tarefa no Windows Task Scheduler
+└── PROJETO.txt          — Este arquivo
+
+
+================================================================================
+  14. PIPELINE AUTOMATIZADO (Task Scheduler)
+================================================================================
+
+Esquema:
+
+   ┌──────────────────────────────┐
+   │ Windows Task Scheduler       │ ← configurado uma vez via setup_scheduler.ps1
+   │ Roda 3x/dia (09:15, 14:15, 16:45) │
+   │ Se PC desligado nesses horarios:  │
+   │   - StartWhenAvailable=true        │
+   │   - roda quando o PC ligar         │
+   └──────────┬───────────────────┘
+              ↓
+   ┌──────────────────────────────┐
+   │ python fetcher.py            │
+   │ - autentica via cache MSAL   │
+   │ - chama PWA API              │
+   │ - escreve data/*.json        │
+   │ - escreve last_update.json   │
+   └──────────┬───────────────────┘
+              ↓
+   ┌──────────────────────────────┐
+   │ data/projects.json           │
+   │ data/tasks_<pid>.json        │ ← lidos pelo Flask
+   └──────────┬───────────────────┘
+              ↓
+   ┌──────────────────────────────┐
+   │ app.py serve da memória/disco │
+   │ Frontend abre instantâneo    │
+   └──────────────────────────────┘
+
+INSTALAÇÃO (uma vez):
+  cd C:\Apps Python\Repos\Python\Dashboard
+  python -m pip install -r requirements.txt
+  python -c "import pwa_client; pwa_client.start_device_flow()"  ← login inicial
+  Abrir PowerShell COMO ADMINISTRADOR
+  .\setup_scheduler.ps1
+
+A partir daí, roda sozinho. O token MSAL é renovado a cada execução
+(refresh token válido por 90 dias).
+
+QUANDO PARAR DE FUNCIONAR (raro):
+  Sintoma: data/last_update.json mostra erro de auth.
+  Causa:   token expirou (90 dias sem atividade) ou senha mudou.
+  Fix:     rodar python reauth.py → fazer device flow de novo.
+
+
+================================================================================
+  15. PADRÕES DE CÓDIGO QUE FUNCIONAM
+================================================================================
+
+Listar projetos com custom fields (batch de 15, paralelo):
+  url = (
+    PS_BASE + "/Projects"
+    "?$filter=" + " or ".join(f"Id eq guid'{pid}'" for pid in batch)
+    "&$expand=ProjectSummaryTask,Draft/IncludeCustomFields"
+    "&$select=Id,Name,StartDate,FinishDate,PercentComplete,"
+            "ProjectSummaryTask/BaselineStart,..."
+            "Draft/IncludeCustomFields"
+  )
+
+Buscar tarefas de um projeto (1 request):
+  url = (
+    PS_BASE + "/Projects"
+    "?$filter=Id eq guid'<PID>'"
+    "&$expand=Tasks,Tasks/Assignments,Tasks/Assignments/Resource"
+  )
+
+Headers:
+  Authorization:  Bearer <token>
+  Accept:         application/json;odata=verbose
+  Content-Type:   application/json;odata=verbose
+
+
+================================================================================
+  16. DATAS NULAS NO MSP
+================================================================================
+
+O Project Server usa "0001-01-01T00:00:00" para representar "sem data".
+Tem que tratar explicitamente como None (vide _parse_date em pwa_client.py).
+
+
+================================================================================
+  17. ENDPOINTS DE DIAGNÓSTICO ÚTEIS
+================================================================================
+
+GET /_api/web/currentuser?$select=LoginName,Email,Title
+    → confirma usuário autenticado
+
+GET /_api/web/currentuser/groups
+    → lista grupos SharePoint do usuário
+
+GET /_api/web/sitegroups
+    → lista todos os grupos do site PWA
+
+GET /_api/ProjectServer
+    → metadata do servidor, lista coleções acessíveis
+
+GET /_api/ProjectServer/UserPermissions
+    → permissões PWA reconhecidas pelo servidor para o usuário
+
+
+================================================================================
+  18. REFERÊNCIAS
+================================================================================
+
+MSAL Python:        https://github.com/AzureAD/microsoft-authentication-library-for-python
+PWA REST API:       https://learn.microsoft.com/en-us/previous-versions/office/project-2016-pwa-rest-api
+Project CSOM:       Microsoft.ProjectServer.Client (DLL)
+OData v3 (usado):   https://www.odata.org/documentation/odata-version-3-0/
+
+
+================================================================================
+  18.1 BARRA LATERAL (SIDEBAR) COLAPSÁVEL
+================================================================================
+
+A sidebar esquerda (.sidebar / #sidebar) agora pode ser recolhida/expandida:
+  - Botão circular "‹/›" (id sidebar-toggle) ancorado na borda direita da
+    sidebar, alterna a classe "collapsed" no elemento #sidebar
+  - Estado expandido: largura var(--sidebar-w) = 220px (rótulos visíveis)
+  - Estado colapsado: largura var(--sidebar-w-collapsed) = 60px
+    (mostra somente os ícones, centralizados; oculta brand, nav-section,
+    nav-label e sidebar-footer via "display:none")
+  - .main desloca margin-left de acordo (sibling selector
+    ".sidebar.collapsed ~ .main"), com transição suave (.2s ease)
+  - Preferência persistida em localStorage (chave "pmo-sidebar-collapsed")
+    e restaurada no carregamento da página via initSidebar()
+  - Cada item de navegação agora tem o texto envolvido em
+    <span class="nav-label"> (antes era texto solto após o ícone) — isso
+    é o que permite escondê-lo via CSS quando colapsado
+
+Função JS: toggleSidebar() — alterna a classe e salva no localStorage.
+
+
+================================================================================
+  19. ABA "POR PROJETO" — GANTT (estado atual da UI)
+================================================================================
+
+CABEÇALHO DO SELETOR DE PROJETO (proj-selector-meta)
+  Campos exibidos: Status (badge) | Cliente | Nº Horizontes | Coordenador |
+  Cidade | Início | Término | Duração
+  REMOVIDOS do cabeçalho: % Concluída, % Previsto e Aderência.
+
+  IMPORTANTE — origem de Início/Término/Duração:
+  NÃO vem de proj.blStart/blEnd nem de baseline — são as datas/duração
+  ATUAIS (Start/Finish, refletindo reprogramações). Vêm da TAREFA-RESUMO
+  DO PROJETO (Nível de Estrutura de Tópicos / OutlineLevel = 0, task_type
+  "project"), retornada por /api/tasks/<id> junto com as demais tarefas.
+    Início   → t.start   (NÃO t.blStart)
+    Término  → t.end     (NÃO t.blEnd)
+    Duração  → t.days (dias corridos/calendário entre start e end);
+               fallback: round((end - start) / 86400000) se "days" ausente
+  Exibida como "<n> dias".
+  Por isso o cabeçalho mostra "—" inicialmente (placeholders com id
+  proj-meta-inicio-plan / proj-meta-termino-plan / proj-meta-duracao-plan)
+  e só é preenchido depois que o fetch de /api/tasks/<id> retorna e
+  renderGantt(tasks) roda — busca-se o item com level === 0
+  (ou type === 'project') na lista de tasks.
+  Datas formatadas via fmtDate() local (dd/mm/aaaa).
+
+ESCALA HORIZONTAL DINÂMICA
+  PX_POR_DIA = availableWidth / totalDays
+  A barra do projeto sempre cabe inteira na tela sem scroll horizontal.
+  totalPx = availW (valor fixo, NÃO flex:1)
+
+SCROLL HORIZONTAL (correção aplicada)
+  .gantt-right-cell e .gantt-header-right NÃO usam flex:1 nem overflow:hidden.
+  Ambos recebem width:${totalPx}px fixo — elimina área em branco ao rolar à direita.
+
+BARRA DE PROJETO (OutlineLevel = 0)
+  Cor de fundo: #4f46e5 (azul índigo)
+  Altura: 20px
+  Texto: preto (#1e293b) dentro da barra
+
+BARRAS DE TAREFA RESUMO (OutlineLevel 1–3)
+  Forma П: border-top 2px + border-left 2px + border-right 2px, cor #1e293b
+  Fundo: transparente
+  Altura: 14px
+  Texto: nome da tarefa alinhado à esquerda, preto (#1e293b), DENTRO da barra
+  SEM exibição de datas externas à barra
+
+BARRAS DE TAREFA DETALHE (folha, não-summary)
+  Altura: 14px  |  top: 4px  |  border-radius: 2px
+  Regra de cor (em ordem de prioridade):
+    1. PercentComplete >= 100  → verde   #22c55e  (concluída)
+    2. Nome contém "Análise"   → cinza   #94a3b8
+    3. IsCritical = true       → laranja #f97316
+    4. Demais                  → azul    #60a5fa
+  Texto: preto (#1e293b) dentro da barra
+
+TABELA (coluna esquerda do Gantt)
+  Altura das linhas: 22px (reduzida de 30px)
+  Altura do header:  26px
+  Fontes: todas em #1e293b (preto)
+  Coluna "% Concluído": mantém cores verde/amarelo/vermelho via adhColor()
+  Formato de datas: dd/mm/aa
+  Duração: valor numérico + sufixo " dias"
+
+
+================================================================================
+  20. ABA "POR CIDADE" — MAPA LEAFLET (estado atual da UI)
+================================================================================
+
+CITY_COORDS (coordenadas cadastradas):
+  Belo Horizonte    → (-19.9167, -43.9345)
+  São Paulo         → (-23.5505, -46.6333)
+  Brumadinho        → (-20.1417, -44.2017)
+  Ourilândia (PA)   → (-6.7603,  -51.0806)  ← região Vale/Carajás
+  Poços de Caldas   → (-21.7883, -46.5611)
+  Mário Campos      → (ver código — ainda não cadastrado)
+  + 20 capitais adicionadas para expansão futura
+
+COMPORTAMENTO DO MAPA
+  fitBounds automático: o mapa sempre enquadra TODAS as cidades com projetos.
+  Círculos: cor única #4f46e5 (removida codificação por aderência).
+  Tamanho proporcional ao nº de projetos: radius = 8 + (count/maxCount) * 30
+  console.warn emitido para cidades sem coordenada cadastrada.
+
+
+================================================================================
+  21. ABA "VISÃO GERAL" — TABELA DE ADERÊNCIA (estado atual da UI)
+================================================================================
+
+Colunas da tabela "Aderência por Projeto" (em ordem):
+  Projeto | Coordenador | Início | Término | Dur. Plan. | Últ. Publicação | Status | % Previsto | % Concluído | Aderência
+
+"Últ. Publicação" exibe p.ultimaPublicacao via fmtDate().
+Requer rodar o fetcher para que o campo seja preenchido no projects.json.
+
+
+================================================================================
+  22. CAMPOS ADICIONADOS AO pwa_client.py (atualizações recentes)
+================================================================================
+
+Em fetch_tasks():
+  "critical": bool(t.get("IsCritical", False))
+  → adicionado a cada objeto de tarefa retornado
+
+  *** DESCOBERTA IMPORTANTE (08/06/2026): a tarefa-resumo do projeto
+  (Nível de Estrutura de Tópicos / OutlineLevel = 0) NÃO vem dentro da
+  coleção $expand=Tasks — essa coleção começa em OutlineLevel = 1.
+  A tarefa nível 0 é uma SUB-ENTIDADE PRÓPRIA do projeto chamada
+  "ProjectSummaryTask" (mesma usada em fetch_projects para % concluído
+  e baseline). Ela tem Start/Finish/BaselineStart/BaselineFinish/
+  PercentComplete/IsCritical igual a uma task normal.
+
+  CORREÇÃO: fetch_tasks() agora inclui ProjectSummaryTask no $expand
+  ("$expand=Tasks,Tasks/Assignments,Tasks/Assignments/Resource,
+  ProjectSummaryTask") e INJETA manualmente um registro sintético com
+  level=0 / type="project" / outlineLevel=0 como primeiro item da lista
+  retornada — usando os campos de ProjectSummaryTask (Start, Finish,
+  BaselineStart, BaselineFinish, PercentComplete, IsCritical).
+  O campo "days"/"diasCorridos" é calculado via _calendar_days(start, end).
+  Sem essa injeção, o frontend nunca encontra t.level === 0 e os campos
+  Início/Término/Duração do cabeçalho da aba "Por Projeto" ficam em "—".
+
+Em fetch_projects():
+  "ultimaPublicacao": valor de LastPublishedDate (parseado via _parse_date)
+  → adicionado ao $select da chamada à API
+  → armazenado como string "YYYY-MM-DD" no projects.json
+
+  *** CORREÇÃO (08/06/2026): o campo correto na entidade PS.PublishedProject
+  é "LastPublishedDate" — NÃO "ProjectLastPublishedDate". O nome errado fazia
+  o $select ignorar o campo silenciosamente (sem erro HTTP), retornando
+  sempre None/"—" no frontend. Confirmado via:
+    GET /_api/ProjectServer/Projects?$top=1
+    → campos de data disponíveis: CheckedOutDate, CreatedDate,
+      LastPublishedDate, LastSavedDate, CurrentDate, FinishDate,
+      StartDate, StatusDate, UtilizationDate
+
+================================================================================
+  FIM
+================================================================================

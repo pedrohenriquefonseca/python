@@ -291,35 +291,92 @@ def verificar_recursos_desconhecidos(arquivo_bytes):
     finally:
         os.unlink(tmp)
 
+def _iso_dt(valor):
+    """Converte data ISO 'YYYY-MM-DD' (formato do JSON do PWA) em Timestamp (ou NaT)."""
+    if not valor:
+        return pd.NaT
+    return pd.to_datetime(str(valor)[:10], format='%Y-%m-%d', errors='coerce')
+
+
+def _gerar_grupos(df, grupos_novos=None):
+    """Núcleo compartilhado: recebe um DataFrame já com as colunas
+    'Nome', 'Nomes_dos_recursos' (separados por ';'), 'Início_dt' e 'Término_dt',
+    e devolve dict com PNGs base64 (chaves 'horizontes' e 'fornecedores').
+    Usado tanto pelo fluxo de Excel quanto pelo fluxo que lê o JSON do PWA."""
+    import io as _io, base64 as _b64
+
+    if grupos_novos:
+        mapa = _carregar_mapa_grupos()
+        mapa.update(grupos_novos)
+        _salvar_mapa_grupos(mapa)
+    mapa_grupos = resolver_grupos(df, modo_web=True)
+    results = {}
+    for grupo, arq_json, paleta, titulo, key in [
+        ('Horizontes',   ARQ_CORES_HORIZONTES,   cores_horizontes_base,   'Cronograma de Projetos Por Equipe Interna',  'horizontes'),
+        ('Fornecedores', ARQ_CORES_FORNECEDORES,  cores_fornecedores_base, 'Cronograma de Projetos por Fornecedores',   'fornecedores'),
+    ]:
+        df_grupo = preparar_grupo(df, grupo, mapa_grupos)
+        df_aloc, recursos = empilhar_tarefas(df_grupo)
+        if not df_aloc.empty:
+            cores_dict = carregar_mapa_cores(arq_json, paleta, recursos)
+            buf = _io.BytesIO()
+            plotar(df_aloc, recursos, cores_dict, titulo, buf)
+            buf.seek(0)
+            results[key] = _b64.b64encode(buf.read()).decode('utf-8')
+    return results
+
+
+def _df_de_tarefas_json(tarefas):
+    """Monta o DataFrame que o motor espera a partir da lista de tarefas do JSON
+    do PWA (mesmas tarefas usadas pelos dashboards). O JSON junta os recursos por
+    ', '; o motor espera ';'. Mantém só tarefas que têm pelo menos um recurso."""
+    linhas = []
+    for t in tarefas:
+        recursos = ';'.join(r.strip() for r in str(t.get('resources') or '').split(',') if r.strip())
+        if not recursos:
+            continue
+        linhas.append({
+            'Nome': t.get('name', ''),
+            'Nomes_dos_recursos': recursos,
+            'Início_dt': _iso_dt(t.get('start')),
+            'Término_dt': _iso_dt(t.get('end')),
+        })
+    return pd.DataFrame(linhas)
+
+
+def verificar_recursos_desconhecidos_json(tarefas):
+    """Versão JSON: retorna recursos das tarefas que ainda não têm grupo em grupos_recursos.json."""
+    mapa = _carregar_mapa_grupos()
+    todos = set()
+    for t in tarefas:
+        for r in str(t.get('resources') or '').split(','):
+            r = r.strip()
+            if r:
+                todos.add(r)
+    return sorted(todos - set(mapa.keys()))
+
+
+def gerar_para_web_json(tarefas, grupos_novos=None):
+    """Gera os cronogramas de alocação (Equipe Interna / Fornecedores) direto do
+    JSON do PWA, sem Excel. Retorna dict com PNGs base64 — saída idêntica à versão
+    de Excel, pois reaproveita o mesmo núcleo `_gerar_grupos`."""
+    df = _df_de_tarefas_json(tarefas)
+    if df.empty:
+        return {}
+    return _gerar_grupos(df, grupos_novos)
+
+
 def gerar_para_web(arquivo_bytes, grupos_novos=None):
     """Para uso no portal web. Retorna dict com imagens PNG como base64 (chaves: 'horizontes', 'fornecedores').
     grupos_novos: dict {recurso: grupo} com atribuições informadas pelo usuário na UI."""
-    import io as _io, base64 as _b64, tempfile as _tmp
+    import tempfile as _tmp
 
     with _tmp.NamedTemporaryFile(delete=False, suffix='.xlsx') as f:
         f.write(arquivo_bytes)
         tmp = f.name
     try:
         df = carregar_dados(tmp)
-        if grupos_novos:
-            mapa = _carregar_mapa_grupos()
-            mapa.update(grupos_novos)
-            _salvar_mapa_grupos(mapa)
-        mapa_grupos = resolver_grupos(df, modo_web=True)
-        results = {}
-        for grupo, arq_json, paleta, titulo, key in [
-            ('Horizontes',   ARQ_CORES_HORIZONTES,   cores_horizontes_base,   'Cronograma de Projetos Por Equipe Interna',  'horizontes'),
-            ('Fornecedores', ARQ_CORES_FORNECEDORES,  cores_fornecedores_base, 'Cronograma de Projetos por Fornecedores',   'fornecedores'),
-        ]:
-            df_grupo = preparar_grupo(df, grupo, mapa_grupos)
-            df_aloc, recursos = empilhar_tarefas(df_grupo)
-            if not df_aloc.empty:
-                cores_dict = carregar_mapa_cores(arq_json, paleta, recursos)
-                buf = _io.BytesIO()
-                plotar(df_aloc, recursos, cores_dict, titulo, buf)
-                buf.seek(0)
-                results[key] = _b64.b64encode(buf.read()).decode('utf-8')
-        return results
+        return _gerar_grupos(df, grupos_novos)
     finally:
         os.unlink(tmp)
 

@@ -298,9 +298,71 @@ def plotar_gantt_projetos(df_projetos, cores_dict, titulo, arquivo_saida):
 # EXECUÇÃO PRINCIPAL
 # ============================
 
+def _iso_dt(valor):
+    """Converte data ISO 'YYYY-MM-DD' (formato do JSON do PWA) em Timestamp (ou NaT)."""
+    if not valor:
+        return pd.NaT
+    return pd.to_datetime(str(valor)[:10], format='%Y-%m-%d', errors='coerce')
+
+
+def _gerar_de_clientes_projetos(clientes_projetos):
+    """Núcleo compartilhado: recebe o dict {cliente: [{Nome, Início, Término, ID}]}
+    e devolve a imagem PNG (base64). Usado pelos fluxos de Excel e de JSON."""
+    import io as _io, base64 as _b64
+
+    if not clientes_projetos:
+        raise ValueError('Nenhum cliente ou projeto encontrado')
+    df_projetos = organizar_projetos_por_linha(clientes_projetos)
+    if df_projetos.empty:
+        raise ValueError('Nenhum projeto com datas válidas')
+    clientes_unicos = sorted(df_projetos['Cliente'].unique())
+    cores_dict = carregar_mapa_cores(ARQ_CORES_CLIENTES, cores_clientes_base, clientes_unicos)
+    buf = _io.BytesIO()
+    plotar_gantt_projetos(df_projetos, cores_dict, 'Cronograma de Projetos por Cliente', buf)
+    buf.seek(0)
+    return _b64.b64encode(buf.read()).decode('utf-8')
+
+
+def extrair_clientes_projetos_json(tarefas):
+    """Extrai {cliente: [{Nome, Início, Término, ID}]} da hierarquia das tarefas
+    do projeto mestre consolidado (JSON do PWA). Espelha extrair_clientes_projetos
+    (Excel): nível 1 (outlineLevel) = cliente, nível 2 = projeto. Mantém a ordem
+    das tarefas para associar cada projeto ao cliente que o antecede."""
+    from collections import defaultdict
+
+    clientes_projetos = defaultdict(list)
+    cliente_atual = None
+    for t in tarefas:
+        nivel = t.get('outlineLevel')
+        nome  = (t.get('name') or '').strip()
+        if nivel == 1:
+            cliente_atual = nome or None
+            if cliente_atual and cliente_atual not in clientes_projetos:
+                clientes_projetos[cliente_atual] = []
+        elif nivel == 2 and cliente_atual:
+            inicio  = _iso_dt(t.get('start') or t.get('blStart'))
+            termino = _iso_dt(t.get('end')   or t.get('blEnd'))
+            if pd.notna(inicio) and pd.notna(termino):
+                clientes_projetos[cliente_atual].append({
+                    'Nome': nome,
+                    'Início': inicio,
+                    'Término': termino,
+                    'ID': t.get('id'),
+                })
+    return dict(clientes_projetos)
+
+
+def gerar_para_web_json(tarefas):
+    """Gera o cronograma de projetos por cliente direto do JSON do PWA, usando a
+    hierarquia nível 1/2 das tarefas do projeto mestre consolidado (mesma fonte do
+    Excel 1.0). Retorna imagem PNG base64."""
+    clientes_projetos = extrair_clientes_projetos_json(tarefas)
+    return _gerar_de_clientes_projetos(clientes_projetos)
+
+
 def gerar_para_web(arquivo_bytes):
     """Para uso no portal web. Retorna imagem PNG como string base64."""
-    import io as _io, base64 as _b64, tempfile as _tmp
+    import tempfile as _tmp
 
     with _tmp.NamedTemporaryFile(delete=False, suffix='.xlsx') as f:
         f.write(arquivo_bytes)
@@ -308,17 +370,7 @@ def gerar_para_web(arquivo_bytes):
     try:
         df = carregar_dados(tmp)
         clientes_projetos = extrair_clientes_projetos(df)
-        if not clientes_projetos:
-            raise ValueError('Nenhum cliente ou projeto encontrado')
-        df_projetos = organizar_projetos_por_linha(clientes_projetos)
-        if df_projetos.empty:
-            raise ValueError('Nenhum projeto com datas válidas')
-        clientes_unicos = sorted(df_projetos['Cliente'].unique())
-        cores_dict = carregar_mapa_cores(ARQ_CORES_CLIENTES, cores_clientes_base, clientes_unicos)
-        buf = _io.BytesIO()
-        plotar_gantt_projetos(df_projetos, cores_dict, 'Cronograma de Projetos por Cliente', buf)
-        buf.seek(0)
-        return _b64.b64encode(buf.read()).decode('utf-8')
+        return _gerar_de_clientes_projetos(clientes_projetos)
     finally:
         os.unlink(tmp)
 

@@ -247,17 +247,15 @@ def gerar_relatorio(nome_projeto):
         traceback.print_exc()
 
 
-def gerar_relatorio_web(arquivo_bytes, nome_projeto):
-    """Versão para o portal web. Recebe bytes do arquivo Excel, retorna (conteudo_md, nome_arquivo)."""
-    import io as _io
-    df = pd.read_excel(_io.BytesIO(arquivo_bytes))
-    if df.empty:
-        raise ValueError('O arquivo Excel está vazio')
+def _montar_relatorio_md(df, nome_projeto):
+    """Núcleo compartilhado: recebe um DataFrame já com as colunas canônicas e
+    as colunas de data no formato de exibição '%d/%m/%y', e devolve
+    (conteudo_md, nome_arquivo). Usado tanto pelo fluxo de Excel quanto pelo
+    fluxo que lê o JSON do PWA — garante saída idêntica nos dois casos."""
     df = validar_colunas_necessarias(df)
     col_datas = ['Início', 'Término', 'Início_da_Linha_de_Base', 'Término_da_linha_de_base']
     for col in col_datas:
         if col in df.columns:
-            df[col] = formatar_data(df[col])
             df[col + '_DT'] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
     hoje = datetime.now()
     nivel0_linhas = df[df['Nível_da_estrutura_de_tópicos'] == 0]
@@ -280,6 +278,58 @@ def gerar_relatorio_web(arquivo_bytes, nome_projeto):
     conteudo_md = ''.join(partes)
     nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
     return conteudo_md, nome_arquivo
+
+
+def gerar_relatorio_web(arquivo_bytes, nome_projeto):
+    """Versão para o portal web. Recebe bytes do arquivo Excel, retorna (conteudo_md, nome_arquivo)."""
+    import io as _io
+    df = pd.read_excel(_io.BytesIO(arquivo_bytes))
+    if df.empty:
+        raise ValueError('O arquivo Excel está vazio')
+    df = validar_colunas_necessarias(df)
+    col_datas = ['Início', 'Término', 'Início_da_Linha_de_Base', 'Término_da_linha_de_base']
+    for col in col_datas:
+        if col in df.columns:
+            df[col] = formatar_data(df[col])
+    return _montar_relatorio_md(df, nome_projeto)
+
+
+def _iso_para_br(valor):
+    """Converte data ISO 'YYYY-MM-DD' (formato do JSON do PWA) para '%d/%m/%y'."""
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(str(valor)[:10], '%Y-%m-%d').strftime('%d/%m/%y')
+    except (ValueError, TypeError):
+        return None
+
+
+def gerar_relatorio_web_json(tarefas, nome_projeto):
+    """Gera o relatório semanal a partir da lista de tarefas do JSON do PWA
+    (mesmo formato de data/tasks_<id>.json usado pelos dashboards), sem precisar
+    do Excel exportado. Retorna (conteudo_md, nome_arquivo) — saída idêntica à
+    versão de Excel, pois reaproveita o mesmo núcleo `_montar_relatorio_md`."""
+    linhas = []
+    for t in tarefas:
+        nivel = t.get('level')
+        if nivel is None:
+            nivel = t.get('outlineLevel')
+        pct = t.get('pct') or 0
+        linhas.append({
+            'Nível_da_estrutura_de_tópicos': nivel,
+            'Nome': t.get('name', ''),
+            'Nomes_dos_Recursos': t.get('resources') or '',
+            # O JSON guarda % concluída em escala 0–100; o relatório espera 0–1.
+            'Porcentagem_Concluída': (pct / 100.0),
+            'Início': _iso_para_br(t.get('start')),
+            'Término': _iso_para_br(t.get('end')),
+            'Início_da_Linha_de_Base': _iso_para_br(t.get('blStart')),
+            'Término_da_linha_de_base': _iso_para_br(t.get('blEnd')),
+        })
+    df = pd.DataFrame(linhas)
+    if df.empty:
+        raise ValueError('Projeto sem tarefas disponíveis no snapshot do PWA.')
+    return _montar_relatorio_md(df, nome_projeto)
 
 
 if __name__ == '__main__':
