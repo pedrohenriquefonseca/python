@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Orçamentos{% endblock %}
+{% block content %}
+
+<h1>Orçamentos mensais</h1>
+<p class="muted">Defina o teto recorrente de cada categoria. O dashboard compara o gasto do mês com esse teto.</p>
+
+<table class="tx-table">
+  <thead><tr><th>Categoria</th><th>Teto mensal (R$)</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><span class="dot" style="background: {{ r.color }}"></span> {{ r.name }}</td>
+      <td>
+        <form method="post" class="budget-form">
+          <input type="hidden" name="category_id" value="{{ r.id }}">
+          <input type="text" name="amount" value="{{ '%.2f'|format(r.budget) if r.budget else '' }}"
+                 placeholder="sem teto" inputmode="decimal">
+          <button class="btn" type="submit">Salvar</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="2" class="muted">Nenhuma categoria de despesa ainda.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

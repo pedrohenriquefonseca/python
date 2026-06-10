@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Importar OFX{% endblock %}
+{% block content %}
+
+<h1>Importar extrato OFX</h1>
+<p class="muted">Exporte o OFX da sua conta ou da fatura do cartão e suba aqui. Reimportar o mesmo período não duplica lançamentos.</p>
+
+{% if not accounts %}
+  <div class="flash flash-warning">Você ainda não cadastrou nenhuma conta. <a href="{{ url_for('accounts') }}">Crie uma conta primeiro.</a></div>
+{% else %}
+<form method="post" enctype="multipart/form-data" class="card-form">
+  <label>Conta de destino
+    <select name="account_id" required>
+      {% for a in accounts %}
+        <option value="{{ a.id }}">{{ a.name }} ({{ a.type }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Arquivo OFX
+    <input type="file" name="ofx_file" accept=".ofx,.qfx,text/*" required>
+  </label>
+  <button class="btn btn-primary" type="submit">Importar</button>
+</form>
+{% endif %}
+
+{% endblock %}

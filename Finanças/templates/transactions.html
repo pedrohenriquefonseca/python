@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Lançamentos — {{ month_label }}{% endblock %}
+{% block content %}
+
+<div class="month-nav">
+  <a class="btn" href="{{ url_for('transactions', month=prev_month) }}">←</a>
+  <h1>Lançamentos — {{ month_label }}</h1>
+  <a class="btn" href="{{ url_for('transactions', month=next_month) }}">→</a>
+</div>
+
+<table class="tx-table">
+  <thead>
+    <tr><th>Data</th><th>Descrição</th><th>Conta</th><th class="right">Valor</th><th>Categoria</th></tr>
+  </thead>
+  <tbody>
+  {% for t in rows %}
+    <tr class="{{ 'uncat' if not t.category_id else '' }}">
+      <td class="nowrap">{{ t.posted_on }}</td>
+      <td>{{ t.description }}</td>
+      <td class="muted">{{ t.account_name }}</td>
+      <td class="right {{ 'negative' if t.amount < 0 else 'positive' }}">R$ {{ '%.2f'|format(t.amount) }}</td>
+      <td>
+        <form method="post" action="{{ url_for('categorize_tx', tx_id=t.id) }}" class="cat-form">
+          <select name="category_id" onchange="this.form.submit()">
+            <option value="">— sem categoria —</option>
+            {% for c in categories %}
+              <option value="{{ c.id }}" {{ 'selected' if c.id == t.category_id else '' }}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <label class="rule-check" title="Criar regra para lançamentos parecidos">
+            <input type="checkbox" name="make_rule" value="1"> regra
+          </label>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="muted">Nenhum lançamento neste mês.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

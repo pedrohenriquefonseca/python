@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ month_label }}{% endblock %}
+{% block content %}
+
+<div class="month-nav">
+  <a class="btn" href="{{ url_for('dashboard', month=prev_month) }}">←</a>
+  <h1>{{ month_label }}</h1>
+  <a class="btn" href="{{ url_for('dashboard', month=next_month) }}">→</a>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="label">Gasto no mês</span>
+    <span class="value negative">R$ {{ '%.2f'|format(total_spent) }}</span>
+  </div>
+  <div class="summary-card">
+    <span class="label">Orçamento total</span>
+    <span class="value">R$ {{ '%.2f'|format(total_budget) }}</span>
+  </div>
+  <div class="summary-card">
+    <span class="label">Entradas</span>
+    <span class="value positive">R$ {{ '%.2f'|format(income) }}</span>
+  </div>
+  <div class="summary-card">
+    <span class="label">Ritmo</span>
+    <span class="value">dia {{ days_elapsed }} de {{ days_total }}</span>
+  </div>
+</div>
+
+{% if uncategorized %}
+<div class="flash flash-warning">
+  ⚠️ {{ uncategorized }} lançamento(s) sem categoria neste mês —
+  <a href="{{ url_for('transactions', month=month) }}">categorize</a> para o orçamento ficar correto.
+</div>
+{% endif %}
+
+<h2>Orçamentos por categoria</h2>
+{% if not cards %}
+  <p class="muted">Nenhuma categoria ainda. Importe um OFX e defina orçamentos.</p>
+{% endif %}
+
+<div class="budget-list">
+  {% for c in cards %}
+  <div class="budget-row status-{{ c.status }}">
+    <div class="budget-head">
+      <span class="dot" style="background: {{ c.color }}"></span>
+      <strong>{{ c.category }}</strong>
+      <span class="spacer"></span>
+      <span class="amount">
+        R$ {{ '%.2f'|format(c.spent) }}
+        {% if c.budget %}<span class="muted">/ {{ '%.2f'|format(c.budget) }}</span>{% endif %}
+      </span>
+    </div>
+    {% if c.budget %}
+    <div class="bar">
+      <div class="bar-fill" style="width: {{ [c.pct, 100]|min }}%; background: {{ c.color }}"></div>
+      {% if c.projected > c.budget %}
+        <div class="bar-projected" title="Projeção no ritmo atual"></div>
+      {% endif %}
+    </div>
+    <div class="budget-foot muted">
+      {% if c.status == 'over' %}
+        🔴 Estourou em R$ {{ '%.2f'|format(c.spent - c.budget) }}
+      {% elif c.status == 'pace_over' %}
+        🟠 No ritmo atual, projeta R$ {{ '%.2f'|format(c.projected) }} (estoura)
+      {% elif c.status == 'warning' %}
+        🟡 {{ '%.0f'|format(c.pct) }}% usado — resta R$ {{ '%.2f'|format(c.remaining) }}
+      {% else %}
+        🟢 {{ '%.0f'|format(c.pct) }}% usado — resta R$ {{ '%.2f'|format(c.remaining) }}
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="budget-foot muted">Sem orçamento definido — <a href="{{ url_for('budgets') }}">defina um teto</a></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

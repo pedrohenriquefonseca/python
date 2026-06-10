@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Contas{% endblock %}
+{% block content %}
+
+<h1>Contas e cartões</h1>
+
+<form method="post" class="card-form">
+  <label>Nome
+    <input type="text" name="name" placeholder="Ex.: Conta Corrente Itaú" required>
+  </label>
+  <label>Tipo
+    <select name="type">
+      <option value="checking">Conta corrente</option>
+      <option value="credit">Cartão de crédito</option>
+      <option value="investment">Investimento</option>
+    </select>
+  </label>
+  <label>Banco
+    <input type="text" name="bank" placeholder="Ex.: Itaú">
+  </label>
+  <button class="btn btn-primary" type="submit">Adicionar</button>
+</form>
+
+<table class="tx-table">
+  <thead><tr><th>Nome</th><th>Tipo</th><th>Banco</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td>{{ r.name }}</td><td>{{ r.type }}</td><td class="muted">{{ r.bank }}</td></tr>
+  {% else %}
+    <tr><td colspan="3" class="muted">Nenhuma conta cadastrada.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
