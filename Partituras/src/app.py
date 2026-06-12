@@ -24,6 +24,8 @@ from AppKit import (
     NSDragOperationNone,
     NSFont,
     NSImage,
+    NSImageScaleProportionallyUpOrDown,
+    NSImageView,
     NSMakeRect,
     NSMenu,
     NSMenuItem,
@@ -42,7 +44,10 @@ from PyObjCTools import AppHelper
 
 from annotate import annotate
 
-MAX_RECENTES = 6
+SUB_PADRAO = "ou clique para escolher"
+DESCRICAO = ("Anota as posições da vara do trombone acima de cada nota\n"
+             "de uma partitura em PDF (clave de fá) e salva uma cópia\n"
+             "\u201c<nome> - posições.pdf\u201d na mesma pasta do original.")
 
 
 def _label(text: str, size: float, bold: bool, gray: bool) -> NSTextField:
@@ -119,9 +124,8 @@ class App:
     def __init__(self):
         self.busy = False
         self.fila: list[str] = []
-        self.recentes: list[tuple[bool, str, str]] = []  # (ok, nome, detalhe)
 
-        win_w, win_h = 480, 430
+        win_w, win_h = 480, 440
         screen = NSScreen.mainScreen().frame()
         rect = NSMakeRect((screen.size.width - win_w) / 2,
                           (screen.size.height - win_h) / 2, win_w, win_h)
@@ -133,40 +137,43 @@ class App:
         self.win.setReleasedWhenClosed_(False)
         content = self.win.contentView()
 
+        # ícone do app no topo
+        caminho_icone = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), "..", "resources", "icon_1024.png"))
+        if os.path.exists(caminho_icone):
+            img = NSImage.alloc().initWithContentsOfFile_(caminho_icone)
+            iv = NSImageView.imageViewWithImage_(img)
+            iv.setImageScaling_(NSImageScaleProportionallyUpOrDown)
+            iv.setFrame_(NSMakeRect((win_w - 96) / 2, win_h - 116, 96, 96))
+            content.addSubview_(iv)
+
+        # breve descrição do que o app faz
+        desc = NSTextField.wrappingLabelWithString_(DESCRICAO)
+        desc.setFont_(NSFont.systemFontOfSize_(12))
+        desc.setTextColor_(NSColor.secondaryLabelColor())
+        desc.setAlignment_(1)  # centro
+        desc.setSelectable_(False)
+        desc.setFrame_(NSMakeRect(30, win_h - 178, win_w - 60, 52))
+        content.addSubview_(desc)
+
+        # zona de soltar
         self.drop = DropView.alloc().initWithFrame_(
-            NSMakeRect(20, win_h - 240, win_w - 40, 220))
+            NSMakeRect(20, 24, win_w - 40, win_h - 218))
         self.drop.on_files = self.receber
         content.addSubview_(self.drop)
 
-        self.icone = _label("♪", 36, False, True)
-        self.icone.setFrame_(NSMakeRect(20, win_h - 130, win_w - 40, 48))
-        content.addSubview_(self.icone)
+        meio = 24 + (win_h - 218) / 2
+        self.nota = _label("♪", 34, False, True)
+        self.nota.setFrame_(NSMakeRect(20, meio + 14, win_w - 40, 44))
+        content.addSubview_(self.nota)
 
         self.titulo = _label("Solte o PDF da partitura aqui", 15, True, False)
-        self.titulo.setFrame_(NSMakeRect(20, win_h - 165, win_w - 40, 22))
+        self.titulo.setFrame_(NSMakeRect(20, meio - 16, win_w - 40, 22))
         content.addSubview_(self.titulo)
 
-        self.sub = _label("ou clique para escolher — salva “<nome> - posições.pdf” na mesma pasta",
-                          11.5, False, True)
-        self.sub.setFrame_(NSMakeRect(20, win_h - 188, win_w - 40, 18))
+        self.sub = _label(SUB_PADRAO, 11.5, False, True)
+        self.sub.setFrame_(NSMakeRect(20, meio - 38, win_w - 40, 18))
         content.addSubview_(self.sub)
-
-        self.linhas: list[tuple[NSTextField, NSTextField]] = []
-        y = win_h - 280
-        for _ in range(MAX_RECENTES):
-            esq = NSTextField.labelWithString_("")
-            esq.setFont_(NSFont.systemFontOfSize_(12))
-            esq.setFrame_(NSMakeRect(28, y, win_w - 180, 17))
-            esq.setLineBreakMode_(5)  # truncar no meio
-            content.addSubview_(esq)
-            dirt = NSTextField.labelWithString_("")
-            dirt.setFont_(NSFont.systemFontOfSize_(12))
-            dirt.setTextColor_(NSColor.secondaryLabelColor())
-            dirt.setAlignment_(2)  # direita
-            dirt.setFrame_(NSMakeRect(win_w - 160, y, 132, 17))
-            content.addSubview_(dirt)
-            self.linhas.append((esq, dirt))
-            y -= 24
 
         self.win.makeKeyAndOrderFront_(None)
 
@@ -198,25 +205,20 @@ class App:
         AppHelper.callAfter(self._terminou, res)
 
     def _terminou(self, res):
-        self.recentes.insert(0, res)
-        del self.recentes[MAX_RECENTES:]
-        for (esq, dirt), item in zip(self.linhas, self.recentes + [None] * MAX_RECENTES):
-            if item is None:
-                esq.setStringValue_("")
-                dirt.setStringValue_("")
-                continue
-            ok, nome, detalhe = item
-            esq.setStringValue_(("✓ " if ok else "✕ ") + nome)
-            esq.setTextColor_(NSColor.labelColor() if ok
-                              else NSColor.systemRedColor())
-            dirt.setStringValue_(detalhe)
+        ok, nome, detalhe = res
         self.titulo.setStringValue_("Solte o PDF da partitura aqui")
+        if ok:
+            self.sub.setStringValue_(f"✓ {nome} — {detalhe}")
+            self.sub.setTextColor_(NSColor.secondaryLabelColor())
+        else:
+            self.sub.setStringValue_(f"✕ {nome}")
+            self.sub.setTextColor_(NSColor.systemRedColor())
         self.busy = False
-        if not self.recentes[0][0]:
+        if not ok:
             alerta = NSAlert.alloc().init()
             alerta.setMessageText_("Não consegui anotar esta partitura")
             alerta.setInformativeText_(
-                f"{self.recentes[0][1]}\n\n{self.recentes[0][2]}\n\n"
+                f"{nome}\n\n{detalhe}\n\n"
                 "Confira se é um PDF vetorial exportado do MuseScore "
                 "(não escaneado).")
             alerta.runModal()
