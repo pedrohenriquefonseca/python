@@ -37,14 +37,21 @@ Nada de OCR: leitura **geométrica** do vetor do PDF.
 
 ## Uso
 
+**App de Mac** (`src/app.py`, empacotado em `~/Applications/Partituras.app`):
+janela minimalista — solte o PDF (ou clique para escolher) e o app salva
+"`<nome original> - posições.pdf`" na mesma pasta do arquivo. Erros aparecem
+na lista e num alerta (ex.: PDF escaneado em vez de vetorial).
+
+**Linha de comando:**
+
 ```bash
-python3 src/annotate.py "Partitura.pdf" "Partitura-Anotada.pdf"
+python3 src/annotate.py "Partitura.pdf" "Partitura - posições.pdf"
 ```
 
-Dependências: `pymupdf`, `numpy` (Python 3.13).
+Dependências: `pymupdf`, `numpy`, `pyobjc-framework-Cocoa` (Python 3.13).
 
 ## Status
 
 - [x] Motor completo, validado em 4 partituras reais (Folhas Secas, Amigo
       Velho, Chorinho de Gafieira, Bole Bole)
-- [ ] App de Mac (interface: escolher PDF → gerar PDF anotado)
+- [x] App de Mac (soltar e pronto)
