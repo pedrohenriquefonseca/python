@@ -133,7 +133,7 @@ class App:
                  | NSWindowStyleMaskMiniaturizable)
         self.win = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             rect, style, NSBackingStoreBuffered, False)
-        self.win.setTitle_("Partituras")
+        self.win.setTitle_("Posições Trombone")
         self.win.setReleasedWhenClosed_(False)
         content = self.win.contentView()
 
@@ -249,7 +249,7 @@ def main():
     app_item = NSMenuItem.alloc().init()
     menubar.addItem_(app_item)
     app_menu = NSMenu.alloc().init()
-    app_menu.addItemWithTitle_action_keyEquivalent_("Encerrar Partituras",
+    app_menu.addItemWithTitle_action_keyEquivalent_("Encerrar Posições Trombone",
                                                     "terminate:", "q")
     app_item.setSubmenu_(app_menu)
     app.setMainMenu_(menubar)

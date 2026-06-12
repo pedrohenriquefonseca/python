@@ -37,7 +37,7 @@ Nada de OCR: leitura **geométrica** do vetor do PDF.
 
 ## Uso
 
-**App de Mac** (`src/app.py`, empacotado em `~/Applications/Partituras.app`):
+**App de Mac** (`src/app.py`, empacotado em `~/Applications/Posições Trombone.app`):
 janela minimalista — solte o PDF (ou clique para escolher) e o app salva
 "`<nome original> - posições.pdf`" na mesma pasta do arquivo. Erros aparecem
 na lista e num alerta (ex.: PDF escaneado em vez de vetorial).
