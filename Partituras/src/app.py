@@ -23,6 +23,7 @@ from AppKit import (
     NSDragOperationCopy,
     NSDragOperationNone,
     NSFont,
+    NSImage,
     NSMakeRect,
     NSMenu,
     NSMenuItem,
@@ -225,6 +226,15 @@ class App:
 def main():
     app = NSApplication.sharedApplication()
     app.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+
+    # ícone do Dock: como o processo é o python3 (wrapper), o ícone do
+    # bundle não é herdado — carrega o master do repositório.
+    icone = os.path.abspath(os.path.join(
+        os.path.dirname(__file__), "..", "resources", "icon_1024.png"))
+    if os.path.exists(icone):
+        img = NSImage.alloc().initWithContentsOfFile_(icone)
+        if img:
+            app.setApplicationIconImage_(img)
 
     menubar = NSMenu.alloc().init()
     app_item = NSMenuItem.alloc().init()
