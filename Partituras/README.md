@@ -2,45 +2,49 @@
 
 App de Mac que recebe um PDF de partitura de trombone (clave de fá, sem
 anotações) e escreve, acima de cada nota, o número da **posição da vara**
-correspondente — do jeito que um trombonista que não lê partitura usa para
-tocar.
+(1 a 7) — do jeito que um trombonista que não lê partitura usa para tocar.
 
-## O que o app faz
+Funciona com PDFs vetoriais gerados por software de notação (MuseScore etc.).
 
-Dado o PDF de uma partitura limpa, ele gera um novo PDF idêntico ao original
-com os números das posições (1 a 7) escritos acima do pentagrama:
+## Como funciona
 
-- **Alinhamento horizontal:** cada número fica exatamente em cima da cabeça da
-  sua nota.
-- **Altura vertical relativa:** notas mais graves ficam mais próximas do
-  pentagrama; notas mais agudas ficam mais altas. A altura acompanha o contorno
-  da melodia (é relativa às notas vizinhas, não absoluta).
-- **Sem sobreposição:** os números nunca cobrem marcas de ensaio, letras de
-  parte, as próprias notas nem o pentagrama.
+Nada de OCR: leitura **geométrica** do vetor do PDF.
 
-## Pipeline
+1. **Extração** (`src/extract.py`)
+   - Linhas da pauta: traços horizontais largos; sistemas = grupos de 5 linhas
+     com espaçamento uniforme (linhas espúrias são descartadas).
+   - Cabeças de nota, claves e acidentes: glyphs SMuFL (qualquer fonte musical
+     — MScore, Leland, Bravura...). A altura usa `origin` do glyph, não o
+     centro do bbox (pegadinha: o bbox é a caixa do *em* da fonte).
+   - Pitch: posição vertical contada em degraus diatônicos a partir da linha
+     do Fá + armadura de clave + acidentes ocasionais (valem até a barra de
+     compasso, no mesmo grau).
+   - Ligaduras de prolongamento (mesma altura, inclusive através da quebra de
+     linha): a nota de continuação não recebe número.
+2. **Tabela** (`src/slide_positions.py`) — nota → posição de vara (E2–C5),
+   indexada por MIDI (enarmonia automática), validada por autoteste.
+3. **Layout e escrita** (`src/annotate.py`)
+   - X: número centrado na cabeça da nota.
+   - Y: contorno relativo — nota mais aguda fica mais alta; mesma nota
+     próxima fica nivelada. Garantido por construção (erosão dupla com
+     variação limitada) e conferido por um verificador final: layout com
+     inversão é rejeitado, nunca vira PDF.
+   - Anticolisão por mapa de tinta rasterizado: hastes, feixes, ligaduras,
+     marcas de ensaio [A]/[B], voltas, tercinas e os próprios números.
+   - Tamanho da fonte: o maior em que tudo cabe; um sistema ou número
+     específico pode ceder até 15% para não derrubar a página (regra do
+     usuário). Largura de tinta real por glyph (o "1" é estreito).
 
-1. **OMR** — reconhece cada nota e sua altura (pitch) a partir do PDF.
-   Engine: [Audiveris](https://github.com/Audiveris/audiveris), que exporta
-   MusicXML preservando as coordenadas originais de cada símbolo.
-2. **Tabela** — converte cada pitch no número da posição de vara
-   (`src/slide_positions.py`). Faixa coberta: E2–C5.
-3. **Layout** — calcula a posição (x, y) de cada número, com a altura relativa
-   e o desvio para evitar colisões.
-4. **Overlay** — escreve os números sobre o PDF original, preservando todo o
-   restante.
+## Uso
 
-## Estrutura
-
+```bash
+python3 src/annotate.py "Partitura.pdf" "Partitura-Anotada.pdf"
 ```
-src/
-  slide_positions.py   # tabela nota -> posição de vara (validada)
-```
+
+Dependências: `pymupdf`, `numpy` (Python 3.13).
 
 ## Status
 
-- [x] Tabela de posições de vara (E2–C5), com autoteste
-- [ ] Integração OMR (Audiveris) → MusicXML com coordenadas
-- [ ] Cálculo de layout (x alinhado, y relativo, anticolisão)
-- [ ] Overlay no PDF original
+- [x] Motor completo, validado em 4 partituras reais (Folhas Secas, Amigo
+      Velho, Chorinho de Gafieira, Bole Bole)
 - [ ] App de Mac (interface: escolher PDF → gerar PDF anotado)
