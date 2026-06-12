@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Build / app
+build/
+dist/
+
+# Arquivos de trabalho
+*.tmp
+/saida/
