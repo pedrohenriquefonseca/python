@@ -158,11 +158,11 @@ class App:
 
         # zona de soltar
         self.drop = DropView.alloc().initWithFrame_(
-            NSMakeRect(20, 24, win_w - 40, win_h - 218))
+            NSMakeRect(20, 46, win_w - 40, win_h - 240))
         self.drop.on_files = self.receber
         content.addSubview_(self.drop)
 
-        meio = 24 + (win_h - 218) / 2
+        meio = 46 + (win_h - 240) / 2
         self.nota = _label("♪", 34, False, True)
         self.nota.setFrame_(NSMakeRect(20, meio + 14, win_w - 40, 44))
         content.addSubview_(self.nota)
@@ -174,6 +174,13 @@ class App:
         self.sub = _label(SUB_PADRAO, 11.5, False, True)
         self.sub.setFrame_(NSMakeRect(20, meio - 38, win_w - 40, 18))
         content.addSubview_(self.sub)
+
+        rodape = _label("Para melhor resultado, use um PDF exportado "
+                        "do MuseScore (vetorial, não escaneado).",
+                        11, False, True)
+        rodape.setTextColor_(NSColor.tertiaryLabelColor())
+        rodape.setFrame_(NSMakeRect(20, 16, win_w - 40, 16))
+        content.addSubview_(rodape)
 
         self.win.makeKeyAndOrderFront_(None)
 
