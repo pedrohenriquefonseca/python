@@ -24,9 +24,9 @@ cada um.
 6. **Recordes de pontuação estilo fliperama:** placar de recorde **por nível**,
    **mundial** (online). Guardar a pontuação máxima por nível, exibir o recorde
    global e deixar o jogador entrar no ranking ao bater recorde (ex.: iniciais /
-   nome). *Fase: depois do core jogável + pontuação estável; requer serviço online
-   — candidato natural é o **Game Center** (leaderboards do iOS), ou backend
-   próprio.*
+   nome). *Fase: depois do core jogável + pontuação estável. Como há Android no
+   escopo, o ranking mundial unificado pede um **backend compartilhado** (Firebase
+   ou Supabase) — o Game Center é só iOS e entraria, no máximo, como extra.*
 
 ## Telemetria comum (implementar cedo)
 

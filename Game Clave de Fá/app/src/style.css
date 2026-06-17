@@ -1,0 +1,69 @@
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#stage {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+}
+
+#playfield {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#controls {
+  flex: 0 0 auto;
+  height: min(30vh, 150px);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.pos-btn {
+  border: none;
+  border-radius: 14px;
+  background: var(--btn);
+  color: var(--btnInk);
+  font: 500 clamp(18px, 4.5vh, 32px) / 1 -apple-system, system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.08s ease, color 0.08s ease;
+}
+
+.pos-btn:active,
+.pos-btn.flash {
+  background: var(--accent);
+  color: #fff;
+  transform: scale(0.96);
+}
