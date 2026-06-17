@@ -1,9 +1,9 @@
-import type { Note } from "./types"
+import type { Note, FloatingLabel } from "./types"
 import { theme } from "../theme"
 import { Particles } from "./particles"
 import { drawScene, noteScreenY } from "./render"
 import { tierForCombo } from "./combo"
-import { validPositionsForMidi } from "../data/slidePositions"
+import { validPositionsForMidi, solfege } from "../data/slidePositions"
 
 // Pool inicial: Dó maior do centro ao lá (C3 D3 E3 F3 G3 A3). Sem linhas suplementares.
 const POOL = [48, 50, 52, 53, 55, 57]
@@ -15,6 +15,7 @@ export class Game {
   private dpr = 1
 
   private notes: Note[] = []
+  private labels: FloatingLabel[] = []
   private particles = new Particles()
   private combo = 0
   private best = 0
@@ -50,7 +51,7 @@ export class Game {
   }
 
   private get hitWindowPx(): number {
-    return Math.max(30, this.cssW * 0.05)
+    return Math.max(34, this.cssW * 0.06)
   }
 
   start(): void {
@@ -65,7 +66,6 @@ export class Game {
     let target: Note | null = null
     let bestDist = Infinity
     for (const note of this.notes) {
-      if (note.judged || note.state !== "live") continue
       const dist = Math.abs(note.x - this.hitX)
       if (dist <= this.hitWindowPx && dist < bestDist) {
         bestDist = dist
@@ -73,30 +73,55 @@ export class Game {
       }
     }
     if (!target) return
-    if (target.positions.includes(pos)) this.hit(target)
-    else this.wrong(target)
+    if (target.positions.includes(pos)) this.resolveHit(target)
+    else this.resolveMiss(target, true)
   }
 
-  private hit(note: Note): void {
-    note.judged = true
+  private remove(note: Note): void {
+    this.notes = this.notes.filter((n) => n !== note)
+  }
+
+  private addLabel(note: Note, color: string, size: number): void {
+    this.labels.push({
+      text: solfege(note.midi),
+      x: this.hitX,
+      y: noteScreenY(note.midi, this.cssW, this.cssH),
+      life: 0.9,
+      maxLife: 0.9,
+      color,
+      size,
+    })
+  }
+
+  private resolveHit(note: Note): void {
     this.combo += 1
     if (this.combo > this.best) this.best = this.combo
     const tier = tierForCombo(this.combo)
     this.score += tier.mult * 10
-    this.particles.burst(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH), tier.color, this.combo)
-    this.notes = this.notes.filter((n) => n !== note)
+    this.particles.explode(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH), tier.color, this.combo)
+    this.addLabel(note, tier.color, 20)
+    this.remove(note)
   }
 
-  private wrong(note: Note): void {
-    note.judged = true
-    note.state = "missed"
+  private resolveMiss(note: Note, wrong: boolean): void {
     this.combo = 0
-    this.flash = 1
-    this.shake = 8
+    this.flash = Math.max(this.flash, wrong ? 1 : 0.6)
+    if (wrong) this.shake = 8
+    this.particles.puff(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH), theme.muted)
+    this.addLabel(note, theme.muted, 17)
+    this.remove(note)
   }
 
   private buildButtons(): void {
     this.controls.innerHTML = ""
+
+    const label = document.createElement("div")
+    label.className = "controls-label"
+    label.textContent = "Trombone Slide Positions"
+    this.controls.appendChild(label)
+
+    const row = document.createElement("div")
+    row.className = "btn-row"
     for (let i = 1; i <= 7; i++) {
       const button = document.createElement("button")
       button.className = "pos-btn"
@@ -106,8 +131,9 @@ export class Game {
         ev.preventDefault()
         this.press(i)
       })
-      this.controls.appendChild(button)
+      row.appendChild(button)
     }
+    this.controls.appendChild(row)
   }
 
   private flashButton(pos: number): void {
@@ -135,9 +161,6 @@ export class Game {
       midi,
       x: this.cssW + 30,
       positions: validPositionsForMidi(midi),
-      judged: false,
-      state: "live",
-      alpha: 1,
     })
   }
 
@@ -157,21 +180,36 @@ export class Game {
       this.spawnAcc = 0
       this.spawn()
     }
+
     const dx = this.speed * (dt / 1000)
-    for (const note of this.notes) {
-      note.x -= dx
-      if (!note.judged && note.x < this.hitX - this.hitWindowPx) {
-        note.judged = true
-        note.state = "missed"
-        this.combo = 0
-        this.flash = Math.max(this.flash, 0.6)
-      }
-      if (note.state === "missed") note.alpha -= 0.02 * s
+    for (const note of this.notes) note.x -= dx
+
+    // Nota que chega na linha sem ser acertada: resolve e some ali mesmo.
+    for (const note of [...this.notes]) {
+      if (note.x <= this.hitX) this.resolveMiss(note, false)
     }
-    this.notes = this.notes.filter((n) => n.x > -40 && n.alpha > 0)
+
     this.particles.update(s)
+
+    for (const label of this.labels) label.life -= dt / 1000
+    this.labels = this.labels.filter((l) => l.life > 0)
+
     this.flash *= Math.pow(0.88, s)
     this.shake *= Math.pow(0.82, s)
+  }
+
+  private drawLabels(): void {
+    const ctx = this.ctx
+    ctx.textAlign = "right"
+    ctx.textBaseline = "middle"
+    for (const label of this.labels) {
+      const k = label.life / label.maxLife
+      ctx.globalAlpha = Math.max(0, k)
+      ctx.fillStyle = label.color
+      ctx.font = `500 ${label.size}px -apple-system, system-ui, sans-serif`
+      ctx.fillText(label.text, label.x - 14, label.y + (1 - k) * -16)
+    }
+    ctx.globalAlpha = 1
   }
 
   private render(): void {
@@ -194,6 +232,7 @@ export class Game {
       flash: this.flash,
     })
     this.particles.draw(ctx)
+    this.drawLabels()
     ctx.restore()
   }
 }

@@ -2,7 +2,14 @@ export interface Note {
   midi: number
   x: number
   positions: number[]
-  judged: boolean
-  state: "live" | "missed"
-  alpha: number
+}
+
+export interface FloatingLabel {
+  text: string
+  x: number
+  y: number
+  life: number
+  maxLife: number
+  color: string
+  size: number
 }

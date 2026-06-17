@@ -23,7 +23,8 @@ export class Particles {
   private parts: Particle[] = []
   private rings: Ring[] = []
 
-  burst(x: number, y: number, color: string, intensity: number): void {
+  // Acerto: explosão celebrativa (mais partículas + anel) na cor do tier.
+  explode(x: number, y: number, color: string, intensity: number): void {
     const n = Math.min(46, 14 + intensity)
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2
@@ -39,6 +40,23 @@ export class Particles {
       })
     }
     this.rings.push({ x, y, r: 6, maxR: 30 + Math.min(intensity, 28), life: 1, color })
+  }
+
+  // Erro/passagem: puff discreto, sem anel (erro gentil).
+  puff(x: number, y: number, color: string): void {
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random() * Math.PI * 2
+      const speed = 1 + Math.random() * 2.4
+      this.parts.push({
+        x, y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        life: 14 + Math.random() * 10,
+        maxLife: 24,
+        r: 1.5 + Math.random() * 1.5,
+        color,
+      })
+    }
   }
 
   update(s: number): void {

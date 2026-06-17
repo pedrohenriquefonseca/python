@@ -8,8 +8,10 @@ Atualizado em 16/jun/2026.
 - Stack escolhida: **Web + Capacitor** (`docs/07`).
 - **Fatia jogável inicial pronta em `app/`** (Vite + TypeScript + Canvas):
   notas em Dó maior (C3–A3) correndo pela pauta, 7 botões de posição de vara
-  (+ teclas 1–7), linha de acerto, combo/multiplicador/explosão de partículas,
-  paleta índigo aplicada. Verificada no navegador.
+  (rotulados "Trombone Slide Positions") + teclas 1–7, linha de acerto,
+  combo/multiplicador, paleta índigo. A nota resolve **na linha e some ali**:
+  acerto = explosão + nome da nota (solfejo) à esquerda da linha; passagem sem
+  acerto = puff suave + nome em cinza. Verificada no navegador.
 
 ## Como continuar (inclusive em outro computador)
 1. `git clone` / `git pull` deste repositório.

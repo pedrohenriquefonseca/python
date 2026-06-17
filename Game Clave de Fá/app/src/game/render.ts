@@ -97,17 +97,16 @@ function drawLedgers(ctx: CanvasRenderingContext2D, midi: number, x: number, L: 
 
 function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: number): void {
   const y = noteY(note.midi, L)
-  const active = note.state === "live" && Math.abs(note.x - hitX) < L.lineGap * 0.9
-  const color = note.state === "missed" ? theme.muted : active ? theme.accent : theme.ink
+  const active = Math.abs(note.x - hitX) < L.lineGap * 0.9
+  const color = active ? theme.accent : theme.ink
 
-  ctx.globalAlpha = note.alpha
   if (active) {
     ctx.fillStyle = theme.accent
-    ctx.globalAlpha = note.alpha * 0.16
+    ctx.globalAlpha = 0.16
     ctx.beginPath()
     ctx.arc(note.x, y, L.lineGap * 0.9, 0, Math.PI * 2)
     ctx.fill()
-    ctx.globalAlpha = note.alpha
+    ctx.globalAlpha = 1
   }
 
   ctx.strokeStyle = color
@@ -127,8 +126,6 @@ function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: nu
   ctx.moveTo(note.x + L.lineGap * 0.44, y - 2)
   ctx.lineTo(note.x + L.lineGap * 0.44, y - L.lineGap * 2)
   ctx.stroke()
-
-  ctx.globalAlpha = 1
 }
 
 function drawHud(
