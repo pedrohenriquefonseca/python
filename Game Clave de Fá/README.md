@@ -16,6 +16,7 @@ da **posição de vara (1–7)** correspondente.
 | [`docs/03-recompensa-e-momentum.md`](docs/03-recompensa-e-momentum.md) | Combo, multiplicador, cores, explosão, áudio e payoff de "leitura perfeita" |
 | [`docs/04-backlog.md`](docs/04-backlog.md) | A desenvolver depois: hints, drills adaptativos, mapa de calor |
 | [`docs/05-telas-e-selecao-dificuldade.md`](docs/05-telas-e-selecao-dificuldade.md) | Tela inicial, seleção de dificuldade, save slot único, tabela dos 10 níveis |
+| [`docs/06-identidade-visual.md`](docs/06-identidade-visual.md) | Tema claro + paleta escolhida (índigo moderno) e papéis de cor |
 | [`reference/slide_positions.py`](reference/slide_positions.py) | Tabela nota→posição de vara **validada** (copiada do projeto Partituras) |
 | [`prototypes/momentum-demo.html`](prototypes/momentum-demo.html) | Protótipo jogável da sensação de momentum + explosão. Abrir no navegador |
 | [`prototypes/mapa-notas-clave-fa.svg`](prototypes/mapa-notas-clave-fa.svg) | Mapa da ordem em que as notas são liberadas |

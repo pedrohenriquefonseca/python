@@ -21,6 +21,13 @@ cada um.
    suas fraquezas. *Fase: depois do core + telemetria; é uma view sobre a
    telemetria acumulada.*
 
+6. **Recordes de pontuação estilo fliperama:** placar de recorde **por nível**,
+   **mundial** (online). Guardar a pontuação máxima por nível, exibir o recorde
+   global e deixar o jogador entrar no ranking ao bater recorde (ex.: iniciais /
+   nome). *Fase: depois do core jogável + pontuação estável; requer serviço online
+   — candidato natural é o **Game Center** (leaderboards do iOS), ou backend
+   próprio.*
+
 ## Telemetria comum (implementar cedo)
 
 Os itens 3, 4 e 5 se apoiam na **mesma telemetria por nota**: acerto, tempo de
