@@ -1,0 +1,6 @@
+# Configurações locais do Claude Code (permissões por máquina) — não versionar.
+.claude/settings.local.json
+
+# Lixo de SO
+.DS_Store
+Thumbs.db

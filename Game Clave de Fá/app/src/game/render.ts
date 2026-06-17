@@ -24,18 +24,39 @@ export interface Scene {
   score: number
   hitX: number
   flash: number
+  tempoName: string
+  tempoColor: string
 }
 
+// Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo
+// pode invadir a região branca da pauta — ela começa em panelTop = HEADER_H.
+const HEADER_H = 74
+const BOTTOM_MARGIN = 4
+
+// Linhas suplementares aprovisionadas. Intervalo de trabalho dó³–sol⁴:
+// sol⁴ exige 3 linhas acima; dó³ fica dentro da pauta (0 abaixo necessárias),
+// mas reservamos 1 de folga abaixo. A pauta tem 5 linhas (4 lineGaps de altura)
+// e a linha de cima/baixo ficam a 2 lineGaps do meio.
+const LEDGERS_ABOVE = 3
+const LEDGERS_BELOW = 0
+const EDGE_MARGIN = 0.9 // folga (em lineGaps) p/ a cabeça da nota além da última suplementar
+
 function layoutFor(w: number, h: number): Layout {
-  const lineGap = Math.max(14, Math.min(30, h * 0.11))
-  const midY = h * 0.54
+  const spanAbove = 2 + LEDGERS_ABOVE + EDGE_MARGIN // do meio até o topo, em lineGaps
+  const spanBelow = 2 + LEDGERS_BELOW + EDGE_MARGIN
+  const units = spanAbove + spanBelow
+  const avail = h - HEADER_H - BOTTOM_MARGIN
+  const lineGap = Math.max(14, Math.min(28, avail / units))
+  const panelTop = HEADER_H
+  const midY = panelTop + spanAbove * lineGap
+  const panelH = units * lineGap
   return {
     midY,
     lineGap,
     staffLeft: 16,
     staffRight: w - 16,
-    panelTop: midY - 3.4 * lineGap,
-    panelH: 6.8 * lineGap,
+    panelTop,
+    panelH,
   }
 }
 
@@ -58,18 +79,15 @@ export function noteScreenY(midi: number, w: number, h: number): number {
 }
 
 function drawClef(ctx: CanvasRenderingContext2D, L: Layout): void {
-  const x = 34
-  const y = L.midY - L.lineGap // linha do Fá
+  const fLineY = L.midY - L.lineGap // linha do Fá (2ª de cima)
+  const size = L.lineGap * 3.6
   ctx.fillStyle = theme.ink
-  ctx.beginPath()
-  ctx.arc(x, y + 3, L.lineGap * 0.34, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(x + 16, y - 4, 2.2, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(x + 16, y + 5, 2.2, 0, Math.PI * 2)
-  ctx.fill()
+  ctx.textAlign = "left"
+  ctx.textBaseline = "alphabetic"
+  ctx.font = `${size}px "Bravura","Petaluma","Noto Music","Segoe UI Symbol","Apple Symbols",serif`
+  // U+1D122 MUSICAL SYMBOL F CLEF — baseline calibrada (medida no canvas) para
+  // que a linha do Fá caia exatamente no meio dos 2 pontos da clave.
+  ctx.fillText("𝄢", 20, fLineY + size * 0.45)
 }
 
 function drawLedgers(ctx: CanvasRenderingContext2D, midi: number, x: number, L: Layout): void {
@@ -121,10 +139,18 @@ function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: nu
   ctx.fill()
   ctx.restore()
 
+  // Haste: notas acima da linha do meio (D3) levam haste para baixo.
+  const rel = diatonicIndex(note.midi) - D3_INDEX
+  const stemDown = rel > 0
   ctx.lineWidth = 1.6
   ctx.beginPath()
-  ctx.moveTo(note.x + L.lineGap * 0.44, y - 2)
-  ctx.lineTo(note.x + L.lineGap * 0.44, y - L.lineGap * 2)
+  if (stemDown) {
+    ctx.moveTo(note.x - L.lineGap * 0.44, y + 2)
+    ctx.lineTo(note.x - L.lineGap * 0.44, y + L.lineGap * 2)
+  } else {
+    ctx.moveTo(note.x + L.lineGap * 0.44, y - 2)
+    ctx.lineTo(note.x + L.lineGap * 0.44, y - L.lineGap * 2)
+  }
   ctx.stroke()
 }
 
@@ -154,16 +180,6 @@ function drawHud(
   ctx.font = `500 15px ${sans}`
   ctx.fillText(`×${tier.mult}  ${tier.name}`, 16 + cw + 6 + lw + 12, 33)
 
-  const bw = 180
-  const bh = 6
-  const fill = Math.min(combo, 20) / 20
-  ctx.fillStyle = theme.muted
-  ctx.globalAlpha = 0.25
-  ctx.fillRect(16, 42, bw, bh)
-  ctx.globalAlpha = 1
-  ctx.fillStyle = tier.color
-  ctx.fillRect(16, 42, bw * fill, bh)
-
   ctx.textAlign = "right"
   ctx.fillStyle = theme.ink
   ctx.font = `500 16px ${sans}`
@@ -173,8 +189,17 @@ function drawHud(
   ctx.fillText(`recorde ${best}`, w - 16, 48)
 }
 
+function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color: string): void {
+  const sans = "-apple-system, system-ui, sans-serif"
+  ctx.textAlign = "center"
+  ctx.textBaseline = "alphabetic"
+  ctx.fillStyle = color
+  ctx.font = `600 24px ${sans}`
+  ctx.fillText(name, w / 2, 36)
+}
+
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
-  const { w, h, notes, combo, best, score, hitX, flash } = scene
+  const { w, h, notes, combo, best, score, hitX, flash, tempoName, tempoColor } = scene
   const L = layoutFor(w, h)
 
   ctx.fillStyle = theme.panel
@@ -210,6 +235,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const note of notes) drawNote(ctx, note, L, hitX)
 
   drawHud(ctx, w, score, combo, best)
+  drawTempo(ctx, w, tempoName, tempoColor)
 
   if (flash > 0.02) {
     ctx.fillStyle = "#E24B4A"

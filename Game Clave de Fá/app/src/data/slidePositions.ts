@@ -14,7 +14,7 @@ export const LOWEST_MIDI = 40 // E2
 export const HIGHEST_MIDI = 72 // C5
 
 // Posições ALTERNATIVAS conhecidas (partials mais agudos), a validar.
-// Ver docs/02-input-e-posicoes-vara.md.
+// Ver docs/02-jogabilidade.md.
 const ALTERNATES: Record<number, number[]> = {
   52: [7], // E3: 2 (principal) + 7
   53: [6], // F3: 1 + 6

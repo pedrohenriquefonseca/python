@@ -4,6 +4,7 @@ import { Particles } from "./particles"
 import { drawScene, noteScreenY } from "./render"
 import { tierForCombo } from "./combo"
 import { validPositionsForMidi, solfege } from "../data/slidePositions"
+import { tempoById, type Tempo, type TempoId } from "./tempo"
 
 // Pool inicial: Dó maior do centro ao lá (C3 D3 E3 F3 G3 A3). Sem linhas suplementares.
 const POOL = [48, 50, 52, 53, 55, 57]
@@ -24,8 +25,7 @@ export class Game {
   private shake = 0
 
   private spawnAcc = 0
-  private spawnInterval = 1100 // ms entre notas
-  private speed = 160 // px/s de rolagem
+  private tempo: Tempo = tempoById("andante")
   private lastMidi = -1
   private lastTime = 0
   private running = false
@@ -42,7 +42,13 @@ export class Game {
     window.addEventListener("resize", () => this.resize())
     window.addEventListener("keydown", (e) => {
       const n = parseInt(e.key, 10)
-      if (n >= 1 && n <= 7) this.press(n)
+      if (n >= 1 && n <= 7) {
+        this.press(n)
+        return
+      }
+      const tempoKey: Record<string, TempoId> = { q: "adagio", w: "andante", e: "allegro" }
+      const id = tempoKey[e.key.toLowerCase()]
+      if (id) this.setTempo(id)
     })
   }
 
@@ -52,6 +58,19 @@ export class Game {
 
   private get hitWindowPx(): number {
     return Math.max(34, this.cssW * 0.06)
+  }
+
+  // Velocidade e cadência derivam do BPM do andamento (Andante ≈ ritmo atual).
+  private get speed(): number {
+    return this.tempo.bpm * 1.8 // px/s de rolagem
+  }
+
+  private get spawnInterval(): number {
+    return 66000 / this.tempo.bpm // ms entre notas (≈ 1 nota por tempo)
+  }
+
+  setTempo(id: TempoId): void {
+    this.tempo = tempoById(id)
   }
 
   start(): void {
@@ -99,7 +118,7 @@ export class Game {
     const tier = tierForCombo(this.combo)
     this.score += tier.mult * 10
     this.particles.explode(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH), tier.color, this.combo)
-    this.addLabel(note, tier.color, 20)
+    this.addLabel(note, tier.color, 28)
     this.remove(note)
   }
 
@@ -108,7 +127,7 @@ export class Game {
     this.flash = Math.max(this.flash, wrong ? 1 : 0.6)
     if (wrong) this.shake = 8
     this.particles.puff(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH), theme.muted)
-    this.addLabel(note, theme.muted, 17)
+    this.addLabel(note, theme.muted, 24)
     this.remove(note)
   }
 
@@ -207,7 +226,7 @@ export class Game {
       ctx.globalAlpha = Math.max(0, k)
       ctx.fillStyle = label.color
       ctx.font = `500 ${label.size}px -apple-system, system-ui, sans-serif`
-      ctx.fillText(label.text, label.x - 14, label.y + (1 - k) * -16)
+      ctx.fillText(label.text, label.x - 26, label.y + (1 - k) * -16)
     }
     ctx.globalAlpha = 1
   }
@@ -230,6 +249,8 @@ export class Game {
       score: this.score,
       hitX: this.hitX,
       flash: this.flash,
+      tempoName: this.tempo.name,
+      tempoColor: this.tempo.color,
     })
     this.particles.draw(ctx)
     this.drawLabels()
