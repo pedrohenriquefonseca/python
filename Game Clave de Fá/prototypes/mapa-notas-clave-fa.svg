@@ -1,0 +1,44 @@
+<svg width="680" viewBox="0 0 680 274" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,system-ui,sans-serif">
+<title>Clave de fá: ordem em que as notas são liberadas no jogo</title>
+<desc>Pentagrama em clave de fá com treze notas em escada ascendente, do mi grave ao dó central. As notas centrais dó ré mi são liberadas primeiro, depois fá e sol, depois lá, depois a oitava grave e por fim as linhas suplementares.</desc>
+
+<text x="60" y="22" font-size="13" font-weight="500" fill="#5F5E5A">clave de fá · ordem em que as notas entram no jogo</text>
+
+<line x1="60" y1="84" x2="668" y2="84" stroke="#6b6a64" stroke-width="1.2"/>
+<line x1="60" y1="102" x2="668" y2="102" stroke="#6b6a64" stroke-width="1.2"/>
+<line x1="60" y1="120" x2="668" y2="120" stroke="#6b6a64" stroke-width="1.2"/>
+<line x1="60" y1="138" x2="668" y2="138" stroke="#6b6a64" stroke-width="1.2"/>
+<line x1="60" y1="156" x2="668" y2="156" stroke="#6b6a64" stroke-width="1.2"/>
+
+<circle cx="44" cy="100" r="7" fill="#2C2C2A"/>
+<path d="M44 93 C 64 91 66 110 46 115" stroke="#2C2C2A" stroke-width="3" fill="none" stroke-linecap="round"/>
+<circle cx="58" cy="97" r="2.2" fill="#2C2C2A"/>
+<circle cx="58" cy="107" r="2.2" fill="#2C2C2A"/>
+
+<line x1="95" y1="174" x2="125" y2="174" stroke="#6b6a64" stroke-width="1.2"/>
+<line x1="635" y1="66" x2="665" y2="66" stroke="#6b6a64" stroke-width="1.2"/>
+
+<g font-size="12" fill="#2C2C2A" text-anchor="middle">
+<ellipse cx="110" cy="174" rx="8" ry="5.5" transform="rotate(-18 110 174)" fill="#26215C" stroke="#2C2C2A" stroke-width="1.3"/><text x="110" y="194">mi</text>
+<ellipse cx="155" cy="165" rx="8" ry="5.5" transform="rotate(-18 155 165)" fill="#26215C" stroke="#2C2C2A" stroke-width="1.3"/><text x="155" y="184">fá</text>
+<ellipse cx="200" cy="156" rx="8" ry="5.5" transform="rotate(-18 200 156)" fill="#3C3489" stroke="#2C2C2A" stroke-width="1.3"/><text x="200" y="175">sol</text>
+<ellipse cx="245" cy="147" rx="8" ry="5.5" transform="rotate(-18 245 147)" fill="#3C3489" stroke="#2C2C2A" stroke-width="1.3"/><text x="245" y="166">lá</text>
+<ellipse cx="290" cy="138" rx="8" ry="5.5" transform="rotate(-18 290 138)" fill="#3C3489" stroke="#2C2C2A" stroke-width="1.3"/><text x="290" y="129">si</text>
+<ellipse cx="335" cy="129" rx="8" ry="5.5" transform="rotate(-18 335 129)" fill="#AFA9EC" stroke="#2C2C2A" stroke-width="1.3"/><text x="335" y="120">dó</text>
+<ellipse cx="380" cy="120" rx="8" ry="5.5" transform="rotate(-18 380 120)" fill="#AFA9EC" stroke="#2C2C2A" stroke-width="1.3"/><text x="380" y="111">ré</text>
+<ellipse cx="425" cy="111" rx="8" ry="5.5" transform="rotate(-18 425 111)" fill="#AFA9EC" stroke="#2C2C2A" stroke-width="1.3"/><text x="425" y="102">mi</text>
+<ellipse cx="470" cy="102" rx="8" ry="5.5" transform="rotate(-18 470 102)" fill="#7F77DD" stroke="#2C2C2A" stroke-width="1.3"/><text x="470" y="93">fá</text>
+<ellipse cx="515" cy="93" rx="8" ry="5.5" transform="rotate(-18 515 93)" fill="#7F77DD" stroke="#2C2C2A" stroke-width="1.3"/><text x="515" y="84">sol</text>
+<ellipse cx="560" cy="84" rx="8" ry="5.5" transform="rotate(-18 560 84)" fill="#534AB7" stroke="#2C2C2A" stroke-width="1.3"/><text x="560" y="75">lá</text>
+<ellipse cx="605" cy="75" rx="8" ry="5.5" transform="rotate(-18 605 75)" fill="#3C3489" stroke="#2C2C2A" stroke-width="1.3"/><text x="605" y="66">si</text>
+<ellipse cx="650" cy="66" rx="8" ry="5.5" transform="rotate(-18 650 66)" fill="#26215C" stroke="#2C2C2A" stroke-width="1.3"/><text x="650" y="57">dó</text>
+</g>
+
+<g font-size="12" fill="#5F5E5A" text-anchor="start">
+<circle cx="16" cy="226" r="6" fill="#AFA9EC"/><text x="28" y="230">1 · dó ré mi</text>
+<circle cx="148" cy="226" r="6" fill="#7F77DD"/><text x="160" y="230">2 · + fá sol</text>
+<circle cx="280" cy="226" r="6" fill="#534AB7"/><text x="292" y="230">3 · + lá</text>
+<circle cx="412" cy="226" r="6" fill="#3C3489"/><text x="424" y="230">4 · oitava grave</text>
+<circle cx="544" cy="226" r="6" fill="#26215C"/><text x="556" y="230">5 · suplementares</text>
+</g>
+</svg>

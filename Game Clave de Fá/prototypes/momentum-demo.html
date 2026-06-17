@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Clave de Fá — protótipo de momentum</title>
+<style>
+  :root{
+    --bg:#f5f3ee; --surface:#ffffff; --text:#2c2c2a; --muted:#5f5e5a; --border:#d3d1c7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:24px;line-height:1.6}
+  .wrap{width:100%;max-width:720px}
+  h1{font-size:20px;font-weight:500;margin:0 0 4px}
+  p.sub{margin:0 0 16px;color:var(--muted);font-size:14px}
+  canvas{width:100%;height:auto;display:block;border-radius:12px;background:var(--surface);
+    border:0.5px solid var(--border)}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  button{font:inherit;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer;
+    background:var(--surface);border:0.5px solid var(--border);color:var(--text)}
+  button:active{transform:scale(0.98)}
+  .leg{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;
+    font-size:12px;color:var(--muted)}
+  .sw{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;
+    vertical-align:-1px}
+  label{font-size:13px;color:var(--muted)}
+  input[type=range]{width:120px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Protótipo de momentum + explosão</h1>
+  <p class="sub">Loop automático acertando notas. Use "errar de propósito" para sentir o combo quebrar, e o slider para mudar a velocidade.</p>
+  <canvas id="ghcv"></canvas>
+  <div class="bar">
+    <button id="ghplay">pausar</button>
+    <button id="ghmiss">errar de propósito</button>
+    <button id="ghreset">reiniciar</button>
+    <label style="margin-left:auto">velocidade</label>
+    <input id="ghspd" type="range" min="70" max="170" step="5" value="100">
+  </div>
+  <div class="leg">
+    <span><span class="sw" style="background:#888780"></span>frio · ×1</span>
+    <span><span class="sw" style="background:#1D9E75"></span>aquecendo · ×1</span>
+    <span><span class="sw" style="background:#378ADD"></span>na zona · ×2</span>
+    <span><span class="sw" style="background:#D85A30"></span>quente · ×3</span>
+    <span><span class="sw" style="background:#EF9F27"></span>pegando fogo · ×4</span>
+  </div>
+</div>
+<script>
+(function(){
+  var cv=document.getElementById('ghcv'),ctx=cv.getContext('2d');
+  var W=680,H=240,dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  var cs=getComputedStyle(document.documentElement);
+  var cText=(cs.getPropertyValue('--text')||'#2C2C2A').trim();
+  var cMuted=(cs.getPropertyValue('--muted')||'#5F5E5A').trim();
+  var TIER=[{c:'#888780',n:'frio',m:1},{c:'#1D9E75',n:'aquecendo',m:1},{c:'#378ADD',n:'na zona',m:2},{c:'#D85A30',n:'quente',m:3},{c:'#EF9F27',n:'pegando fogo',m:4}];
+  function ti(c){if(c<=0)return 0;if(c<5)return 1;if(c<10)return 2;if(c<20)return 3;return 4;}
+  var staff=[56,80,104,128,152],hitX=160;
+  var noteY=[44,56,68,80,92,104,116,128,140,152,164];
+  var notes=[],parts=[],rings=[];
+  var combo=0,best=0,score=0,spawnT=0,lastY=104;
+  var pulse=0,flash=0,shake=0,forceMiss=false,running=true;
+  var spd=2.4,spawnEvery=46;
+  function spawn(){var y;do{y=noteY[(Math.random()*noteY.length)|0];}while(y===lastY);lastY=y;notes.push({x:W+20,y:y,judged:false,st:'live',a:1});}
+  function explode(x,y,col,cb){var n=Math.min(46,14+cb);for(var i=0;i<n;i++){var a=Math.random()*6.283,s=1.5+Math.random()*5;parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:28+Math.random()*18,max:46,r:2+Math.random()*2.5,c:col});}rings.push({x:x,y:y,r:6,mr:30+Math.min(cb,28),life:1,c:col});}
+  function hit(nt){combo++;if(combo>best)best=combo;var t=TIER[ti(combo)];score+=t.m;explode(hitX,nt.y,t.c,combo);nt.st='dead';pulse=1;}
+  function miss(nt){if(nt){nt.st='miss';nt.judged=true;}combo=0;flash=1;shake=11;}
+  function step(){
+    spawnT++;if(spawnT>=spawnEvery){spawnT=0;spawn();}
+    for(var i=0;i<notes.length;i++){var nt=notes[i];nt.x-=spd;
+      if(!nt.judged&&nt.st==='live'&&nt.x<=hitX){nt.judged=true;if(forceMiss){forceMiss=false;miss(nt);}else hit(nt);}
+      if(nt.st==='miss')nt.a-=0.03;}
+    notes=notes.filter(function(n){return n.st!=='dead'&&n.x>-40&&n.a>0;});
+    for(var j=0;j<parts.length;j++){var p=parts[j];p.x+=p.vx;p.y+=p.vy;p.vy+=0.12;p.vx*=0.99;p.life--;}
+    parts=parts.filter(function(p){return p.life>0;});
+    for(var k=0;k<rings.length;k++){var r=rings[k];r.r+=(r.mr-r.r)*0.25;r.life-=0.06;}
+    rings=rings.filter(function(r){return r.life>0;});
+    pulse*=0.9;flash*=0.88;shake*=0.82;
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);ctx.save();
+    if(shake>0.5)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+    var t=TIER[ti(combo)];
+    ctx.strokeStyle=cMuted;ctx.lineWidth=1;
+    for(var i=0;i<staff.length;i++){ctx.beginPath();ctx.moveTo(20,staff[i]);ctx.lineTo(660,staff[i]);ctx.stroke();}
+    ctx.fillStyle=t.c;ctx.globalAlpha=0.10+pulse*0.18;ctx.fillRect(hitX-14,38,28,134);ctx.globalAlpha=1;
+    ctx.strokeStyle=t.c;ctx.lineWidth=3+pulse*4;ctx.beginPath();ctx.moveTo(hitX,38);ctx.lineTo(hitX,172);ctx.stroke();
+    ctx.fillStyle=cMuted;ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('linha de acerto',hitX,186);
+    for(var n=0;n<notes.length;n++){var nt=notes[n];ctx.save();ctx.translate(nt.x,nt.y);ctx.rotate(-0.32);ctx.globalAlpha=nt.a;ctx.fillStyle=nt.st==='miss'?'#B4B2A9':t.c;ctx.strokeStyle=cText;ctx.lineWidth=1.4;ctx.beginPath();ctx.ellipse(0,0,9,6.4,0,0,6.283);ctx.fill();ctx.stroke();ctx.restore();}
+    ctx.globalAlpha=1;
+    for(var r=0;r<rings.length;r++){var rg=rings[r];ctx.globalAlpha=Math.max(0,rg.life);ctx.strokeStyle=rg.c;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(rg.x,rg.y,rg.r,0,6.283);ctx.stroke();}
+    for(var p=0;p<parts.length;p++){var pt=parts[p];ctx.globalAlpha=Math.max(0,pt.life/pt.max);ctx.fillStyle=pt.c;ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r*(pt.life/pt.max),0,6.283);ctx.fill();}
+    ctx.globalAlpha=1;
+    var bx=20,bw=640,by=200,bh=12,fill=Math.min(combo,20)/20;
+    ctx.fillStyle=cMuted;ctx.globalAlpha=0.25;ctx.fillRect(bx,by,bw,bh);ctx.globalAlpha=1;
+    ctx.fillStyle=t.c;ctx.fillRect(bx,by,bw*fill,bh);
+    ctx.textAlign='left';ctx.fillStyle=t.c;ctx.font='500 30px sans-serif';ctx.fillText(combo,20,40);
+    var cw=ctx.measureText(combo).width;ctx.fillStyle=cMuted;ctx.font='13px sans-serif';ctx.fillText('combo',26+cw,40);
+    ctx.fillStyle=t.c;ctx.font='500 18px sans-serif';ctx.fillText('×'+t.m+'  '+t.n,26+cw+ctx.measureText('combo').width+14,39);
+    ctx.textAlign='right';ctx.fillStyle=cText;ctx.font='500 16px sans-serif';ctx.fillText(score+' pontos',660,30);
+    ctx.fillStyle=cMuted;ctx.font='12px sans-serif';ctx.fillText('recorde '+best,660,46);
+    if(flash>0.02){ctx.fillStyle='#E24B4A';ctx.globalAlpha=flash*0.18;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+    ctx.restore();
+  }
+  function loop(){if(running)step();draw();requestAnimationFrame(loop);}
+  document.getElementById('ghplay').onclick=function(){running=!running;this.textContent=running?'pausar':'jogar';};
+  document.getElementById('ghmiss').onclick=function(){var near=null;for(var i=0;i<notes.length;i++){if(notes[i].st==='live'&&notes[i].x>hitX&&(!near||notes[i].x<near.x))near=notes[i];}miss(near);};
+  document.getElementById('ghreset').onclick=function(){combo=0;score=0;notes=[];parts=[];rings=[];flash=0;};
+  document.getElementById('ghspd').oninput=function(){spd=2.4*(this.value/100);spawnEvery=Math.round(46*(100/this.value));};
+  loop();
+})();
+</script>
+</body>
+</html>
