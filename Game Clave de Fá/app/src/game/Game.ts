@@ -1,9 +1,10 @@
 import type { Note, FloatingLabel } from "./types"
 import { theme } from "../theme"
 import { Particles } from "./particles"
-import { drawScene, noteScreenY } from "./render"
+import { drawScene, noteScreenY, hitXForKey } from "./render"
 import { tierForCombo } from "./combo"
 import { validPositionsForMidi, solfege } from "../data/slidePositions"
+import { MAX_ACCIDENTALS } from "../data/keys"
 import { tempoById, type Tempo, type TempoId } from "./tempo"
 
 // Pool inicial: Dó maior do centro ao lá (C3 D3 E3 F3 G3 A3). Sem linhas suplementares.
@@ -26,6 +27,8 @@ export class Game {
 
   private spawnAcc = 0
   private tempo: Tempo = tempoById("andante")
+  private keySig = 0 // ciclo de quintas: -7 (7♭) … 0 (Dó) … +7 (7♯)
+  private timeSig: [number, number] = [4, 4] // por enquanto sempre 4/4
   private lastMidi = -1
   private lastTime = 0
   private running = false
@@ -46,18 +49,29 @@ export class Game {
         this.press(n)
         return
       }
-      const tempoKey: Record<string, TempoId> = { q: "adagio", w: "andante", e: "allegro" }
+      const tempoKey: Record<string, TempoId> = { "`": "largo", q: "adagio", w: "andante", e: "allegro" }
       const id = tempoKey[e.key.toLowerCase()]
-      if (id) this.setTempo(id)
+      if (id) {
+        this.setTempo(id)
+        return
+      }
+      if (e.key === "[") this.keySig = Math.max(-MAX_ACCIDENTALS, this.keySig - 1) // mais bemóis
+      else if (e.key === "]") this.keySig = Math.min(MAX_ACCIDENTALS, this.keySig + 1) // mais sustenidos
+      else return
+      this.recomputeHitX() // a linha acompanha o novo tom
     })
   }
 
+  private hitXValue = 110
+
+  // Posição da linha de acerto: o mínimo que ainda deixa o nome da nota caber sem
+  // invadir clave + armadura (calculado da notação real em resize()).
   private get hitX(): number {
-    return Math.max(90, this.cssW * 0.2)
+    return this.hitXValue
   }
 
   private get hitWindowPx(): number {
-    return Math.max(34, this.cssW * 0.06)
+    return Math.max(48, this.cssW * 0.1)
   }
 
   // Velocidade e cadência derivam do BPM do andamento (Andante ≈ ritmo atual).
@@ -170,6 +184,13 @@ export class Game {
     this.canvas.width = Math.round(rect.width * this.dpr)
     this.canvas.height = Math.round(rect.height * this.dpr)
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    this.recomputeHitX()
+  }
+
+  // A linha de acerto depende do tom (último acidente) e do tamanho da pauta,
+  // então recalcula no resize e a cada troca de armadura.
+  private recomputeHitX(): void {
+    this.hitXValue = Math.max(110, hitXForKey(this.ctx, this.cssW, this.cssH, Math.abs(this.keySig)))
   }
 
   private spawn(): void {
@@ -226,7 +247,7 @@ export class Game {
       ctx.globalAlpha = Math.max(0, k)
       ctx.fillStyle = label.color
       ctx.font = `500 ${label.size}px -apple-system, system-ui, sans-serif`
-      ctx.fillText(label.text, label.x - 26, label.y + (1 - k) * -16)
+      ctx.fillText(label.text, label.x - 26, label.y)
     }
     ctx.globalAlpha = 1
   }
@@ -251,6 +272,8 @@ export class Game {
       flash: this.flash,
       tempoName: this.tempo.name,
       tempoColor: this.tempo.color,
+      fifths: this.keySig,
+      timeSig: this.timeSig,
     })
     this.particles.draw(ctx)
     this.drawLabels()

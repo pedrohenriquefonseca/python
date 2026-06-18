@@ -1,6 +1,7 @@
 import type { Note } from "./types"
 import { theme } from "../theme"
 import { tierForCombo } from "./combo"
+import { accidentalsForKey, keyName } from "../data/keys"
 
 const SEMI_TO_DIATONIC: Record<number, number> = {
   0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6,
@@ -26,6 +27,8 @@ export interface Scene {
   flash: number
   tempoName: string
   tempoColor: string
+  fifths: number
+  timeSig: [number, number]
 }
 
 // Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo
@@ -78,16 +81,108 @@ export function noteScreenY(midi: number, w: number, h: number): number {
   return noteY(midi, layoutFor(w, h))
 }
 
-function drawClef(ctx: CanvasRenderingContext2D, L: Layout): void {
+const MUSIC_FONT = `"Bravura","Petaluma","Noto Music","Segoe UI Symbol","Apple Symbols",serif`
+
+// Desenha a clave de fá e devolve a borda direita (x) para a armadura seguir.
+function drawClef(ctx: CanvasRenderingContext2D, L: Layout): number {
   const fLineY = L.midY - L.lineGap // linha do Fá (2ª de cima)
   const size = L.lineGap * 3.6
+  const x = 20
   ctx.fillStyle = theme.ink
   ctx.textAlign = "left"
   ctx.textBaseline = "alphabetic"
-  ctx.font = `${size}px "Bravura","Petaluma","Noto Music","Segoe UI Symbol","Apple Symbols",serif`
+  ctx.font = `${size}px ${MUSIC_FONT}`
   // U+1D122 MUSICAL SYMBOL F CLEF — baseline calibrada (medida no canvas) para
   // que a linha do Fá caia exatamente no meio dos 2 pontos da clave.
-  ctx.fillText("𝄢", 20, fLineY + size * 0.45)
+  ctx.fillText("𝄢", x, fLineY + size * 0.45)
+  return x + ctx.measureText("𝄢").width
+}
+
+// Armadura logo após a clave. Cada glifo (♯/♭) fica na linha/espaço da sua nota,
+// usando o mesmo noteY das notas. Devolve a borda direita.
+function drawKeySignature(
+  ctx: CanvasRenderingContext2D,
+  L: Layout,
+  fifths: number,
+  startX: number,
+): number {
+  const accs = accidentalsForKey(fifths)
+  if (accs.length === 0) return startX
+  ctx.fillStyle = theme.ink
+  ctx.textAlign = "left"
+  ctx.textBaseline = "middle"
+  const step = L.lineGap * 0.78
+  let x = startX + L.lineGap * 0.35
+  for (const acc of accs) {
+    const isFlat = acc.symbol === "♭"
+    const size = isFlat ? L.lineGap * 2.5 : L.lineGap * 2.2
+    // O corpo do ♭ fica na metade de baixo do glifo; sobe um pouco para a barriga
+    // cair na linha/espaço. O ♯ é simétrico. Ambos descem um tico para assentar
+    // melhor na linha/espaço.
+    const dy = isFlat ? -size * 0.095 : size * 0.035
+    ctx.font = `${size}px ${MUSIC_FONT}`
+    ctx.fillText(acc.symbol, x, noteY(acc.midi, L) + dy)
+    x += step
+  }
+  return x
+}
+
+const TIMESIG_FONT_SCALE = 2.3 // tamanho de cada dígito em lineGaps
+const TIMESIG_PAD = 0.45 // respiro (em lineGaps) entre a armadura e a fórmula
+
+// Fórmula de compasso após a armadura. Numerador centrado na linha 4, denominador
+// na linha 2 (cada dígito ~2 espaços). Devolve a borda direita.
+function drawTimeSignature(
+  ctx: CanvasRenderingContext2D,
+  L: Layout,
+  startX: number,
+  top: number,
+  bottom: number,
+): number {
+  ctx.fillStyle = theme.ink
+  ctx.font = `700 ${L.lineGap * TIMESIG_FONT_SCALE}px Georgia, "Times New Roman", serif`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  const w = Math.max(ctx.measureText(String(top)).width, ctx.measureText(String(bottom)).width)
+  const cx = startX + L.lineGap * TIMESIG_PAD + w / 2
+  ctx.fillText(String(top), cx, L.midY - L.lineGap)
+  ctx.fillText(String(bottom), cx, L.midY + L.lineGap)
+  return cx + w / 2
+}
+
+const LABEL_FONT = `500 28px -apple-system, system-ui, sans-serif`
+const LABEL_GUTTER = 26 // o nome da nota é desenhado em hitX - 26 (ver Game.drawLabels)
+const HITLINE_GAP = 72 // px do fim da notação (clave+armadura+fórmula) até a linha
+
+// Linha de acerto ADAPTÁVEL: fica HITLINE_GAP px à direita do último acidente da
+// armadura atual, então anda conforme o tom da partitura. Medido na fonte real,
+// então acompanha o lineGap do aparelho. A folga nunca encolhe abaixo do espaço
+// do nome da nota, para o label não voltar a invadir a notação.
+export function hitXForKey(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  accidentals: number,
+): number {
+  const L = layoutFor(w, h)
+  ctx.save()
+  ctx.font = `${L.lineGap * 3.6}px ${MUSIC_FONT}`
+  let accRight = 20 + ctx.measureText("𝄢").width // borda direita da clave (Dó M)
+  if (accidentals > 0) {
+    const step = L.lineGap * 0.78
+    ctx.font = `${L.lineGap * 2.5}px ${MUSIC_FONT}`
+    const flatW = ctx.measureText("♭").width
+    ctx.font = `${L.lineGap * 2.2}px ${MUSIC_FONT}`
+    const sharpW = ctx.measureText("♯").width
+    accRight += L.lineGap * 0.35 + (accidentals - 1) * step + Math.max(flatW, sharpW)
+  }
+  // fórmula de compasso, sempre presente (hoje 4/4 — dígito de 1 caractere)
+  ctx.font = `700 ${L.lineGap * TIMESIG_FONT_SCALE}px Georgia, "Times New Roman", serif`
+  accRight += L.lineGap * TIMESIG_PAD + ctx.measureText("4").width
+  ctx.font = LABEL_FONT
+  const labelClear = LABEL_GUTTER + ctx.measureText("sol").width // nome de nota mais largo
+  ctx.restore()
+  return accRight + Math.max(HITLINE_GAP, labelClear)
 }
 
 function drawLedgers(ctx: CanvasRenderingContext2D, midi: number, x: number, L: Layout): void {
@@ -199,7 +294,7 @@ function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
-  const { w, h, notes, combo, best, score, hitX, flash, tempoName, tempoColor } = scene
+  const { w, h, notes, combo, best, score, hitX, flash, tempoName, tempoColor, fifths, timeSig } = scene
   const L = layoutFor(w, h)
 
   ctx.fillStyle = theme.panel
@@ -219,12 +314,10 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   }
   ctx.globalAlpha = 1
 
-  drawClef(ctx, L)
+  const clefRight = drawClef(ctx, L)
+  const keyRight = drawKeySignature(ctx, L, fifths, clefRight)
+  drawTimeSignature(ctx, L, keyRight, timeSig[0], timeSig[1])
 
-  ctx.fillStyle = theme.accent
-  ctx.globalAlpha = 0.1
-  ctx.fillRect(hitX - 16, L.panelTop + 6, 32, L.panelH - 12)
-  ctx.globalAlpha = 1
   ctx.strokeStyle = theme.accent
   ctx.lineWidth = 3
   ctx.beginPath()
@@ -236,6 +329,12 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   drawHud(ctx, w, score, combo, best)
   drawTempo(ctx, w, tempoName, tempoColor)
+
+  ctx.textAlign = "center"
+  ctx.textBaseline = "alphabetic"
+  ctx.fillStyle = theme.muted
+  ctx.font = `500 13px -apple-system, system-ui, sans-serif`
+  ctx.fillText(keyName(fifths), w / 2, 56)
 
   if (flash > 0.02) {
     ctx.fillStyle = "#E24B4A"
