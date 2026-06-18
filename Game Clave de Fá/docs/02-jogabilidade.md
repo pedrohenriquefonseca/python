@@ -26,6 +26,17 @@ Vantagens:
   se estendendo da esquerda (1ª, recolhida) para a direita (7ª, estendida),
   reforçando o mapa mental do movimento físico.
 
+#### Linha de acerto e nome da nota (decisão 18/jun/2026)
+
+- **Linha de acerto o mais à esquerda possível**, logo após a clave + armadura. A
+  posição é **fixa**, reservando o espaço do **pior caso (armadura de 5
+  acidentes)** — assim a memória muscular não muda de nível pra nível e a "pista"
+  de leitura à direita fica máxima. Em níveis com armadura menor (ou sem), sobra
+  um vão entre a armadura e a linha; é aceitável.
+- **Nome da nota (solfejo) exibido abaixo da linha de acerto**, alinhado a ela.
+  Aparece **na resolução**: colorido no acerto (cor do tier), cinza no erro —
+  mesma lógica de hoje, só reposicionada para baixo da linha.
+
 ### Posições alternativas (faz parte do core)
 
 Aceitar alternativas **não é tarefa para depois** — sem isso o jogo pune leitura
