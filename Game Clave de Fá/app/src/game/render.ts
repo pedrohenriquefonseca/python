@@ -1,6 +1,5 @@
 import type { Note } from "./types"
 import { theme } from "../theme"
-import { tierForCombo } from "./combo"
 import { accidentalsForKey, keyName } from "../data/keys"
 
 const SEMI_TO_DIATONIC: Record<number, number> = {
@@ -20,8 +19,6 @@ export interface Scene {
   w: number
   h: number
   notes: Note[]
-  combo: number
-  best: number
   score: number
   hitX: number
   flash: number
@@ -29,6 +26,7 @@ export interface Scene {
   tempoColor: string
   fifths: number
   level: number
+  music: string
   minMidi: number
   maxMidi: number
 }
@@ -36,7 +34,8 @@ export interface Scene {
 // Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo
 // pode invadir a região branca da pauta — ela começa em panelTop = HEADER_H.
 const HEADER_H = 60
-const BOTTOM_MARGIN = 4
+const BOTTOM_MARGIN = 0 // o painel da pauta vai até a base do canvas; o respiro
+// para a barra rosa vem do padding-top de #controls (CSS), mantendo os 3 vãos iguais.
 
 // A pauta tem 5 linhas (4 lineGaps); a linha de cima/baixo ficam a HALF_STAFF
 // lineGaps do meio (ré³). Acima/abaixo reservamos só o necessário para as notas
@@ -56,7 +55,9 @@ function layoutFor(w: number, h: number, minMidi: number, maxMidi: number): Layo
   const spanBelow = Math.max(HALF_STAFF, relBelow / 2) + EDGE_MARGIN
   const units = spanAbove + spanBelow
   const avail = h - HEADER_H - BOTTOM_MARGIN
-  const lineGap = Math.max(14, Math.min(28, avail / units))
+  // Sem teto: o painel preenche todo o `avail`, então o fundo do painel é estável
+  // (não sobra folga variável acima da barra rosa). Piso de 14 para telas mínimas.
+  const lineGap = Math.max(14, avail / units)
   const panelTop = HEADER_H
   const midY = panelTop + spanAbove * lineGap
   const panelH = units * lineGap
@@ -242,30 +243,26 @@ function drawHud(
   ctx: CanvasRenderingContext2D,
   w: number,
   score: number,
-  combo: number,
-  best: number,
+  level: number,
+  fifths: number,
 ): void {
-  const tier = tierForCombo(combo)
   const sans = "-apple-system, system-ui, sans-serif"
 
-  // Combo (esquerda) — 2 linhas espelhando pontos/recorde: linha de cima maior e
-  // colorida pelo tier, linha de baixo menor e apagada.
+  // Nível (esquerda) — 2 linhas: número do nível em destaque, tom abaixo.
   ctx.textAlign = "left"
   ctx.textBaseline = "alphabetic"
-  ctx.fillStyle = tier.color
-  ctx.font = `500 16px ${sans}`
-  ctx.fillText(`${combo} combo`, 16, 30)
+  ctx.fillStyle = theme.hud
+  ctx.font = `600 16px ${sans}`
+  ctx.fillText(`Level ${level}`, 16, 30)
   ctx.fillStyle = theme.muted
   ctx.font = `12px ${sans}`
-  ctx.fillText(`${tier.name} ×${tier.mult}`, 16, 48)
+  ctx.fillText(keyName(fifths), 16, 48)
 
+  // Pontuação (direita).
   ctx.textAlign = "right"
   ctx.fillStyle = theme.hud
   ctx.font = `500 16px ${sans}`
   ctx.fillText(`${score.toLocaleString("en-US")} pts`, w - 16, 30)
-  ctx.fillStyle = theme.muted
-  ctx.font = `12px ${sans}`
-  ctx.fillText(`best ${best}`, w - 16, 48)
 }
 
 function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color: string): void {
@@ -278,7 +275,7 @@ function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
-  const { w, h, notes, combo, best, score, hitX, flash, tempoName, tempoColor, fifths, level, minMidi, maxMidi } = scene
+  const { w, h, notes, score, hitX, flash, tempoName, tempoColor, fifths, level, music, minMidi, maxMidi } = scene
   const L = layoutFor(w, h, minMidi, maxMidi)
 
   ctx.fillStyle = theme.panel
@@ -310,14 +307,17 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   for (const note of notes) drawNote(ctx, note, L, hitX)
 
-  drawHud(ctx, w, score, combo, best)
+  drawHud(ctx, w, score, level, fifths)
   drawTempo(ctx, w, tempoName, tempoColor)
 
-  ctx.textAlign = "center"
-  ctx.textBaseline = "alphabetic"
-  ctx.fillStyle = theme.muted
-  ctx.font = `500 13px -apple-system, system-ui, sans-serif`
-  ctx.fillText(`Lv ${level} · ${keyName(fifths)}`, w / 2, 56)
+  // Subtítulo central: a música/tema do nível (nível e tom já vão à esquerda).
+  if (music) {
+    ctx.textAlign = "center"
+    ctx.textBaseline = "alphabetic"
+    ctx.fillStyle = theme.muted
+    ctx.font = `500 13px -apple-system, system-ui, sans-serif`
+    ctx.fillText(music, w / 2, 56)
+  }
 
   if (flash > 0.02) {
     ctx.fillStyle = "#E24B4A"

@@ -23,21 +23,21 @@ reconhecível como recompensa a cada passo.
 | Figuras (duração) | só semínima | mínima → colcheia → pontuado → semicolcheia |
 | Pausas | nenhuma | integradas ao ritmo |
 | Tonalidade | Dó maior (sem acidentes) | armaduras com bemóis (Fá, Si♭, Mi♭, Lá♭) |
-| Andamento | Adagio | Andante → Allegro (ver abaixo) |
+| Andamento | Largo | Adagio → Andante (ver abaixo) |
 
-## Andamento: eixo ortogonal (3 por exercício, decisão 17/jun/2026)
+## Andamento: eixo ortogonal (3 por exercício; Allegro removido em 19/jun/2026)
 
 Cada exercício existe em **3 velocidades**. O **conteúdo** (notas/ritmo/armadura)
 avança pela tabela de níveis; o **andamento** é o quanto se aperta cada nível.
 
 | Andamento | BPM aprox. | Papel |
 |---|---|---|
-| Adagio | ~66 | nota nova estreia aqui, janela de acerto generosa — *passar libera o próximo nível* |
-| Andante | ~92 | velocidade de leitura "real" |
-| Allegro | ~126 | desafio de domínio — estrelas / recorde |
+| Largo | ~40 | nota nova estreia aqui, janela de acerto generosa — *passar libera o próximo nível* |
+| Adagio | ~66 | velocidade de leitura intermediária |
+| Andante | ~92 | velocidade "real" — desafio de domínio (estrelas / recorde) |
 
-Efeito pedagógico: a nota nova sempre estreia devagar (Adagio) e só vira pressão
-de velocidade depois (Andante/Allegro).
+Efeito pedagógico: a nota nova sempre estreia devagar (Largo) e só vira pressão
+de velocidade depois (Adagio/Andante).
 
 ## Armaduras de clave desde cedo, privilegiando bemóis (decisão 17/jun/2026)
 
@@ -96,7 +96,7 @@ Um gerador lê parâmetros e produz exercícios infinitos. Esboço por nível:
   "rhythmPool": ["quarter","half","eighth"],
   "key": "Bb-major",
   "allowLedger": true,
-  "tempos": { "adagio": 66, "andante": 92, "allegro": 126 },
+  "tempos": { "largo": 40, "adagio": 66, "andante": 92 },
   "melodySources": ["..."],
   "proceduralWeight": 0.3,
   "masteryGate": { "minAccuracy": 0.9, "maxReactionMs": 600 }

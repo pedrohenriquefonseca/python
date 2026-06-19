@@ -2,11 +2,15 @@ import type { Note, FloatingLabel } from "./types"
 import { theme } from "../theme"
 import { Particles } from "./particles"
 import { drawScene, noteScreenY, hitXForKey } from "./render"
-import { tierForCombo } from "./combo"
 import { validPositionsForMidi, noteName } from "../data/slidePositions"
 import { keyAccidental, soundingMidi } from "../data/keys"
 import { tempoById, type Tempo, type TempoId } from "./tempo"
 import { levelByNumber } from "./levels"
+import { Audio, MISS_LABELS, type MissSound } from "./audio"
+import { hapticHit, hapticMiss } from "./haptics"
+
+// Intensidade fixa da explosão de acerto (antes escalava com o combo, removido).
+const HIT_INTENSITY = 10
 
 export class Game {
   private ctx: CanvasRenderingContext2D
@@ -17,18 +21,22 @@ export class Game {
   private notes: Note[] = []
   private labels: FloatingLabel[] = []
   private particles = new Particles()
-  private combo = 0
-  private best = 0
+  private audio = new Audio()
+  private toast = ""
+  private toastLife = 0
   private score = 0
   private flash = 0
   private shake = 0
 
   private spawnAcc = 0
-  private tempo: Tempo = tempoById("andante")
+  // No preview (dev) começa sempre no Largo para facilitar os testes; em produção,
+  // Andante. Ver memória "preview-always-largo".
+  private tempo: Tempo = tempoById(import.meta.env.DEV ? "largo" : "andante")
   // Estado dirigido pelo nível atual (ver loadLevel). O pool e os extremos do
   // intervalo definem as notas que entram e o tamanho da pauta; a armadura vem
   // junto. `[`/`]` navegam os níveis.
   private level = 1
+  private music = "" // tema/música do nível atual (exibido no HUD central)
   private pool: number[] = []
   private keySig = 0 // armadura do nível, em quintas (negativo = bemóis)
   private rangeMin = 48
@@ -48,13 +56,21 @@ export class Game {
     this.loadLevel(1)
     this.resize()
     window.addEventListener("resize", () => this.resize())
+    // Atalhos de teclado são apenas ferramentas de DEV/preview — o app nativo é só
+    // toque e não tem teclado. Não embarcam em produção.
+    if (import.meta.env.DEV) this.bindDevKeys()
+  }
+
+  // Teclado (DEV): 1-7 toca posição; `/q/w/e troca andamento; [ ] muda de nível;
+  // m audita os sons de erro.
+  private bindDevKeys(): void {
     window.addEventListener("keydown", (e) => {
       const n = parseInt(e.key, 10)
       if (n >= 1 && n <= 7) {
         this.press(n)
         return
       }
-      const tempoKey: Record<string, TempoId> = { "`": "largo", q: "adagio", w: "andante", e: "allegro" }
+      const tempoKey: Record<string, TempoId> = { "`": "largo", q: "adagio", w: "andante" }
       const id = tempoKey[e.key.toLowerCase()]
       if (id) {
         this.setTempo(id)
@@ -62,6 +78,7 @@ export class Game {
       }
       if (e.key === "[") this.loadLevel(this.level - 1) // nível anterior
       else if (e.key === "]") this.loadLevel(this.level + 1) // próximo nível
+      else if (e.key.toLowerCase() === "m") this.cycleMissSound() // audita os sons de erro
     })
   }
 
@@ -95,6 +112,7 @@ export class Game {
   loadLevel(n: number): void {
     const lv = levelByNumber(n)
     this.level = lv.n
+    this.music = lv.music
     this.pool = lv.notePool
     this.keySig = lv.keySig
     this.rangeMin = Math.min(...lv.notePool)
@@ -145,22 +163,37 @@ export class Game {
   }
 
   private resolveHit(note: Note): void {
-    this.combo += 1
-    if (this.combo > this.best) this.best = this.combo
-    const tier = tierForCombo(this.combo)
-    this.score += tier.mult * 10
-    this.particles.explode(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH, this.rangeMin, this.rangeMax), tier.color, this.combo)
-    this.addLabel(note, tier.color, 28)
+    this.score += 10
+    // Som da nota na altura soante (com a armadura), pela duração indicada — hoje
+    // todas as notas são semínimas, então 1 tempo = 60/bpm segundos.
+    this.audio.playNote(soundingMidi(note.midi, this.keySig), 60 / this.tempo.bpm)
+    hapticHit() // feedback tátil leve no acerto
+    this.particles.explode(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH, this.rangeMin, this.rangeMax), theme.accent, HIT_INTENSITY)
+    this.addLabel(note, theme.accent, 28)
     this.remove(note)
   }
 
   private resolveMiss(note: Note, wrong: boolean): void {
-    this.combo = 0
     this.flash = Math.max(this.flash, wrong ? 1 : 0.6)
-    if (wrong) this.shake = 8
+    if (wrong) {
+      this.shake = 8
+      this.audio.playMiss() // som de erro só na posição errada (não no tempo esgotado)
+      hapticMiss() // feedback tátil forte e abrupto no erro
+    }
     this.particles.puff(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH, this.rangeMin, this.rangeMax), theme.muted)
     this.addLabel(note, theme.muted, 24)
     this.remove(note)
+  }
+
+  // Alterna entre as 3 alternativas de som de erro e toca um preview, mostrando
+  // qual está ativa. Temporário, para escolhermos uma.
+  private cycleMissSound(): void {
+    const order: MissSound[] = ["buzz", "sadTrombone", "thud"]
+    const next = order[(order.indexOf(this.audio.missSound) + 1) % order.length]
+    this.audio.missSound = next
+    this.audio.playMiss()
+    this.toast = `Erro: ${MISS_LABELS[next]}`
+    this.toastLife = 1.8
   }
 
   private buildButtons(): void {
@@ -260,6 +293,7 @@ export class Game {
 
     this.flash *= Math.pow(0.88, s)
     this.shake *= Math.pow(0.82, s)
+    if (this.toastLife > 0) this.toastLife -= dt / 1000
   }
 
   private drawLabels(): void {
@@ -289,8 +323,6 @@ export class Game {
       w: this.cssW,
       h: this.cssH,
       notes: this.notes,
-      combo: this.combo,
-      best: this.best,
       score: this.score,
       hitX: this.hitX,
       flash: this.flash,
@@ -298,11 +330,36 @@ export class Game {
       tempoColor: this.tempo.color,
       fifths: this.keySig,
       level: this.level,
+      music: this.music,
       minMidi: this.rangeMin,
       maxMidi: this.rangeMax,
     })
     this.particles.draw(ctx)
     this.drawLabels()
+    this.drawToast()
+    ctx.restore()
+  }
+
+  // Aviso temporário (centro/inferior) ao alternar o som de erro com a tecla `m`.
+  private drawToast(): void {
+    if (this.toastLife <= 0) return
+    const ctx = this.ctx
+    const cx = this.cssW / 2
+    const cy = this.cssH - 24
+    ctx.save()
+    ctx.globalAlpha = Math.min(1, this.toastLife / 0.4)
+    ctx.font = `600 15px -apple-system, system-ui, sans-serif`
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    // Pílula escura por trás para o texto ler sobre a pauta branca.
+    const padX = 14
+    const w = ctx.measureText(this.toast).width + padX * 2
+    ctx.fillStyle = "rgba(15,18,28,0.9)"
+    ctx.beginPath()
+    ctx.roundRect(cx - w / 2, cy - 15, w, 30, 15)
+    ctx.fill()
+    ctx.fillStyle = theme.accent
+    ctx.fillText(this.toast, cx, cy)
     ctx.restore()
   }
 }

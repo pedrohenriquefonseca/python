@@ -1,6 +1,6 @@
 # Estado atual — Game Clave de Fá
 
-Atualizado em 17/jun/2026.
+Atualizado em 19/jun/2026.
 
 ## Onde estamos
 
@@ -10,9 +10,10 @@ Atualizado em 17/jun/2026.
   telemetria, backlog), [`docs/03-progressao-de-dificuldade.md`](docs/03-progressao-de-dificuldade.md)
   (os 12 níveis), [`docs/04-temas-e-musicas.md`](docs/04-temas-e-musicas.md)
   (repertório).
-- Stack: **Web + Capacitor** (HTML5 Canvas + TypeScript + Vite).
+- Stack: **Web + Capacitor** (HTML5 Canvas + TypeScript + Vite). Plataforma **iOS
+  já scaffolded** (Capacitor 8 / SPM) — ver seção "App nativo" abaixo.
 - **Progressão fechada (17/jun):** 12 níveis na extensão **dó³–sol⁴**, **3
-  andamentos** por exercício (Adagio 66 / Andante 92 / Allegro 126) e **armaduras
+  andamentos** por exercício (Largo 40 / Adagio 66 / Andante 92) e **armaduras
   com bemóis desde cedo** (Fá → Si♭ → Mi♭ → Lá♭; cada bemol recolore uma nota já
   conhecida). Tabela síntese em `docs/03`.
 - **Linhas suplementares:** intervalo dó³–sol⁴ exige **3 acima** (sol⁴) e **0
@@ -25,9 +26,10 @@ Atualizado em 17/jun/2026.
   posição de vara + teclas **1–7**. Resolve **na linha**: acerto = explosão +
   nome da nota (solfejo) à esquerda da linha; passagem sem acerto = puff + nome
   cinza.
-- **Andamento** exibido no topo, centralizado e **color-coded** (Adagio teal /
-  Andante âmbar / Allegro coral). Teclas de dev **q / w / e** trocam o andamento;
-  a velocidade de rolagem e a cadência derivam do BPM. Padrão: Andante.
+- **Andamento** exibido no topo, centralizado e **color-coded** (Largo verde /
+  Adagio teal / Andante âmbar). Teclas de dev **` / q / w** trocam o andamento;
+  a velocidade de rolagem e a cadência derivam do BPM. Padrão: Andante (Largo no
+  preview/dev).
 - **Clave de fá** desenhada com o glifo musical (U+1D122), calibrada para a linha
   do Fá cair exatamente entre os 2 pontos.
 - **Pauta** com espaço para 3 linhas suplementares acima; hastes das notas acima
@@ -35,6 +37,49 @@ Atualizado em 17/jun/2026.
 - **HUD:** combo + multiplicador/tier (sem a barra, removida em 17/jun);
   pontuação + recorde à direita; faixa de cabeçalho reservada para os textos não
   invadirem a pauta branca.
+
+## App nativo (Capacitor) — adicionado 19/jun
+
+> **Determinação:** o jogo roda como **app nativo** (foco iPhone), nunca em
+> navegador pelo usuário final. O browser é só preview/dev. O código foi adequado
+> a isso (abaixo).
+
+- **Áudio (Web Audio API):** som de trombone na nota acertada, com a **duração
+  indicada** (1 tempo = 60/bpm); 3 alternativas de som de erro (`buzz` ativo,
+  cicláveis com `m` no DEV). Ver `app/src/game/audio.ts`.
+- **Háptico (`@capacitor/haptics`):** impacto **leve** no acerto, **forte (Heavy)**
+  no erro — Taptic Engine no app; cai para `navigator.vibrate` no preview. Ver
+  `app/src/game/haptics.ts`.
+- **Orientação:** trava em **paisagem** em runtime via
+  `@capacitor/screen-orientation` (`app/src/game/orientation.ts`), sobrevivendo à
+  regeneração do projeto nativo.
+- **Adequações web→app:** atalhos de teclado cercados em `import.meta.env.DEV`
+  (app de toque não tem teclado); CSS endurecido para WKWebView (sem callout de
+  toque longo, sem bounce/overscroll, viewport fixa).
+- **Capacitor:** `app/capacitor.config.ts` (appId `com.clavedefa.app` — trocar
+  antes de publicar), `webDir: dist`. Plataforma iOS via **Swift Package Manager**
+  (Capacitor 8, sem CocoaPods). `ios/`/`android/` são **gitignored** — regenerados
+  por máquina.
+
+### Gerar e abrir o app iOS (num Mac com Xcode)
+
+```
+cd "Game Clave de Fá/app"
+npm install
+npm run ios:add   # build + cap add ios  (só na 1ª vez)
+npm run ios       # build + cap sync + abre no Xcode
+```
+
+> Já testado neste repo: `npx cap add ios` + `cap doctor ios` = "iOS looking great".
+
+### Pendências de on-device (verificar no iPhone)
+
+- **Switch silencioso:** Web Audio em WKWebView pode ser mudo com o interruptor de
+  silêncio. Se acontecer, configurar a `AVAudioSession` (categoria `playback`) —
+  plugin nativo ou ajuste no projeto iOS.
+- **Orientação no splash:** a trava é runtime (JS); para não piscar retrato no
+  lançamento, fixar landscape-only no `Info.plist` (vive em `ios/`, gitignored).
+- **Ícones/splash/assinatura:** ainda não configurados (vivem em `ios/`).
 
 ## Como continuar em outro computador
 
@@ -68,7 +113,6 @@ Atualizado em 17/jun/2026.
 - **Armaduras** no render (desenhar a armadura na pauta e recolorir as notas).
 - Preencher os **temas pendentes** (níveis 7 e 10) em `docs/04`.
 - Usar **posições alternativas** no julgamento (stub em `slidePositions.ts`).
-- **Áudio** (Web Audio API) e **háptico** (`@capacitor/haptics`).
 - **Tutorial de primeira partida** (no backlog em `docs/02`).
 
 ## A reconciliar / decisões em aberto

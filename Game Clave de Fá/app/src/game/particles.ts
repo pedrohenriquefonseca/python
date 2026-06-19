@@ -23,7 +23,7 @@ export class Particles {
   private parts: Particle[] = []
   private rings: Ring[] = []
 
-  // Acerto: explosão celebrativa (mais partículas + anel) na cor do tier.
+  // Acerto: explosão celebrativa (partículas + anel) na cor e intensidade dadas.
   explode(x: number, y: number, color: string, intensity: number): void {
     const n = Math.min(46, 14 + intensity)
     for (let i = 0; i < n; i++) {

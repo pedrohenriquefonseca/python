@@ -5,6 +5,8 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  /* App nativo: sem menu de seleção/cópia no toque longo. */
+  -webkit-touch-callout: none;
 }
 
 html,
@@ -12,6 +14,8 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
+  /* App nativo: sem "rubber-band"/bounce de scroll do iOS. */
+  overscroll-behavior: none;
   /* Barras de letterbox em volta da "tela" do iPhone. */
   background: #000;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -21,6 +25,9 @@ body {
 }
 
 body {
+  /* Fixa a viewport: nada rola nem balança na WKWebView. */
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,8 +66,10 @@ body {
   height: min(44cqh, 210px);
   display: flex;
   flex-direction: column;
+  /* Três vãos verticais iguais: pauta↔barra (padding-top), barra↔botões (gap) e
+     botões↔base da tela (padding-bottom) = 12px. */
   gap: 12px;
-  padding: 8px 10px calc(4px + env(safe-area-inset-bottom));
+  padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
 }
 
 .controls-label {

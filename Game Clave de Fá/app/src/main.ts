@@ -1,8 +1,10 @@
 import "./style.css"
 import { applyThemeVars } from "./theme"
 import { Game } from "./game/Game"
+import { lockLandscape } from "./game/orientation"
 
 applyThemeVars()
+void lockLandscape() // app nativo: trava em paisagem (no-op no preview/web)
 
 const app = document.querySelector<HTMLDivElement>("#app")
 if (!app) throw new Error("Elemento #app não encontrado")
