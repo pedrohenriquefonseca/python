@@ -12,6 +12,10 @@ import { hapticHit, hapticMiss } from "./haptics"
 // Intensidade fixa da explosão de acerto (antes escalava com o combo, removido).
 const HIT_INTENSITY = 10
 
+// Vidas: começa em MAX_LIVES, perde 1 por erro de nota (posição errada OU nota que
+// passa sem ser tocada). Zerou → Game Over. Cada mudança de fase reenche.
+const MAX_LIVES = 10
+
 export class Game {
   private ctx: CanvasRenderingContext2D
   private cssW = 0
@@ -24,7 +28,9 @@ export class Game {
   private audio = new Audio()
   private toast = ""
   private toastLife = 0
-  private score = 0
+  private score = 0 // mantido p/ a futura tela de Game Over (resultado); não exibido
+  private lives = MAX_LIVES
+  private gameOver = false
   private flash = 0
   private shake = 0
 
@@ -119,6 +125,7 @@ export class Game {
     this.rangeMax = Math.max(...lv.notePool)
     this.notes = []
     this.lastMidi = -1
+    this.lives = MAX_LIVES // mudança de fase reenche as vidas
     this.recomputeHitX()
   }
 
@@ -130,6 +137,10 @@ export class Game {
   }
 
   press(pos: number): void {
+    if (this.gameOver) {
+      this.restart() // qualquer toque recomeça após o Game Over
+      return
+    }
     this.flashButton(pos)
     let target: Note | null = null
     let bestDist = Infinity
@@ -183,6 +194,23 @@ export class Game {
     this.particles.puff(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH, this.rangeMin, this.rangeMax), theme.muted)
     this.addLabel(note, theme.muted, 24)
     this.remove(note)
+    this.loseLife() // todo erro de nota custa 1 vida
+  }
+
+  // Perde 1 vida; ao zerar, dispara o Game Over (congela em update()).
+  private loseLife(): void {
+    this.lives = Math.max(0, this.lives - 1)
+    if (this.lives === 0) this.gameOver = true
+  }
+
+  // Recomeço após o Game Over: volta ao nível 1, zera pontos e reenche vidas
+  // (loadLevel cuida das vidas e de limpar as notas).
+  private restart(): void {
+    this.gameOver = false
+    this.score = 0
+    this.notes = []
+    this.labels = []
+    this.loadLevel(1)
   }
 
   // Alterna entre as 3 alternativas de som de erro e toca um preview, mostrando
@@ -272,6 +300,14 @@ export class Game {
   }
 
   private update(dt: number, s: number): void {
+    if (this.gameOver) {
+      // Congela o jogo; só deixa partículas/flash assentarem sob o overlay.
+      this.particles.update(s)
+      this.flash *= Math.pow(0.88, s)
+      this.shake *= Math.pow(0.82, s)
+      return
+    }
+
     this.spawnAcc += dt
     if (this.spawnAcc >= this.spawnInterval) {
       this.spawnAcc = 0
@@ -323,7 +359,7 @@ export class Game {
       w: this.cssW,
       h: this.cssH,
       notes: this.notes,
-      score: this.score,
+      lives: this.lives,
       hitX: this.hitX,
       flash: this.flash,
       tempoName: this.tempo.name,
@@ -337,6 +373,27 @@ export class Game {
     this.particles.draw(ctx)
     this.drawLabels()
     this.drawToast()
+    if (this.gameOver) this.drawGameOver()
+    ctx.restore()
+  }
+
+  // Overlay mínimo de Game Over (a tela completa é pendência — ver STATUS).
+  // Escurece a pauta e mostra a mensagem; tocar qualquer botão recomeça.
+  private drawGameOver(): void {
+    const ctx = this.ctx
+    const w = this.cssW
+    const h = this.cssH
+    ctx.save()
+    ctx.fillStyle = "rgba(8,10,16,0.82)"
+    ctx.fillRect(0, 0, w, h)
+    ctx.textAlign = "center"
+    ctx.fillStyle = theme.ink
+    ctx.textBaseline = "alphabetic"
+    ctx.font = `700 34px -apple-system, system-ui, sans-serif`
+    ctx.fillText("Game Over", w / 2, h / 2 - 4)
+    ctx.fillStyle = theme.muted
+    ctx.font = `500 15px -apple-system, system-ui, sans-serif`
+    ctx.fillText("Toque para recomeçar", w / 2, h / 2 + 22)
     ctx.restore()
   }
 

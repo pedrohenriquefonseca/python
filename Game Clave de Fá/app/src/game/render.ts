@@ -19,7 +19,7 @@ export interface Scene {
   w: number
   h: number
   notes: Note[]
-  score: number
+  lives: number
   hitX: number
   flash: number
   tempoName: string
@@ -33,7 +33,7 @@ export interface Scene {
 
 // Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo
 // pode invadir a região branca da pauta — ela começa em panelTop = HEADER_H.
-const HEADER_H = 60
+const HEADER_H = 74
 const BOTTOM_MARGIN = 0 // o painel da pauta vai até a base do canvas; o respiro
 // para a barra rosa vem do padding-top de #controls (CSS), mantendo os 3 vãos iguais.
 
@@ -239,10 +239,13 @@ function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: nu
   ctx.stroke()
 }
 
+const HEART = "♥"
+const HEART_RED = "#E5484D"
+
 function drawHud(
   ctx: CanvasRenderingContext2D,
   w: number,
-  score: number,
+  lives: number,
   level: number,
   fifths: number,
 ): void {
@@ -252,17 +255,27 @@ function drawHud(
   ctx.textAlign = "left"
   ctx.textBaseline = "alphabetic"
   ctx.fillStyle = theme.hud
-  ctx.font = `600 16px ${sans}`
-  ctx.fillText(`Level ${level}`, 16, 30)
+  ctx.font = `700 28px ${sans}` // mesmo tamanho do andamento (Largo)
+  ctx.fillText(`Level ${level}`, 16, 33)
   ctx.fillStyle = theme.muted
-  ctx.font = `12px ${sans}`
-  ctx.fillText(keyName(fifths), 16, 48)
+  ctx.font = `500 16px ${sans}` // mesmo tamanho do nome da música
+  ctx.fillText(keyName(fifths), 16, 56)
 
-  // Pontuação (direita).
+  // Vidas (direita), na ordem coração = número, centralizado na vertical do
+  // cabeçalho. Desenhado da direita p/ a esquerda: número → "=" → coração.
+  const cy = HEADER_H / 2
   ctx.textAlign = "right"
+  ctx.textBaseline = "middle"
+  const livesStr = String(lives)
   ctx.fillStyle = theme.hud
-  ctx.font = `500 16px ${sans}`
-  ctx.fillText(`${score.toLocaleString("en-US")} pts`, w - 16, 30)
+  ctx.font = `700 26px ${sans}`
+  ctx.fillText(livesStr, w - 16, cy)
+  let x = w - 16 - ctx.measureText(livesStr).width - 9
+  ctx.fillText("=", x, cy)
+  x -= ctx.measureText("=").width + 9
+  ctx.fillStyle = HEART_RED
+  ctx.font = `700 28px ${sans}`
+  ctx.fillText(HEART, x, cy)
 }
 
 function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color: string): void {
@@ -270,12 +283,12 @@ function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color
   ctx.textAlign = "center"
   ctx.textBaseline = "alphabetic"
   ctx.fillStyle = color
-  ctx.font = `600 24px ${sans}`
-  ctx.fillText(name, w / 2, 36)
+  ctx.font = `600 28px ${sans}`
+  ctx.fillText(name, w / 2, 33)
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
-  const { w, h, notes, score, hitX, flash, tempoName, tempoColor, fifths, level, music, minMidi, maxMidi } = scene
+  const { w, h, notes, lives, hitX, flash, tempoName, tempoColor, fifths, level, music, minMidi, maxMidi } = scene
   const L = layoutFor(w, h, minMidi, maxMidi)
 
   ctx.fillStyle = theme.panel
@@ -307,7 +320,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   for (const note of notes) drawNote(ctx, note, L, hitX)
 
-  drawHud(ctx, w, score, level, fifths)
+  drawHud(ctx, w, lives, level, fifths)
   drawTempo(ctx, w, tempoName, tempoColor)
 
   // Subtítulo central: a música/tema do nível (nível e tom já vão à esquerda).
@@ -315,7 +328,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.textAlign = "center"
     ctx.textBaseline = "alphabetic"
     ctx.fillStyle = theme.muted
-    ctx.font = `500 13px -apple-system, system-ui, sans-serif`
+    ctx.font = `500 16px -apple-system, system-ui, sans-serif`
     ctx.fillText(music, w / 2, 56)
   }
 

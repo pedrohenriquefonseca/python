@@ -34,9 +34,14 @@ Atualizado em 19/jun/2026.
   do Fá cair exatamente entre os 2 pontos.
 - **Pauta** com espaço para 3 linhas suplementares acima; hastes das notas acima
   da linha do meio apontam para baixo (notação correta).
-- **HUD:** combo + multiplicador/tier (sem a barra, removida em 17/jun);
-  pontuação + recorde à direita; faixa de cabeçalho reservada para os textos não
-  invadirem a pauta branca.
+- **HUD (cabeçalho):** **nível + tom** à esquerda, **andamento** (color-coded) +
+  música ao centro, **contador de vidas com coração vermelho** à direita. Combo
+  removido (19/jun). Faixa de cabeçalho reservada (HEADER_H) para os textos não
+  invadirem a pauta.
+- **Vidas / Game Over (19/jun):** começa com **10 vidas**; cada erro de nota
+  (posição errada OU nota que passa) tira 1; **cada mudança de fase reenche**;
+  zerou → **Game Over** (overlay mínimo "Toque para recomeçar" → reinicia no nível
+  1). A *tela* completa de Game Over ainda é pendência.
 
 ## App nativo (Capacitor) — adicionado 19/jun
 
@@ -105,7 +110,16 @@ npm run ios       # build + cap sync + abre no Xcode
 
 ## Próximos passos sugeridos
 
-- **Tela inicial** (continuar / novo jogo) e **seleção de dificuldade** (`docs/01`).
+### Telas e fluxo do jogo (pendências — 19/jun)
+
+- **Tela inicial do jogo** (continuar / novo jogo + seleção de dificuldade — `docs/01`).
+- **Tutorial antes de cada início de jogo** (relembrar controles e objetivo a cada
+  partida; backlog em `docs/02`).
+- **Tela de Game Over** completa (resultado da partida + reiniciar / voltar ao
+  início). *Já existe um overlay mínimo funcional; falta a tela de verdade.*
+
+### Conteúdo e mecânicas
+
 - **Estrutura de dados dos 12 níveis** (notePool/rhythmPool/key/tempos/
   melodySources/masteryGate), conforme o esboço em `docs/03`. É a fundação do
   resto.
@@ -113,13 +127,11 @@ npm run ios       # build + cap sync + abre no Xcode
 - **Armaduras** no render (desenhar a armadura na pauta e recolorir as notas).
 - Preencher os **temas pendentes** (níveis 7 e 10) em `docs/04`.
 - Usar **posições alternativas** no julgamento (stub em `slidePositions.ts`).
-- **Tutorial de primeira partida** (no backlog em `docs/02`).
 
 ## A reconciliar / decisões em aberto
 
 - Tornar o `HEADER_H` proporcional à altura (hoje é px fixo) para o preview
   reduzido bater com o aparelho real (`app/src/game/render.ts`).
-- Rampa de "heat" do combo vs. paleta índigo (`docs/01`).
 - Clave via glifo de fonte: se em algum aparelho aparecer "tofu", trocar por
   desenho vetorial (aí os 2 pontos ficam fixos em `fLineY ± lineGap/2`).
 </content>
