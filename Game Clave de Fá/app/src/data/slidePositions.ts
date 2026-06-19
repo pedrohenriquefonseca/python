@@ -41,11 +41,11 @@ const NOTE_NAMES: Record<string, number> = {
   A: 9, "A#": 10, BB: 10, B: 11, CB: 11,
 }
 
-// Nome em solfejo (dó fixo, pt-BR) para um número MIDI.
-const SOLFEGE = ["dó", "dó♯", "ré", "ré♯", "mi", "fá", "fá♯", "sol", "sol♯", "lá", "lá♯", "si"]
+// English letter name (e.g. C, F♯) for a MIDI number.
+const NOTE_LETTERS = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]
 
-export function solfege(midi: number): string {
-  return SOLFEGE[((midi % 12) + 12) % 12]
+export function noteName(midi: number): string {
+  return NOTE_LETTERS[((midi % 12) + 12) % 12]
 }
 
 // 'Bb3', 'F#4', 'C5' -> número MIDI. Convenção: C4 = 60.

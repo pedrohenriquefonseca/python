@@ -38,13 +38,32 @@ export function accidentalsForKey(fifths: number): Accidental[] {
   return []
 }
 
-const SHARP_NAMES = ["Dó", "Sol", "Ré", "Lá", "Mi", "Si", "Fá♯", "Dó♯"]
-const FLAT_NAMES = ["Dó", "Fá", "Si♭", "Mi♭", "Lá♭", "Ré♭", "Sol♭", "Dó♭"]
+const SHARP_NAMES = ["C", "G", "D", "A", "E", "B", "F♯", "C♯"]
+const FLAT_NAMES = ["C", "F", "B♭", "E♭", "A♭", "D♭", "G♭", "C♭"]
 
 export function keyName(fifths: number): string {
-  if (fifths === 0) return "Dó maior"
+  if (fifths === 0) return "C major"
   const count = Math.abs(fifths)
   const name = fifths > 0 ? SHARP_NAMES[Math.min(fifths, 7)] : FLAT_NAMES[Math.min(count, 7)]
   const sym = fifths > 0 ? "♯" : "♭"
-  return `${name} maior (${count}${sym})`
+  return `${name} major (${count}${sym})`
+}
+
+const pitchClass = (midi: number): number => ((midi % 12) + 12) % 12
+
+// Semitom que a armadura aplica à LETRA da nota: -1 (♭), +1 (♯) ou 0. A nota é
+// sempre desenhada na sua linha/espaço natural; a armadura altera a altura soante.
+export function keyAccidental(midi: number, fifths: number): number {
+  if (fifths === 0) return 0
+  const pc = pitchClass(midi)
+  for (const acc of accidentalsForKey(fifths)) {
+    if (pitchClass(acc.midi) === pc) return acc.symbol === "♯" ? 1 : -1
+  }
+  return 0
+}
+
+// Altura soante de uma nota natural sob a armadura — usada para achar a posição
+// de vara correta (ex.: si em Fá maior soa si♭, indo para a 1ª/5ª posição).
+export function soundingMidi(midi: number, fifths: number): number {
+  return midi + keyAccidental(midi, fifths)
 }

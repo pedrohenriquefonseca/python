@@ -3,12 +3,10 @@ import { theme } from "../theme"
 import { Particles } from "./particles"
 import { drawScene, noteScreenY, hitXForKey } from "./render"
 import { tierForCombo } from "./combo"
-import { validPositionsForMidi, solfege } from "../data/slidePositions"
-import { MAX_ACCIDENTALS } from "../data/keys"
+import { validPositionsForMidi, noteName } from "../data/slidePositions"
+import { keyAccidental, soundingMidi } from "../data/keys"
 import { tempoById, type Tempo, type TempoId } from "./tempo"
-
-// Pool inicial: Dó maior do centro ao lá (C3 D3 E3 F3 G3 A3). Sem linhas suplementares.
-const POOL = [48, 50, 52, 53, 55, 57]
+import { levelByNumber } from "./levels"
 
 export class Game {
   private ctx: CanvasRenderingContext2D
@@ -27,8 +25,14 @@ export class Game {
 
   private spawnAcc = 0
   private tempo: Tempo = tempoById("andante")
-  private keySig = 0 // ciclo de quintas: -7 (7♭) … 0 (Dó) … +7 (7♯)
-  private timeSig: [number, number] = [4, 4] // por enquanto sempre 4/4
+  // Estado dirigido pelo nível atual (ver loadLevel). O pool e os extremos do
+  // intervalo definem as notas que entram e o tamanho da pauta; a armadura vem
+  // junto. `[`/`]` navegam os níveis.
+  private level = 1
+  private pool: number[] = []
+  private keySig = 0 // armadura do nível, em quintas (negativo = bemóis)
+  private rangeMin = 48
+  private rangeMax = 57
   private lastMidi = -1
   private lastTime = 0
   private running = false
@@ -41,6 +45,7 @@ export class Game {
     if (!ctx) throw new Error("Canvas 2D indisponível")
     this.ctx = ctx
     this.buildButtons()
+    this.loadLevel(1)
     this.resize()
     window.addEventListener("resize", () => this.resize())
     window.addEventListener("keydown", (e) => {
@@ -55,10 +60,8 @@ export class Game {
         this.setTempo(id)
         return
       }
-      if (e.key === "[") this.keySig = Math.max(-MAX_ACCIDENTALS, this.keySig - 1) // mais bemóis
-      else if (e.key === "]") this.keySig = Math.min(MAX_ACCIDENTALS, this.keySig + 1) // mais sustenidos
-      else return
-      this.recomputeHitX() // a linha acompanha o novo tom
+      if (e.key === "[") this.loadLevel(this.level - 1) // nível anterior
+      else if (e.key === "]") this.loadLevel(this.level + 1) // próximo nível
     })
   }
 
@@ -85,6 +88,20 @@ export class Game {
 
   setTempo(id: TempoId): void {
     this.tempo = tempoById(id)
+  }
+
+  // Carrega um nível: define o pool de notas, a armadura e o intervalo (min..max)
+  // que redimensiona a pauta. Limpa as notas em tela para um recomeço limpo.
+  loadLevel(n: number): void {
+    const lv = levelByNumber(n)
+    this.level = lv.n
+    this.pool = lv.notePool
+    this.keySig = lv.keySig
+    this.rangeMin = Math.min(...lv.notePool)
+    this.rangeMax = Math.max(...lv.notePool)
+    this.notes = []
+    this.lastMidi = -1
+    this.recomputeHitX()
   }
 
   start(): void {
@@ -115,10 +132,11 @@ export class Game {
   }
 
   private addLabel(note: Note, color: string, size: number): void {
+    const acc = keyAccidental(note.midi, this.keySig)
     this.labels.push({
-      text: solfege(note.midi),
+      text: noteName(note.midi) + (acc < 0 ? "♭" : acc > 0 ? "♯" : ""),
       x: this.hitX,
-      y: noteScreenY(note.midi, this.cssW, this.cssH),
+      y: noteScreenY(note.midi, this.cssW, this.cssH, this.rangeMin, this.rangeMax),
       life: 0.9,
       maxLife: 0.9,
       color,
@@ -131,7 +149,7 @@ export class Game {
     if (this.combo > this.best) this.best = this.combo
     const tier = tierForCombo(this.combo)
     this.score += tier.mult * 10
-    this.particles.explode(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH), tier.color, this.combo)
+    this.particles.explode(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH, this.rangeMin, this.rangeMax), tier.color, this.combo)
     this.addLabel(note, tier.color, 28)
     this.remove(note)
   }
@@ -140,7 +158,7 @@ export class Game {
     this.combo = 0
     this.flash = Math.max(this.flash, wrong ? 1 : 0.6)
     if (wrong) this.shake = 8
-    this.particles.puff(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH), theme.muted)
+    this.particles.puff(this.hitX, noteScreenY(note.midi, this.cssW, this.cssH, this.rangeMin, this.rangeMax), theme.muted)
     this.addLabel(note, theme.muted, 24)
     this.remove(note)
   }
@@ -150,7 +168,7 @@ export class Game {
 
     const label = document.createElement("div")
     label.className = "controls-label"
-    label.textContent = "Trombone Slide Positions"
+    label.textContent = "Trombone Slide Position"
     this.controls.appendChild(label)
 
     const row = document.createElement("div")
@@ -190,17 +208,23 @@ export class Game {
   // A linha de acerto depende do tom (último acidente) e do tamanho da pauta,
   // então recalcula no resize e a cada troca de armadura.
   private recomputeHitX(): void {
-    this.hitXValue = Math.max(110, hitXForKey(this.ctx, this.cssW, this.cssH, Math.abs(this.keySig)))
+    this.hitXValue = Math.max(
+      110,
+      hitXForKey(this.ctx, this.cssW, this.cssH, Math.abs(this.keySig), this.rangeMin, this.rangeMax),
+    )
   }
 
   private spawn(): void {
-    let midi = POOL[Math.floor(Math.random() * POOL.length)]
-    while (midi === this.lastMidi) midi = POOL[Math.floor(Math.random() * POOL.length)]
+    const pool = this.pool
+    let midi = pool[Math.floor(Math.random() * pool.length)]
+    while (pool.length > 1 && midi === this.lastMidi) midi = pool[Math.floor(Math.random() * pool.length)]
     this.lastMidi = midi
     this.notes.push({
       midi,
       x: this.cssW + 30,
-      positions: validPositionsForMidi(midi),
+      // A nota é desenhada na linha natural (midi), mas a armadura define a altura
+      // soante — e, portanto, a posição de vara correta.
+      positions: validPositionsForMidi(soundingMidi(midi, this.keySig)),
     })
   }
 
@@ -247,7 +271,7 @@ export class Game {
       ctx.globalAlpha = Math.max(0, k)
       ctx.fillStyle = label.color
       ctx.font = `500 ${label.size}px -apple-system, system-ui, sans-serif`
-      ctx.fillText(label.text, label.x - 26, label.y)
+      ctx.fillText(label.text, label.x - 14, label.y)
     }
     ctx.globalAlpha = 1
   }
@@ -273,7 +297,9 @@ export class Game {
       tempoName: this.tempo.name,
       tempoColor: this.tempo.color,
       fifths: this.keySig,
-      timeSig: this.timeSig,
+      level: this.level,
+      minMidi: this.rangeMin,
+      maxMidi: this.rangeMax,
     })
     this.particles.draw(ctx)
     this.drawLabels()

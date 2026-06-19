@@ -6,11 +6,11 @@ export interface Tier {
 
 // Rampa de "heat" do combo. A reconciliar com a paleta — ver docs/06.
 export const TIERS: Tier[] = [
-  { name: "frio", color: "#8A8FA0", mult: 1 },
-  { name: "aquecendo", color: "#159E91", mult: 1 },
-  { name: "na zona", color: "#378ADD", mult: 2 },
-  { name: "quente", color: "#D85A30", mult: 3 },
-  { name: "pegando fogo", color: "#EFA12A", mult: 4 },
+  { name: "cold", color: "#8A8FA0", mult: 1 },
+  { name: "warming up", color: "#159E91", mult: 1 },
+  { name: "in the zone", color: "#378ADD", mult: 2 },
+  { name: "hot", color: "#D85A30", mult: 3 },
+  { name: "on fire", color: "#EFA12A", mult: 4 },
 ]
 
 export function tierForCombo(combo: number): Tier {

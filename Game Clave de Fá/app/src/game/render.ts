@@ -28,25 +28,32 @@ export interface Scene {
   tempoName: string
   tempoColor: string
   fifths: number
-  timeSig: [number, number]
+  level: number
+  minMidi: number
+  maxMidi: number
 }
 
 // Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo
 // pode invadir a região branca da pauta — ela começa em panelTop = HEADER_H.
-const HEADER_H = 74
+const HEADER_H = 60
 const BOTTOM_MARGIN = 4
 
-// Linhas suplementares aprovisionadas. Intervalo de trabalho dó³–sol⁴:
-// sol⁴ exige 3 linhas acima; dó³ fica dentro da pauta (0 abaixo necessárias),
-// mas reservamos 1 de folga abaixo. A pauta tem 5 linhas (4 lineGaps de altura)
-// e a linha de cima/baixo ficam a 2 lineGaps do meio.
-const LEDGERS_ABOVE = 3
-const LEDGERS_BELOW = 0
-const EDGE_MARGIN = 0.9 // folga (em lineGaps) p/ a cabeça da nota além da última suplementar
+// A pauta tem 5 linhas (4 lineGaps); a linha de cima/baixo ficam a HALF_STAFF
+// lineGaps do meio (ré³). Acima/abaixo reservamos só o necessário para as notas
+// EFETIVAMENTE em jogo (o intervalo min..max do pool): pauta compacta quando tudo
+// cabe nas 5 linhas, encolhendo para abrir suplementares quando notas agudas ou
+// graves entram. Intervalo de trabalho do jogo: mi² (E2) … lá⁴ (A4).
+const HALF_STAFF = 2 // do meio até a linha de cima/baixo, em lineGaps
+const EDGE_MARGIN = 0.6 // folga (em lineGaps) p/ a cabeça da nota extrema
 
-function layoutFor(w: number, h: number): Layout {
-  const spanAbove = 2 + LEDGERS_ABOVE + EDGE_MARGIN // do meio até o topo, em lineGaps
-  const spanBelow = 2 + LEDGERS_BELOW + EDGE_MARGIN
+// `minMidi`/`maxMidi`: extremos do intervalo de notas em jogo. A nota mais aguda
+// puxa a folga de cima; a mais grave, a de baixo. Cada lado nunca fica menor que
+// meia-pauta (HALF_STAFF), para as 5 linhas aparecerem sempre por inteiro.
+function layoutFor(w: number, h: number, minMidi: number, maxMidi: number): Layout {
+  const relAbove = Math.max(0, diatonicIndex(maxMidi) - D3_INDEX) // meios-lineGaps
+  const relBelow = Math.max(0, D3_INDEX - diatonicIndex(minMidi))
+  const spanAbove = Math.max(HALF_STAFF, relAbove / 2) + EDGE_MARGIN
+  const spanBelow = Math.max(HALF_STAFF, relBelow / 2) + EDGE_MARGIN
   const units = spanAbove + spanBelow
   const avail = h - HEADER_H - BOTTOM_MARGIN
   const lineGap = Math.max(14, Math.min(28, avail / units))
@@ -77,8 +84,14 @@ function noteY(midi: number, L: Layout): number {
   return L.midY - rel * (L.lineGap / 2)
 }
 
-export function noteScreenY(midi: number, w: number, h: number): number {
-  return noteY(midi, layoutFor(w, h))
+export function noteScreenY(
+  midi: number,
+  w: number,
+  h: number,
+  minMidi: number,
+  maxMidi: number,
+): number {
+  return noteY(midi, layoutFor(w, h, minMidi, maxMidi))
 }
 
 const MUSIC_FONT = `"Bravura","Petaluma","Noto Music","Segoe UI Symbol","Apple Symbols",serif`
@@ -127,32 +140,9 @@ function drawKeySignature(
   return x
 }
 
-const TIMESIG_FONT_SCALE = 2.3 // tamanho de cada dígito em lineGaps
-const TIMESIG_PAD = 0.45 // respiro (em lineGaps) entre a armadura e a fórmula
-
-// Fórmula de compasso após a armadura. Numerador centrado na linha 4, denominador
-// na linha 2 (cada dígito ~2 espaços). Devolve a borda direita.
-function drawTimeSignature(
-  ctx: CanvasRenderingContext2D,
-  L: Layout,
-  startX: number,
-  top: number,
-  bottom: number,
-): number {
-  ctx.fillStyle = theme.ink
-  ctx.font = `700 ${L.lineGap * TIMESIG_FONT_SCALE}px Georgia, "Times New Roman", serif`
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  const w = Math.max(ctx.measureText(String(top)).width, ctx.measureText(String(bottom)).width)
-  const cx = startX + L.lineGap * TIMESIG_PAD + w / 2
-  ctx.fillText(String(top), cx, L.midY - L.lineGap)
-  ctx.fillText(String(bottom), cx, L.midY + L.lineGap)
-  return cx + w / 2
-}
-
 const LABEL_FONT = `500 28px -apple-system, system-ui, sans-serif`
-const LABEL_GUTTER = 26 // o nome da nota é desenhado em hitX - 26 (ver Game.drawLabels)
-const HITLINE_GAP = 72 // px do fim da notação (clave+armadura+fórmula) até a linha
+const LABEL_GUTTER = 14 // o nome da nota é desenhado em hitX - 14 (ver Game.drawLabels)
+const HITLINE_GAP = 36 // px do fim da notação (clave+armadura) até a linha
 
 // Linha de acerto ADAPTÁVEL: fica HITLINE_GAP px à direita do último acidente da
 // armadura atual, então anda conforme o tom da partitura. Medido na fonte real,
@@ -163,8 +153,10 @@ export function hitXForKey(
   w: number,
   h: number,
   accidentals: number,
+  minMidi: number,
+  maxMidi: number,
 ): number {
-  const L = layoutFor(w, h)
+  const L = layoutFor(w, h, minMidi, maxMidi)
   ctx.save()
   ctx.font = `${L.lineGap * 3.6}px ${MUSIC_FONT}`
   let accRight = 20 + ctx.measureText("𝄢").width // borda direita da clave (Dó M)
@@ -176,9 +168,6 @@ export function hitXForKey(
     const sharpW = ctx.measureText("♯").width
     accRight += L.lineGap * 0.35 + (accidentals - 1) * step + Math.max(flatW, sharpW)
   }
-  // fórmula de compasso, sempre presente (hoje 4/4 — dígito de 1 caractere)
-  ctx.font = `700 ${L.lineGap * TIMESIG_FONT_SCALE}px Georgia, "Times New Roman", serif`
-  accRight += L.lineGap * TIMESIG_PAD + ctx.measureText("4").width
   ctx.font = LABEL_FONT
   const labelClear = LABEL_GUTTER + ctx.measureText("sol").width // nome de nota mais largo
   ctx.restore()
@@ -259,29 +248,24 @@ function drawHud(
   const tier = tierForCombo(combo)
   const sans = "-apple-system, system-ui, sans-serif"
 
+  // Combo (esquerda) — 2 linhas espelhando pontos/recorde: linha de cima maior e
+  // colorida pelo tier, linha de baixo menor e apagada.
   ctx.textAlign = "left"
   ctx.textBaseline = "alphabetic"
   ctx.fillStyle = tier.color
-  ctx.font = `500 26px ${sans}`
-  ctx.fillText(String(combo), 16, 34)
-  const cw = ctx.measureText(String(combo)).width
-
-  ctx.fillStyle = theme.muted
-  ctx.font = `13px ${sans}`
-  ctx.fillText("combo", 16 + cw + 6, 34)
-  const lw = ctx.measureText("combo").width
-
-  ctx.fillStyle = tier.color
-  ctx.font = `500 15px ${sans}`
-  ctx.fillText(`×${tier.mult}  ${tier.name}`, 16 + cw + 6 + lw + 12, 33)
-
-  ctx.textAlign = "right"
-  ctx.fillStyle = theme.ink
   ctx.font = `500 16px ${sans}`
-  ctx.fillText(`${score.toLocaleString("pt-BR")} pts`, w - 16, 30)
+  ctx.fillText(`${combo} combo`, 16, 30)
   ctx.fillStyle = theme.muted
   ctx.font = `12px ${sans}`
-  ctx.fillText(`recorde ${best}`, w - 16, 48)
+  ctx.fillText(`${tier.name} ×${tier.mult}`, 16, 48)
+
+  ctx.textAlign = "right"
+  ctx.fillStyle = theme.hud
+  ctx.font = `500 16px ${sans}`
+  ctx.fillText(`${score.toLocaleString("en-US")} pts`, w - 16, 30)
+  ctx.fillStyle = theme.muted
+  ctx.font = `12px ${sans}`
+  ctx.fillText(`best ${best}`, w - 16, 48)
 }
 
 function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color: string): void {
@@ -294,8 +278,8 @@ function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
-  const { w, h, notes, combo, best, score, hitX, flash, tempoName, tempoColor, fifths, timeSig } = scene
-  const L = layoutFor(w, h)
+  const { w, h, notes, combo, best, score, hitX, flash, tempoName, tempoColor, fifths, level, minMidi, maxMidi } = scene
+  const L = layoutFor(w, h, minMidi, maxMidi)
 
   ctx.fillStyle = theme.panel
   ctx.beginPath()
@@ -315,8 +299,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.globalAlpha = 1
 
   const clefRight = drawClef(ctx, L)
-  const keyRight = drawKeySignature(ctx, L, fifths, clefRight)
-  drawTimeSignature(ctx, L, keyRight, timeSig[0], timeSig[1])
+  drawKeySignature(ctx, L, fifths, clefRight)
 
   ctx.strokeStyle = theme.accent
   ctx.lineWidth = 3
@@ -334,7 +317,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.textBaseline = "alphabetic"
   ctx.fillStyle = theme.muted
   ctx.font = `500 13px -apple-system, system-ui, sans-serif`
-  ctx.fillText(keyName(fifths), w / 2, 56)
+  ctx.fillText(`Lv ${level} · ${keyName(fifths)}`, w / 2, 56)
 
   if (flash > 0.02) {
     ctx.fillStyle = "#E24B4A"
