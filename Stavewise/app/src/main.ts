@@ -2,6 +2,7 @@ import "./style.css"
 import { applyThemeVars } from "./theme"
 import { Game } from "./game/Game"
 import { lockLandscape } from "./game/orientation"
+import { showSplash } from "./game/splash"
 
 applyThemeVars()
 void lockLandscape() // app nativo: trava em paisagem (no-op no preview/web)
@@ -19,7 +20,9 @@ const controls = document.querySelector<HTMLDivElement>("#controls")
 if (!canvas || !controls) throw new Error("Canvas ou controles não encontrados")
 
 const game = new Game(canvas, controls)
-game.start()
+// Splash "Waveform" primeiro; o toque que a dispensa também é o gesto que destrava
+// o áudio na WKWebView. O jogo só começa a rolar depois.
+void showSplash(app).then(() => game.start())
 
 if (import.meta.env.DEV) {
   ;(globalThis as unknown as { __game: Game }).__game = game
