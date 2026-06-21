@@ -255,7 +255,7 @@ function drawHud(
   ctx.textAlign = "left"
   ctx.textBaseline = "alphabetic"
   ctx.fillStyle = theme.hud
-  ctx.font = `700 28px ${sans}` // mesmo tamanho do andamento (Largo)
+  ctx.font = `600 28px ${sans}` // mesmo tamanho E peso do andamento (Largo)
   ctx.fillText(`Level ${level}`, 16, 33)
   ctx.fillStyle = theme.muted
   ctx.font = `500 16px ${sans}` // mesmo tamanho do nome da música
