@@ -4,8 +4,8 @@ import type { CapacitorConfig } from "@capacitor/cli"
 // O projeto nativo (ios/, android/) é gerado por máquina com `npx cap add ios` e
 // NÃO é versionado — a fonte da verdade é este config + o build web. Ver README.
 const config: CapacitorConfig = {
-  appId: "com.clavedefa.app", // troque pelo seu bundle id antes de publicar
-  appName: "Clave de Fá",
+  appId: "com.stavewise.app", // troque pelo seu bundle id antes de publicar
+  appName: "Stavewise",
   webDir: "dist",
   // Trava paisagem também é reforçada em runtime via @capacitor/screen-orientation
   // (ver main.ts), para sobreviver à regeneração do projeto nativo.

@@ -1,4 +1,4 @@
-# Clave de Fá — app (web · Vite + TypeScript + Canvas)
+# Stavewise — app (web · Vite + TypeScript + Canvas)
 
 Fatia jogável inicial: notas em Dó maior correm pela pauta; toque (ou tecle) a
 posição de vara 1–7 quando a nota cruzar a linha de acerto. Combo, multiplicador
@@ -7,7 +7,7 @@ e explosão de partículas no acerto. Estruturado para empacotar com Capacitor.
 ## Rodar no navegador (Mac, sem instalar nada além disto)
 
 ```sh
-cd "Game Clave de Fá/app"
+cd "Stavewise/app"
 npm install
 npm run dev
 ```
@@ -25,7 +25,7 @@ npm run build   # type-check (tsc) + bundle do Vite em dist/
 
 ```sh
 npm i @capacitor/core @capacitor/cli
-npx cap init "Clave de Fá" com.pedro.clavedefa --web-dir dist
+npx cap init "Stavewise" com.stavewise.app --web-dir dist
 npm i @capacitor/ios @capacitor/android @capacitor/haptics
 npx cap add ios && npx cap add android
 npm run build && npx cap sync

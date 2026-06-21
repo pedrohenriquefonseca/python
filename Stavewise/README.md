@@ -1,4 +1,4 @@
-# Game Clave de Fá
+# Stavewise
 
 Jogo para iPhone que ensina **trombonistas** a ler partitura em **clave de fá**, no
 estilo Guitar Hero: as notas correm pelo pentagrama e o jogador aperta o botão

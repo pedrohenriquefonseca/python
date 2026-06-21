@@ -1,4 +1,4 @@
-# Estado atual — Game Clave de Fá
+# Estado atual — Stavewise
 
 Atualizado em 19/jun/2026.
 
@@ -61,7 +61,7 @@ Atualizado em 19/jun/2026.
 - **Adequações web→app:** atalhos de teclado cercados em `import.meta.env.DEV`
   (app de toque não tem teclado); CSS endurecido para WKWebView (sem callout de
   toque longo, sem bounce/overscroll, viewport fixa).
-- **Capacitor:** `app/capacitor.config.ts` (appId `com.clavedefa.app` — trocar
+- **Capacitor:** `app/capacitor.config.ts` (appId `com.stavewise.app` — trocar
   antes de publicar), `webDir: dist`. Plataforma iOS via **Swift Package Manager**
   (Capacitor 8, sem CocoaPods). `ios/`/`android/` são **gitignored** — regenerados
   por máquina.
@@ -69,7 +69,7 @@ Atualizado em 19/jun/2026.
 ### Gerar e abrir o app iOS (num Mac com Xcode)
 
 ```
-cd "Game Clave de Fá/app"
+cd "Stavewise/app"
 npm install
 npm run ios:add   # build + cap add ios  (só na 1ª vez)
 npm run ios       # build + cap sync + abre no Xcode
@@ -92,10 +92,10 @@ npm run ios       # build + cap sync + abre no Xcode
 2. Precisa de **Node.js + npm** instalados e no PATH. Conferir com
    `node --version`. (No Mac onde o projeto começou já existe; numa máquina nova,
    instalar o Node LTS.)
-3. `cd "Game Clave de Fá/app" && npm install && npm run dev`
+3. `cd "Stavewise/app" && npm install && npm run dev`
    → abre em `http://localhost:5173`. **Testar em paisagem** (o jogo é landscape);
    teclas 1–7 jogam, q/w/e trocam o andamento.
-4. Abra o Claude Code na pasta `Game Clave de Fá`. Os `docs/` + este `STATUS.md`
+4. Abra o Claude Code na pasta `Stavewise`. Os `docs/` + este `STATUS.md`
    carregam todo o contexto (independem do histórico de chat, que é local por
    máquina).
 
