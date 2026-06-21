@@ -36,7 +36,7 @@ export function showSplash(host: HTMLElement): Promise<void> {
 
     const cta = document.createElement("div")
     cta.className = "splash-cta"
-    cta.textContent = "Tap to play"
+    cta.textContent = "Tap to start"
 
     splash.append(title, tag, wave, cta)
     host.appendChild(splash)

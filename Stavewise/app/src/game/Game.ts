@@ -8,6 +8,7 @@ import { tempoById, type Tempo, type TempoId } from "./tempo"
 import { levelByNumber } from "./levels"
 import { Audio, MISS_LABELS, type MissSound } from "./audio"
 import { hapticHit, hapticMiss } from "./haptics"
+import { saveProgress, clearProgress } from "./storage"
 
 // Intensidade fixa da explosão de acerto (antes escalava com o combo, removido).
 const HIT_INTENSITY = 10
@@ -50,6 +51,10 @@ export class Game {
   private lastMidi = -1
   private lastTime = 0
   private running = false
+  // Só persiste progresso depois que um jogo de fato começou (start). O loadLevel
+  // do construtor não cria um "jogo salvo" — senão "Continuar" apareceria já na
+  // 1ª abertura, sem nada para continuar.
+  private active = false
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -127,11 +132,17 @@ export class Game {
     this.lastMidi = -1
     this.lives = MAX_LIVES // mudança de fase reenche as vidas
     this.recomputeHitX()
+    // Cada avanço de nível durante o jogo atualiza o "continuar".
+    if (this.active) saveProgress({ level: this.level })
   }
 
   start(): void {
     if (this.running) return
     this.running = true
+    // A partir daqui há um jogo em andamento: registra o ponto de continuação
+    // (nível 1 num jogo novo, ou o nível retomado num "continuar").
+    this.active = true
+    saveProgress({ level: this.level })
     this.lastTime = performance.now()
     requestAnimationFrame(this.frame)
   }
@@ -200,7 +211,10 @@ export class Game {
   // Perde 1 vida; ao zerar, dispara o Game Over (congela em update()).
   private loseLife(): void {
     this.lives = Math.max(0, this.lives - 1)
-    if (this.lives === 0) this.gameOver = true
+    if (this.lives === 0) {
+      this.gameOver = true
+      clearProgress() // o jogo acabou: não há mais o que "continuar"
+    }
   }
 
   // Recomeço após o Game Over: volta ao nível 1, zera pontos e reenche vidas

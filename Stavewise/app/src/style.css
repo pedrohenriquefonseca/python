@@ -144,6 +144,99 @@ body {
   }
 }
 
+/* Tela inicial (menu): continuar o último jogo ou começar um novo. */
+#home {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7cqh;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+#home.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-brand {
+  font-size: clamp(24px, 11cqh, 46px);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: #fff;
+  animation: splash-rise 0.45s ease both;
+}
+
+.home-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3cqh;
+  width: min(64cqw, 380px);
+}
+
+.home-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4cqh;
+  border: none;
+  border-radius: 16px;
+  padding: 3.4cqh 4cqw;
+  cursor: pointer;
+  font-family: inherit;
+  animation: splash-rise 0.45s ease 0.08s both;
+  transition: transform 0.06s ease, filter 0.1s ease;
+}
+
+.home-btn:active {
+  transform: scale(0.97);
+}
+
+.home-btn.primary {
+  background: var(--hud);
+}
+
+.home-btn.primary .home-btn-label {
+  color: var(--posText);
+}
+
+.home-btn.primary .home-btn-sub {
+  color: var(--posText);
+  opacity: 0.7;
+}
+
+.home-btn.ghost {
+  background: var(--btn);
+  border: 1px solid var(--btnBorder);
+}
+
+.home-btn.ghost .home-btn-label {
+  color: var(--secondary);
+}
+
+.home-btn.ghost .home-btn-sub {
+  color: var(--muted);
+}
+
+.home-btn-label {
+  font-size: clamp(17px, 6cqh, 26px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.home-btn-sub {
+  font-size: clamp(11px, 3.2cqh, 14px);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
 #stage {
   flex: 1 1 0;
   min-height: 0;
