@@ -2,7 +2,7 @@
 // um novo. Mostra "Continue" só quando há progresso salvo; senão, só "New game".
 // Overlay sobre o #app, no estilo da splash; resolve a Promise com a escolha.
 
-export type HomeChoice = "new" | "continue"
+export type HomeChoice = "new" | "continue" | "levels"
 
 export interface SavedInfo {
   level: number
@@ -43,7 +43,12 @@ export function showHome(host: HTMLElement, saved: SavedInfo | null): Promise<Ho
       menu.append(fresh)
     }
 
-    screen.append(brand, menu)
+    const pick = document.createElement("button")
+    pick.className = "home-link"
+    pick.textContent = "Choose a level"
+    pick.addEventListener("pointerdown", () => choose("levels"))
+
+    screen.append(brand, menu, pick)
     host.appendChild(screen)
   })
 }

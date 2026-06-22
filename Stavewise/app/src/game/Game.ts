@@ -56,6 +56,10 @@ export class Game {
   // 1ª abertura, sem nada para continuar.
   private active = false
 
+  // Chamado uma vez quando as vidas zeram. O main mostra a tela de game over e
+  // decide: recomeçar a fase (retryLevel) ou voltar ao menu (stop + tela inicial).
+  onGameOver?: () => void
+
   constructor(
     private canvas: HTMLCanvasElement,
     private controls: HTMLElement,
@@ -131,9 +135,28 @@ export class Game {
     this.notes = []
     this.lastMidi = -1
     this.lives = MAX_LIVES // mudança de fase reenche as vidas
+    this.gameOver = false // uma fase recém-carregada nunca está em game over
     this.recomputeHitX()
     // Cada avanço de nível durante o jogo atualiza o "continuar".
     if (this.active) saveProgress({ level: this.level })
+  }
+
+  // Nível atual (para a tela de game over saber qual fase reiniciar/mostrar).
+  get currentLevel(): number {
+    return this.level
+  }
+
+  // Recomeça a fase atual do zero (escolha "Retry" do game over). O loop continua
+  // rodando — loadLevel limpa notas/vidas e tira do game over, e o jogo retoma.
+  retryLevel(): void {
+    this.score = 0
+    this.labels = []
+    this.loadLevel(this.level)
+  }
+
+  // Para o loop (escolha "Home" do game over, antes de voltar ao menu).
+  stop(): void {
+    this.running = false
   }
 
   start(): void {
@@ -148,10 +171,7 @@ export class Game {
   }
 
   press(pos: number): void {
-    if (this.gameOver) {
-      this.restart() // qualquer toque recomeça após o Game Over
-      return
-    }
+    if (this.gameOver) return // tela de game over (DOM) cuida do que vem depois
     this.flashButton(pos)
     let target: Note | null = null
     let bestDist = Infinity
@@ -213,18 +233,9 @@ export class Game {
     this.lives = Math.max(0, this.lives - 1)
     if (this.lives === 0) {
       this.gameOver = true
-      clearProgress() // o jogo acabou: não há mais o que "continuar"
+      clearProgress() // o jogo acabou: não há mais o que "continuar" pelo menu
+      this.onGameOver?.() // o main exibe a tela de game over
     }
-  }
-
-  // Recomeço após o Game Over: volta ao nível 1, zera pontos e reenche vidas
-  // (loadLevel cuida das vidas e de limpar as notas).
-  private restart(): void {
-    this.gameOver = false
-    this.score = 0
-    this.notes = []
-    this.labels = []
-    this.loadLevel(1)
   }
 
   // Alterna entre as 3 alternativas de som de erro e toca um preview, mostrando
@@ -387,27 +398,6 @@ export class Game {
     this.particles.draw(ctx)
     this.drawLabels()
     this.drawToast()
-    if (this.gameOver) this.drawGameOver()
-    ctx.restore()
-  }
-
-  // Overlay mínimo de Game Over (a tela completa é pendência — ver STATUS).
-  // Escurece a pauta e mostra a mensagem; tocar qualquer botão recomeça.
-  private drawGameOver(): void {
-    const ctx = this.ctx
-    const w = this.cssW
-    const h = this.cssH
-    ctx.save()
-    ctx.fillStyle = "rgba(8,10,16,0.82)"
-    ctx.fillRect(0, 0, w, h)
-    ctx.textAlign = "center"
-    ctx.fillStyle = theme.ink
-    ctx.textBaseline = "alphabetic"
-    ctx.font = `700 34px -apple-system, system-ui, sans-serif`
-    ctx.fillText("Game Over", w / 2, h / 2 - 4)
-    ctx.fillStyle = theme.muted
-    ctx.font = `500 15px -apple-system, system-ui, sans-serif`
-    ctx.fillText("Toque para recomeçar", w / 2, h / 2 + 22)
     ctx.restore()
   }
 

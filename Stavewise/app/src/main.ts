@@ -4,6 +4,8 @@ import { Game } from "./game/Game"
 import { lockLandscape } from "./game/orientation"
 import { showSplash } from "./game/splash"
 import { showHome } from "./game/home"
+import { showLevelSelect } from "./game/levelSelect"
+import { showGameOver } from "./game/gameOver"
 import { loadProgress, clearProgress } from "./game/storage"
 import { levelByNumber } from "./game/levels"
 
@@ -24,23 +26,55 @@ if (!canvas || !controls) throw new Error("Canvas ou controles não encontrados"
 
 const game = new Game(canvas, controls)
 
-// Fluxo de entrada: splash "Waveform" → tela inicial (novo jogo / continuar) → jogo.
-// O toque que dispensa a splash também destrava o áudio na WKWebView.
-void showSplash(app)
-  .then(() => {
+// Tela inicial: o jogador continua o último jogo, começa um novo, ou escolhe um
+// nível qualquer (1–12). Carrega a fase escolhida e inicia o jogo.
+async function menu(): Promise<void> {
+  for (;;) {
     const saved = loadProgress()
-    return showHome(app, saved ? { level: saved.level, music: levelByNumber(saved.level).music } : null)
-  })
-  .then((choice) => {
+    const choice = await showHome(app!, saved ? { level: saved.level, music: levelByNumber(saved.level).music } : null)
+
     if (choice === "continue") {
-      const saved = loadProgress()
-      if (saved) game.loadLevel(saved.level)
-    } else {
+      const current = loadProgress()
+      if (current) game.loadLevel(current.level)
+      break
+    }
+    if (choice === "new") {
       clearProgress()
       game.loadLevel(1)
+      break
     }
-    game.start()
+    // "levels": abre a grade; null = voltou ao menu (repete o laço).
+    const level = await showLevelSelect(app!)
+    if (level == null) continue
+    clearProgress()
+    game.loadLevel(level)
+    break
+  }
+  game.start()
+}
+
+// Ao zerar as vidas: tela de game over → recomeçar a fase, ou voltar ao menu.
+game.onGameOver = async () => {
+  const choice = await showGameOver(app!, {
+    level: game.currentLevel,
+    music: levelByNumber(game.currentLevel).music,
   })
+  if (choice === "retry") {
+    game.retryLevel()
+  } else {
+    game.stop()
+    await menu()
+  }
+}
+
+// Fluxo de entrada: splash "Waveform" → tela inicial → jogo. O toque que dispensa
+// a splash também destrava o áudio na WKWebView.
+async function enter(): Promise<void> {
+  await showSplash(app!)
+  await menu()
+}
+
+void enter()
 
 if (import.meta.env.DEV) {
   ;(globalThis as unknown as { __game: Game }).__game = game

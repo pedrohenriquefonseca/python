@@ -237,6 +237,152 @@ body {
   letter-spacing: 0.04em;
 }
 
+.home-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(13px, 3.8cqh, 16px);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--secondary);
+  padding: 1.4cqh 3cqw;
+  margin-top: -3cqh;
+  animation: splash-rise 0.45s ease 0.14s both;
+  transition: opacity 0.1s ease;
+}
+
+.home-link:active {
+  opacity: 0.6;
+}
+
+/* Seleção de nível: grade dos 12 níveis. */
+#levels {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 3cqh;
+  padding: 4cqh 5cqw;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+#levels.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.levels-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4cqw;
+}
+
+.levels-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(14px, 4.6cqh, 18px);
+  font-weight: 500;
+  color: var(--secondary);
+  padding: 1cqh 1cqw;
+}
+
+.levels-back:active {
+  opacity: 0.6;
+}
+
+.levels-title {
+  font-size: clamp(15px, 5cqh, 22px);
+  font-weight: 500;
+  color: #fff;
+}
+
+.levels-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2.2cqw;
+}
+
+.level-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6cqh;
+  padding: 1cqh;
+  background: var(--btn);
+  border: 1px solid var(--btnBorder);
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.06s ease, background 0.08s ease;
+}
+
+.level-tile:active {
+  transform: scale(0.96);
+  background: var(--btnActive);
+}
+
+.level-tile:active .level-tile-num {
+  color: var(--btnActiveInk);
+}
+
+.level-tile:active .level-tile-music {
+  color: var(--btnActiveInk);
+}
+
+.level-tile-num {
+  font-size: clamp(20px, 8cqh, 34px);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--btnInk);
+}
+
+.level-tile-music {
+  font-size: clamp(10px, 2.7cqh, 13px);
+  font-weight: 500;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Tela de game over: backdrop translúcido sobre a pauta congelada. */
+#gameover {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  background: rgba(8, 6, 14, 0.86);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6cqh;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+#gameover.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gameover-title {
+  font-size: clamp(26px, 12cqh, 50px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--hud);
+  animation: splash-rise 0.4s ease both;
+}
+
 #stage {
   flex: 1 1 0;
   min-height: 0;
