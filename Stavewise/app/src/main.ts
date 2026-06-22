@@ -6,6 +6,7 @@ import { showSplash } from "./game/splash"
 import { showHome } from "./game/home"
 import { showLevelSelect } from "./game/levelSelect"
 import { showGameOver } from "./game/gameOver"
+import { showTutorial } from "./game/tutorial"
 import { loadProgress, clearProgress } from "./game/storage"
 import { levelByNumber } from "./game/levels"
 
@@ -41,6 +42,8 @@ async function menu(): Promise<void> {
     if (choice === "new") {
       clearProgress()
       game.loadLevel(1)
+      // O tutorial aparece somente ao começar um jogo novo.
+      await showTutorial(app!)
       break
     }
     // "levels": abre a grade; null = voltou ao menu (repete o laço).

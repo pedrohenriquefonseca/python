@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Patrick+Hand&display=swap");
+
 :root {
   color-scheme: dark;
 }
@@ -151,10 +153,11 @@ body {
   z-index: 10;
   background: var(--bg);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 7cqh;
+  /* Respiro no rodapé: empurra o conteúdo para cima, livrando a faixa da waveform
+     decorativa na base. */
+  padding-bottom: 8cqh;
   opacity: 1;
   transition: opacity 0.4s ease;
 }
@@ -164,12 +167,49 @@ body {
   pointer-events: none;
 }
 
+/* Layout horizontal: marca à esquerda, menu à direita; acima da waveform. */
+.home-row {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6cqw;
+  padding: 0 9cqw;
+}
+
+.home-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2cqh;
+  max-width: 44%;
+}
+
 .home-brand {
-  font-size: clamp(24px, 11cqh, 46px);
+  font-size: clamp(24px, 12cqh, 50px);
   font-weight: 500;
   letter-spacing: 0.03em;
+  line-height: 1.05;
   color: #fff;
   animation: splash-rise 0.45s ease both;
+}
+
+.home-tag {
+  font-size: clamp(10px, 3cqh, 14px);
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  animation: splash-rise 0.45s ease 0.06s both;
+}
+
+.home-right {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3cqh;
+  width: min(46cqw, 340px);
 }
 
 .home-menu {
@@ -177,7 +217,7 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 3cqh;
-  width: min(64cqw, 380px);
+  width: 100%;
 }
 
 .home-btn {
@@ -188,7 +228,7 @@ body {
   gap: 0.4cqh;
   border: none;
   border-radius: 16px;
-  padding: 3.4cqh 4cqw;
+  padding: 2.6cqh 4cqw;
   cursor: pointer;
   font-family: inherit;
   animation: splash-rise 0.45s ease 0.08s both;
@@ -237,23 +277,41 @@ body {
   letter-spacing: 0.04em;
 }
 
-.home-link {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: clamp(13px, 3.8cqh, 16px);
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  color: var(--secondary);
-  padding: 1.4cqh 3cqw;
-  margin-top: -3cqh;
-  animation: splash-rise 0.45s ease 0.14s both;
-  transition: opacity 0.1s ease;
+/* Waveform decorativa na base da home: atravessa a tela de fora a fora, atrás do
+   menu. Esmaecida por uma máscara vertical (forte no rodapé, dissolve para cima). */
+.home-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  height: 48cqh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.8cqw;
+  pointer-events: none;
+  opacity: 0.45;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.12) 90%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.12) 90%, transparent 100%);
+  animation: splash-rise 0.6s ease 0.1s both;
 }
 
-.home-link:active {
-  opacity: 0.6;
+.home-wave-bar {
+  flex: 1 1 auto;
+  border-radius: 999px 999px 0 0;
+  transform-origin: bottom;
+  animation: home-wave-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes home-wave-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 
 /* Seleção de nível: grade dos 12 níveis. */
@@ -381,6 +439,97 @@ body {
   letter-spacing: 0.02em;
   color: var(--hud);
   animation: splash-rise 0.4s ease both;
+}
+
+/* Tutorial: overlay em papel claro, estilo desenhado à mão (doodle), com 3 momentos
+   estáticos. Cada toque avança; o último começa o jogo. Aparece só ao escolher
+   "New game". A cena e as setas são desenhadas em SVG pela tutorial.ts. */
+#tutorial {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  background: #fffdf6;
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+#tutorial.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tut-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.tut-scene svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Título grande "Tutorial", fixo nos 3 momentos. */
+.tut-title {
+  position: absolute;
+  z-index: 3;
+  top: 3cqh;
+  left: 4cqw;
+  font-family: "Permanent Marker", cursive;
+  font-size: clamp(26px, 12cqh, 52px);
+  line-height: 1;
+  color: #2b2b2b;
+  -webkit-text-stroke: 7px #fffdf6;
+  paint-order: stroke fill;
+}
+
+/* Título manuscrito do momento; contorno na cor do papel para ler sobre a cena.
+   Posição e cor vêm inline da tutorial.ts. */
+.tut-co {
+  position: absolute;
+  z-index: 3;
+  white-space: nowrap;
+}
+
+.tut-co .h {
+  font-family: "Permanent Marker", cursive;
+  font-size: clamp(18px, 7cqh, 30px);
+  line-height: 1;
+  -webkit-text-stroke: 7px #fffdf6;
+  paint-order: stroke fill;
+}
+
+.tut-foot {
+  position: absolute;
+  z-index: 3;
+  right: 4cqw;
+  bottom: 4cqh;
+  display: flex;
+  align-items: center;
+  gap: 2cqw;
+  font-family: "Patrick Hand", cursive;
+  color: #6a6a6a;
+}
+
+.tut-dot {
+  width: clamp(7px, 2.4cqh, 11px);
+  height: clamp(7px, 2.4cqh, 11px);
+  border-radius: 50%;
+  border: 2px solid #c9c4b5;
+  background: #fffdf6;
+}
+
+.tut-dot.on {
+  background: #2b2b2b;
+  border-color: #2b2b2b;
+}
+
+.tut-next {
+  font-size: clamp(12px, 4cqh, 16px);
+  -webkit-text-stroke: 5px #fffdf6;
+  paint-order: stroke fill;
 }
 
 #stage {
