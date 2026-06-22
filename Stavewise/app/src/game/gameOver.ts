@@ -1,6 +1,6 @@
-// Tela de game over: recomeçar a fase atual do zero, ou voltar para a tela
-// inicial. Overlay translúcido sobre o #app (deixa ver a pauta congelada atrás);
-// reaproveita os estilos de botão do menu (.home-btn). Resolve com a escolha.
+// Tela de game over: recomeçar a fase atual do zero (Continue), ou voltar para a
+// tela inicial (Home). Overlay translúcido leve sobre o #app — a pauta congelada
+// fica esmaecida atrás. Título pequeno e botões compactos. Resolve com a escolha.
 
 export type GameOverChoice = "retry" | "home"
 
@@ -14,12 +14,18 @@ export function showGameOver(host: HTMLElement, info: GameOverInfo): Promise<Gam
     const screen = document.createElement("div")
     screen.id = "gameover"
 
+    const head = document.createElement("div")
+    head.className = "gameover-head"
     const title = document.createElement("div")
     title.className = "gameover-title"
     title.textContent = "Game over"
+    const sub = document.createElement("div")
+    sub.className = "gameover-sub"
+    sub.textContent = `Level ${info.level} · ${info.music}`
+    head.append(title, sub)
 
-    const menu = document.createElement("div")
-    menu.className = "home-menu"
+    const row = document.createElement("div")
+    row.className = "gameover-row"
 
     const choose = (choice: GameOverChoice) => {
       screen.classList.add("hide")
@@ -31,29 +37,20 @@ export function showGameOver(host: HTMLElement, info: GameOverInfo): Promise<Gam
       setTimeout(done, 600) // rede de segurança
     }
 
-    const retry = makeButton("Retry level", `Restart level ${info.level} · ${info.music}`, "primary")
-    retry.addEventListener("pointerdown", () => choose("retry"))
-    const home = makeButton("Home", "Back to the menu", "ghost")
+    const cont = makeButton("Continue", "primary")
+    cont.addEventListener("pointerdown", () => choose("retry"))
+    const home = makeButton("Home", "ghost")
     home.addEventListener("pointerdown", () => choose("home"))
-    menu.append(retry, home)
+    row.append(cont, home)
 
-    screen.append(title, menu)
+    screen.append(head, row)
     host.appendChild(screen)
   })
 }
 
-function makeButton(label: string, sub: string, variant: "primary" | "ghost"): HTMLButtonElement {
+function makeButton(label: string, variant: "primary" | "ghost"): HTMLButtonElement {
   const button = document.createElement("button")
-  button.className = `home-btn ${variant}`
-
-  const main = document.createElement("span")
-  main.className = "home-btn-label"
-  main.textContent = label
-
-  const note = document.createElement("span")
-  note.className = "home-btn-sub"
-  note.textContent = sub
-
-  button.append(main, note)
+  button.className = `go-btn ${variant}`
+  button.textContent = label
   return button
 }

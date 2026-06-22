@@ -413,17 +413,18 @@ body {
   color: var(--muted);
 }
 
-/* Tela de game over: backdrop translúcido sobre a pauta congelada. */
+/* Tela de game over: backdrop translúcido leve — a pauta congelada fica esmaecida
+   atrás. Título pequeno + botões compactos (Continue / Home). */
 #gameover {
   position: absolute;
   inset: 0;
   z-index: 11;
-  background: rgba(8, 6, 14, 0.86);
+  background: rgba(10, 6, 18, 0.62);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6cqh;
+  gap: 4cqh;
   opacity: 1;
   transition: opacity 0.4s ease;
 }
@@ -433,12 +434,56 @@ body {
   pointer-events: none;
 }
 
+.gameover-head {
+  text-align: center;
+  animation: splash-rise 0.4s ease both;
+}
+
 .gameover-title {
-  font-size: clamp(26px, 12cqh, 50px);
+  font-size: clamp(20px, 8cqh, 32px);
   font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--hud);
-  animation: splash-rise 0.4s ease both;
+}
+
+.gameover-sub {
+  margin-top: 0.8cqh;
+  font-size: clamp(11px, 3.2cqh, 14px);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.gameover-row {
+  display: flex;
+  gap: 2.5cqw;
+  animation: splash-rise 0.4s ease 0.06s both;
+}
+
+.go-btn {
+  border: none;
+  border-radius: 11px;
+  padding: 1.6cqh 5cqw;
+  min-width: 30cqw;
+  font-family: inherit;
+  font-size: clamp(13px, 4cqh, 15px);
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.06s ease;
+}
+
+.go-btn:active {
+  transform: scale(0.97);
+}
+
+.go-btn.primary {
+  background: var(--hud);
+  color: var(--posText);
+}
+
+.go-btn.ghost {
+  background: transparent;
+  border: 1px solid var(--btnBorder);
+  color: var(--secondary);
 }
 
 /* Tutorial: overlay em papel claro, estilo desenhado à mão (doodle), com 3 momentos
