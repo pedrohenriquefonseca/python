@@ -495,7 +495,7 @@ body {
 
 .tut-co .h {
   font-family: "Permanent Marker", cursive;
-  font-size: clamp(18px, 7cqh, 30px);
+  font-size: clamp(20px, 7.8cqh, 34px);
   line-height: 1;
   -webkit-text-stroke: 7px #fffdf6;
   paint-order: stroke fill;
@@ -524,12 +524,6 @@ body {
 .tut-dot.on {
   background: #2b2b2b;
   border-color: #2b2b2b;
-}
-
-.tut-next {
-  font-size: clamp(12px, 4cqh, 16px);
-  -webkit-text-stroke: 5px #fffdf6;
-  paint-order: stroke fill;
 }
 
 #stage {

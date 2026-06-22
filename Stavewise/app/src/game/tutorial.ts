@@ -20,10 +20,11 @@ interface StepCopy {
   pos: string // posição (inline) do texto sobre a cena
 }
 
+// Os 3 títulos ficam no mesmo lugar (canto superior direito); de lá saem as setas.
 const STEPS: StepCopy[] = [
-  { h: "Read the notes", col: "#7E5BD8", pos: "left:31%; top:9%;" },
+  { h: "Read the notes", col: "#7E5BD8", pos: "right:4%; top:9%;" },
   { h: "Watch the line", col: "#E25C9A", pos: "right:4%; top:9%;" },
-  { h: "Tap the position", col: "#6FB23F", pos: "left:58%; top:53%;" },
+  { h: "Tap the position", col: "#6FB23F", pos: "right:4%; top:9%;" },
 ]
 
 function staffLines(): string {
@@ -73,7 +74,7 @@ function btnCircles(active: number): string {
   let s = ""
   for (let i = 0; i < 7; i++) {
     const on = active === i
-    s += `<circle cx="${BX[i]}" cy="330" r="40" fill="${on ? MK[i] : "#fff"}" stroke="${MK[i]}" stroke-width="5"/>`
+    s += `<circle cx="${BX[i]}" cy="314" r="40" fill="${on ? MK[i] : "#fff"}" stroke="${MK[i]}" stroke-width="5"/>`
   }
   return s
 }
@@ -82,21 +83,37 @@ function btnNums(active: number): string {
   let s = ""
   for (let i = 0; i < 7; i++) {
     const on = active === i
-    s += `<text x="${BX[i]}" y="344" text-anchor="middle" font-family="Permanent Marker, cursive" font-size="38" fill="${on ? "#fff" : "#2b2b2b"}">${i + 1}</text>`
+    s += `<text x="${BX[i]}" y="328" text-anchor="middle" font-family="Permanent Marker, cursive" font-size="38" fill="${on ? "#fff" : "#2b2b2b"}">${i + 1}</text>`
   }
   return s
 }
 
 // Setas grossas que saem do texto de cada momento e apontam para o elemento. A do
 // momento 3 termina ACIMA do botão, com folga (a cabeça não encosta no círculo).
+// Todas as setas saem de baixo do texto (canto sup. direito) e apontam para o
+// elemento. Traço grosso + cabeça em triângulo cheio (calculada pela direção da
+// curva), que não deforma sob o filtro de rabisco como dois traços finos.
+const TAIL_X = 650
+const TAIL_Y = 72
+
+function arrowFromText(c1x: number, c1y: number, c2x: number, c2y: number, tx: number, ty: number, color: string): string {
+  const ang = Math.atan2(ty - c2y, tx - c2x) // direção no ponto da ponta
+  const len = 30
+  const half = 15
+  const bx = tx - len * Math.cos(ang)
+  const by = ty - len * Math.sin(ang)
+  const px = Math.sin(ang) * half
+  const py = -Math.cos(ang) * half
+  return (
+    `<path d="M${TAIL_X} ${TAIL_Y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${tx} ${ty}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round"/>` +
+    `<polygon points="${tx},${ty} ${bx + px},${by + py} ${bx - px},${by - py}" fill="${color}"/>`
+  )
+}
+
 function arrow(step: number): string {
-  if (step === 0)
-    return `<g stroke="#7E5BD8" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M360 82 C 392 102, 432 118, 470 132"/><path d="M470 132 l -19 -3 M470 132 l -6 -17"/></g>`
-  if (step === 1)
-    return `<g stroke="#E25C9A" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M645 86 C 500 98, 360 128, 270 158"/><path d="M270 158 l 19 -2 M270 158 l 4 -18"/></g>`
-  // Vem da direita (de baixo do texto) e aponta para baixo-esquerda, ao botão 4.
-  // Cabeça como triângulo cheio (não deforma sob o filtro como dois traços finos).
-  return `<path d="M524 236 C 500 252, 478 268, 460 282" fill="none" stroke="#6FB23F" stroke-width="8" stroke-linecap="round"/><polygon points="452,286 482,278 476,300" fill="#6FB23F"/>`
+  if (step === 0) return arrowFromText(600, 92, 558, 120, 505, 142, "#7E5BD8") // → notas
+  if (step === 1) return arrowFromText(520, 92, 360, 128, 272, 158, "#E25C9A") // → linha de acerto
+  return arrowFromText(602, 150, 520, 216, 458, 266, "#6FB23F") // → botão da posição
 }
 
 function emph(step: number): string {
@@ -112,7 +129,8 @@ function scene(step: number): string {
   return (
     `<svg viewBox="0 0 844 390" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">` +
     `<defs><filter id="tutRough"><feTurbulence type="fractalNoise" baseFrequency="0.013" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.2"/></filter></defs>` +
-    `<g filter="url(#tutRough)">${staffLines()}${clef()}${hitline(step)}${notes(step)}${btnCircles(active)}${arrow(step)}${emph(step)}</g>` +
+    `<g>${staffLines()}</g>` +
+    `<g filter="url(#tutRough)">${clef()}${hitline(step)}${notes(step)}${btnCircles(active)}${arrow(step)}${emph(step)}</g>` +
     `<g>${btnNums(active)}</g>` +
     `</svg>`
   )
@@ -141,8 +159,7 @@ export function showTutorial(host: HTMLElement): Promise<void> {
       const c = STEPS[step]
       coEl.setAttribute("style", c.pos)
       coEl.innerHTML = `<div class="h" style="color:${c.col}">${c.h}</div>`
-      const hint = step < last ? `<span class="tut-next">tap to continue ›</span>` : ""
-      footEl.innerHTML = dots(step) + hint
+      footEl.innerHTML = dots(step)
     }
     paint()
 
