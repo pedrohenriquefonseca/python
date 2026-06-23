@@ -7,7 +7,7 @@ import calendar
 import random
 from datetime import date, timedelta
 
-from db import get_db, init_db
+from db import get_db, init_db, tx_fingerprint
 
 CATEGORIES = [
     ("Alimentação", "#f59f00", "expense"),
@@ -121,6 +121,13 @@ def seed():
         (account_id, str(fitid), when, -1500.0,
          "Aplicação na poupança", "TRANSF", cat_ids["Transferência"], savings_id),
     )
+
+    # Impressão digital de dedup nos lançamentos de exemplo.
+    for r in conn.execute(
+        "SELECT id, posted_on, amount, description FROM transactions WHERE fingerprint IS NULL"
+    ).fetchall():
+        conn.execute("UPDATE transactions SET fingerprint = ? WHERE id = ?",
+                     (tx_fingerprint(r["posted_on"], r["amount"], r["description"]), r["id"]))
 
     conn.commit()
     conn.close()

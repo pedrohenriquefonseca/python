@@ -4,12 +4,13 @@ Portal Flask + SQLite. Foco atual: importar OFX, categorizar e acompanhar
 orçamentos mensais por categoria em tempo hábil.
 """
 import calendar
+from collections import defaultdict
 from datetime import date
 
 from flask import Flask, flash, redirect, render_template, request, url_for
 
 from categorizer import categorize, load_rules, recategorize_uncategorized
-from db import get_db, init_db
+from db import get_db, init_db, tx_fingerprint
 from ofx_import import read_ofx_file
 
 app = Flask(__name__)
@@ -432,20 +433,48 @@ def import_ofx():
 
         txns = read_ofx_file(file.read())
         rules = load_rules(conn)
+
+        # Dedup robusta em camadas, por conta:
+        #  1) FITID (quando o banco fornece) é autoritativo — mesma id = mesmo lançamento.
+        #  2) Sem FITID, usa-se a impressão digital de conteúdo com alinhamento por ocorrência:
+        #     a k-ésima ocorrência idêntica do arquivo só entra se o banco ainda não tiver k delas.
+        #     Isso barra reimportações mas preserva duplicatas legítimas (ex.: 2 cafés iguais no dia).
+        existing = conn.execute(
+            "SELECT fitid, fingerprint FROM transactions WHERE account_id = ?", (account_id,)
+        ).fetchall()
+        existing_fitids = {r["fitid"] for r in existing if r["fitid"]}
+        db_fp_counts = defaultdict(int)
+        for r in existing:
+            if r["fingerprint"]:
+                db_fp_counts[r["fingerprint"]] += 1
+        file_fp_seen = defaultdict(int)
+
         inserted = skipped = 0
         for t in txns:
+            fp = tx_fingerprint(t.posted_on, t.amount, t.description)
+            if t.fitid and t.fitid in existing_fitids:
+                skipped += 1
+                continue
+            if not t.fitid:
+                idx = file_fp_seen[fp]
+                file_fp_seen[fp] += 1
+                if idx < db_fp_counts[fp]:
+                    skipped += 1
+                    continue
             category_id = categorize(t.description, rules)
             try:
                 conn.execute(
                     """INSERT INTO transactions
-                       (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                       (account_id, fitid, posted_on, amount, description, raw_memo, category_id, fingerprint)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (account_id, t.fitid, t.posted_on, t.amount,
-                     t.description, t.raw_memo, category_id),
+                     t.description, t.raw_memo, category_id, fp),
                 )
                 inserted += 1
+                if t.fitid:
+                    existing_fitids.add(t.fitid)
             except Exception:
-                # UNIQUE(account_id, fitid) violado = lançamento já importado.
+                # Backstop: UNIQUE(account_id, fitid) violado = já importado.
                 skipped += 1
         conn.commit()
         conn.close()

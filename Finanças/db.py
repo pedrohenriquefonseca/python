@@ -3,10 +3,29 @@
 Mantém o schema e helpers simples de conexão. Nada de ORM: sqlite3 puro
 para deixar o app leve e fácil de inspecionar.
 """
+import hashlib
+import re
 import sqlite3
+import unicodedata
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "financas.db"
+
+
+def _norm_desc(text: str) -> str:
+    """Normaliza a descrição para comparação estável entre exportações:
+    remove acentos, pontuação e variações de espaço; tudo em maiúsculas."""
+    text = text or ""
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return re.sub(r"[^A-Za-z0-9]+", " ", text).strip().upper()
+
+
+def tx_fingerprint(posted_on: str, amount: float, description: str) -> str:
+    """Impressão digital de conteúdo de um lançamento (independe do FITID).
+    Usa data + valor em centavos + descrição normalizada."""
+    cents = int(round(float(amount) * 100))
+    key = f"{posted_on}|{cents}|{_norm_desc(description)}"
+    return hashlib.sha1(key.encode("utf-8")).hexdigest()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (
@@ -52,6 +71,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     category_id INTEGER,
     ignored     INTEGER NOT NULL DEFAULT 0,   -- 1 = ignorado: fora de orçamentos, gráficos, saldo e net worth
     transfer_to INTEGER,                       -- se preenchido: transferência; conta destino creditada automaticamente
+    fingerprint TEXT,                          -- impressão digital de conteúdo (dedup quando não há FITID)
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (account_id)  REFERENCES accounts(id)   ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
@@ -79,9 +99,44 @@ def get_db():
     return conn
 
 
+# Colunas adicionadas após a versão inicial. Bancos antigos recebem essas colunas
+# automaticamente (sem recriar a tabela, preservando os dados existentes).
+MIGRATIONS = {
+    "accounts": [("opening_balance", "REAL NOT NULL DEFAULT 0")],
+    "transactions": [
+        ("ignored", "INTEGER NOT NULL DEFAULT 0"),
+        ("transfer_to", "INTEGER"),
+        ("fingerprint", "TEXT"),
+    ],
+}
+
+
+def _migrate(conn) -> None:
+    """Garante que tabelas pré-existentes tenham as colunas novas e calcula
+    a impressão digital de lançamentos antigos (para a dedup funcionar com eles)."""
+    for table, columns in MIGRATIONS.items():
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name, decl in columns:
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+    # Backfill da impressão digital onde estiver ausente.
+    pendentes = conn.execute(
+        "SELECT id, posted_on, amount, description FROM transactions WHERE fingerprint IS NULL"
+    ).fetchall()
+    for r in pendentes:
+        conn.execute(
+            "UPDATE transactions SET fingerprint = ? WHERE id = ?",
+            (tx_fingerprint(r["posted_on"], r["amount"], r["description"]), r["id"]),
+        )
+
+
 def init_db():
     conn = get_db()
-    conn.executescript(SCHEMA)
+    conn.executescript(SCHEMA)  # cria tabelas/índices que faltam (inclui 'assets')
+    _migrate(conn)              # adiciona colunas novas a bancos antigos, sem perder dados
+    # Índice da impressão digital só pode ser criado após a coluna existir (migração acima).
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tx_fp ON transactions(account_id, fingerprint)")
     conn.commit()
     conn.close()
 

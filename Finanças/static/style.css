@@ -93,7 +93,7 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .grid-2 .card { margin-bottom: 0; }
 
 /* ---------- flow line chart ---------- */
-.legend { font-size: 9.5px; display: flex; gap: 12px; }
+.legend { font-size: 10.5px; display: flex; gap: 12px; }
 .legend i { font-size: 10px; vertical-align: -1px; }
 .lg-receita { color: var(--green); }
 .lg-gasto { color: var(--red); }
@@ -106,9 +106,9 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .fl-orclabel { fill: var(--faint); font-size: 5.5px; }
 .nd-receita { fill: var(--green); }
 .nd-gasto { fill: var(--red); }
-.nd-label { fill: var(--muted); font-size: 5.5px; }
-.nd-month { fill: var(--faint); font-size: 8.5px; }
-.nd-month.is-current { fill: var(--ink); font-weight: 600; }
+.nd-label { fill: var(--muted); font-size: 6.5px; }
+.nd-month { fill: var(--faint); font-size: 5.5px; }
+.nd-month.is-current { fill: var(--ink); font-size: 6px; font-weight: 600; }
 
 /* ---------- orçamentos compactos ---------- */
 .budget-compact { display: grid; grid-template-columns: 1fr; gap: 11px; }
@@ -120,14 +120,6 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .bc-fill { height: 100%; background: var(--indigo); border-radius: 2px; }
 .bc-fill.over { background: var(--red); }
 .bc-set { grid-column: 1 / -1; font-size: 11px; color: var(--indigo); }
-
-/* ---------- maiores estouros ---------- */
-.over-list { display: flex; flex-direction: column; gap: 13px; }
-.over-head { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; margin-bottom: 6px; }
-.over-head i { font-size: 14px; color: var(--muted); margin-right: 6px; }
-.over-head b { font-variant-numeric: tabular-nums; }
-.over-bar { height: 6px; background: #f0f0ee; border-radius: 4px; overflow: hidden; }
-.over-fill { height: 100%; background: var(--red); border-radius: 4px; min-width: 3px; }
 
 /* ---------- tabelas ---------- */
 .data-table, .tx-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
