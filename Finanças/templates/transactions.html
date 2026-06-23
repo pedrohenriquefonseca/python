@@ -2,26 +2,33 @@
 {% block title %}Lançamentos — {{ month_label }}{% endblock %}
 {% block content %}
 
-<div class="month-nav">
-  <a class="btn" href="{{ url_for('transactions', month=prev_month) }}">←</a>
+<div class="page-head">
   <h1>Lançamentos — {{ month_label }}</h1>
-  <a class="btn" href="{{ url_for('transactions', month=next_month) }}">→</a>
+  <div class="month-nav">
+    <a class="navbtn" href="{{ url_for('transactions', month=prev_month) }}"><i class="ti ti-chevron-left"></i></a>
+    <a class="navbtn" href="{{ url_for('transactions', month=next_month) }}"><i class="ti ti-chevron-right"></i></a>
+  </div>
 </div>
 
-<table class="tx-table">
+<div class="card">
+<table class="data-table tx-table">
   <thead>
-    <tr><th>Data</th><th>Descrição</th><th>Conta</th><th class="right">Valor</th><th>Categoria</th></tr>
+    <tr><th>Data</th><th>Descrição</th><th>Conta</th><th class="right">Valor</th><th>Categoria</th><th></th></tr>
   </thead>
   <tbody>
   {% for t in rows %}
-    <tr class="{{ 'uncat' if not t.category_id else '' }}">
+    <tr class="{{ 'uncat' if not t.category_id and t.ignored == 0 else '' }} {{ 'is-ignored' if t.ignored }}">
       <td class="nowrap">{{ t.posted_on }}</td>
       <td>{{ t.description }}</td>
       <td class="muted">{{ t.account_name }}</td>
-      <td class="right {{ 'negative' if t.amount < 0 else 'positive' }}">R$ {{ '%.2f'|format(t.amount) }}</td>
+      <td class="right {{ 'negative' if t.amount < 0 else 'positive' }}">R$ {{ t.amount|brl }}</td>
       <td>
+        {% if t.category_kind == 'transfer' %}
+          <span class="transfer-tag"><i class="{{ cat_icon('Transferência') }}"></i> Transferência</span>
+        {% else %}
         <form method="post" action="{{ url_for('categorize_tx', tx_id=t.id) }}" class="cat-form">
-          <select name="category_id" onchange="this.form.submit()">
+          {% if t.category_name %}<i class="{{ cat_icon(t.category_name) }} cat-ico"></i>{% endif %}
+          <select name="category_id" onchange="this.form.submit()" {{ 'disabled' if t.ignored }}>
             <option value="">— sem categoria —</option>
             {% for c in categories %}
               <option value="{{ c.id }}" {{ 'selected' if c.id == t.category_id else '' }}>{{ c.name }}</option>
@@ -31,12 +38,23 @@
             <input type="checkbox" name="make_rule" value="1"> regra
           </label>
         </form>
+        {% endif %}
+      </td>
+      <td class="right">
+        <form method="post" action="{{ url_for('ignore_tx', tx_id=t.id) }}">
+          {% if t.ignored %}
+            <button class="iconbtn" title="Reativar lançamento"><i class="ti ti-eye"></i></button>
+          {% else %}
+            <button class="iconbtn" title="Ignorar lançamento (fora de orçamentos e gráficos)"><i class="ti ti-eye-off"></i></button>
+          {% endif %}
+        </form>
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="5" class="muted">Nenhum lançamento neste mês.</td></tr>
+    <tr><td colspan="6" class="muted">Nenhum lançamento neste mês.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 
 {% endblock %}

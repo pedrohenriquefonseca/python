@@ -2,78 +2,99 @@
 {% block title %}Dashboard — {{ month_label }}{% endblock %}
 {% block content %}
 
-<div class="month-nav">
-  <a class="btn" href="{{ url_for('dashboard', month=prev_month) }}">←</a>
-  <h1>{{ month_label }}</h1>
-  <a class="btn" href="{{ url_for('dashboard', month=next_month) }}">→</a>
-</div>
-
-<div class="summary-grid">
-  <div class="summary-card">
-    <span class="label">Gasto no mês</span>
-    <span class="value negative">R$ {{ '%.2f'|format(total_spent) }}</span>
+{% set result = income - total_spent %}
+<div class="page-head">
+  <div class="result-block">
+    <div class="eyebrow">Resultado · {{ month_label }}</div>
+    <div class="result-value {{ 'positive' if result >= 0 else 'negative' }}">R$ {{ result|brl }}</div>
   </div>
-  <div class="summary-card">
-    <span class="label">Orçamento total</span>
-    <span class="value">R$ {{ '%.2f'|format(total_budget) }}</span>
-  </div>
-  <div class="summary-card">
-    <span class="label">Entradas</span>
-    <span class="value positive">R$ {{ '%.2f'|format(income) }}</span>
-  </div>
-  <div class="summary-card">
-    <span class="label">Ritmo</span>
-    <span class="value">dia {{ days_elapsed }} de {{ days_total }}</span>
+  <div class="head-stats">
+    <div><span class="muted">Entradas</span><b>{{ income|brl }}</b></div>
+    <div><span class="muted">Gasto</span><b>{{ total_spent|brl }}</b></div>
+    <div><span class="muted">Orçado</span><b>{{ total_budget|brl }}</b></div>
+    <div class="month-nav">
+      <a class="navbtn" href="{{ url_for('dashboard', month=prev_month) }}"><i class="ti ti-chevron-left"></i></a>
+      <a class="navbtn" href="{{ url_for('dashboard', month=next_month) }}"><i class="ti ti-chevron-right"></i></a>
+    </div>
   </div>
 </div>
 
 {% if uncategorized %}
 <div class="flash flash-warning">
-  ⚠️ {{ uncategorized }} lançamento(s) sem categoria neste mês —
+  {{ uncategorized }} lançamento(s) sem categoria neste mês —
   <a href="{{ url_for('transactions', month=month) }}">categorize</a> para o orçamento ficar correto.
 </div>
 {% endif %}
 
-<h2>Orçamentos por categoria</h2>
-{% if not cards %}
-  <p class="muted">Nenhuma categoria ainda. Importe um OFX e defina orçamentos.</p>
-{% endif %}
+<div class="card chart-card">
+  <div class="card-head">
+    <div class="card-title">Fluxo mensal <span class="muted">(R$ mil)</span></div>
+    <div class="legend">
+      <span class="lg-receita"><i class="ti ti-point-filled"></i> Receita</span>
+      <span class="lg-gasto"><i class="ti ti-point-filled"></i> Gasto</span>
+      <span class="lg-orcado"><i class="ti ti-minus"></i> Orçado</span>
+    </div>
+  </div>
+  <svg class="flow" viewBox="0 0 480 104">
+    <polyline class="fl-orcado" points="{{ charts.flow.orcado_pts }}"/>
+    <text x="460" y="{{ charts.flow.orcado_y }}" text-anchor="end" class="fl-orclabel">orçado {{ charts.flow.orcado_label }}</text>
+    <polyline class="fl-gasto" points="{{ charts.flow.gasto_pts }}"/>
+    <polyline class="fl-receita" points="{{ charts.flow.receita_pts }}"/>
+    {% for nd in charts.flow.receita_nodes %}
+      <circle class="nd-receita" cx="{{ nd.x }}" cy="{{ nd.y }}" r="{{ 3 if nd.current else 2.6 }}"/>
+      <text class="nd-label" x="{{ nd.x }}" y="{{ nd.ly }}" text-anchor="middle">{{ nd.label }}</text>
+    {% endfor %}
+    {% for nd in charts.flow.gasto_nodes %}
+      <circle class="nd-gasto" cx="{{ nd.x }}" cy="{{ nd.y }}" r="{{ 3 if nd.current else 2.6 }}"/>
+      <text class="nd-label" x="{{ nd.x }}" y="{{ nd.ly }}" text-anchor="middle">{{ nd.label }}</text>
+    {% endfor %}
+    {% for m in charts.flow.month_nodes %}
+      <text class="nd-month {{ 'is-current' if m.current }}" x="{{ m.x }}" y="98" text-anchor="middle">{{ m.label }}</text>
+    {% endfor %}
+  </svg>
+</div>
 
-<div class="budget-list">
-  {% for c in cards %}
-  <div class="budget-row status-{{ c.status }}">
-    <div class="budget-head">
-      <span class="dot" style="background: {{ c.color }}"></span>
-      <strong>{{ c.category }}</strong>
-      <span class="spacer"></span>
-      <span class="amount">
-        R$ {{ '%.2f'|format(c.spent) }}
-        {% if c.budget %}<span class="muted">/ {{ '%.2f'|format(c.budget) }}</span>{% endif %}
-      </span>
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px;">Orçamentos</div>
+    {% if not cards %}
+      <p class="muted">Nenhuma categoria ainda. Importe um OFX e defina orçamentos.</p>
+    {% endif %}
+    <div class="budget-compact">
+      {% for c in cards %}
+      <div class="bc-row" title="{% if c.budget %}{{ '%.0f'|format(c.pct) }}% usado{% else %}sem teto{% endif %}">
+        <span class="bc-cat"><i class="{{ cat_icon(c.category) }}"></i> {{ c.category }}</span>
+        <span class="bc-amount">{{ c.spent|n0 }}{% if c.budget %} <span class="muted">/{{ c.budget|n0 }}</span>{% endif %}</span>
+        {% if c.budget %}
+        <div class="bc-bar">
+          <div class="bc-fill {{ 'over' if c.status == 'over' }}" style="width: {{ [c.pct, 100]|min }}%"></div>
+        </div>
+        {% else %}
+        <a class="bc-set" href="{{ url_for('budgets') }}">definir teto</a>
+        {% endif %}
+      </div>
+      {% endfor %}
     </div>
-    {% if c.budget %}
-    <div class="bar">
-      <div class="bar-fill" style="width: {{ [c.pct, 100]|min }}%; background: {{ c.color }}"></div>
-      {% if c.projected > c.budget %}
-        <div class="bar-projected" title="Projeção no ritmo atual"></div>
-      {% endif %}
-    </div>
-    <div class="budget-foot muted">
-      {% if c.status == 'over' %}
-        🔴 Estourou em R$ {{ '%.2f'|format(c.spent - c.budget) }}
-      {% elif c.status == 'pace_over' %}
-        🟠 No ritmo atual, projeta R$ {{ '%.2f'|format(c.projected) }} (estoura)
-      {% elif c.status == 'warning' %}
-        🟡 {{ '%.0f'|format(c.pct) }}% usado — resta R$ {{ '%.2f'|format(c.remaining) }}
-      {% else %}
-        🟢 {{ '%.0f'|format(c.pct) }}% usado — resta R$ {{ '%.2f'|format(c.remaining) }}
-      {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px;">Maiores estouros</div>
+    {% if overruns %}
+    <div class="over-list">
+      {% for o in overruns %}
+      <div class="over-row">
+        <div class="over-head">
+          <span><i class="{{ cat_icon(o.category) }}"></i> {{ o.category }}</span>
+          <b class="negative">+R$ {{ o.overrun|brl }}</b>
+        </div>
+        <div class="over-bar"><div class="over-fill" style="width: {{ o.h }}%"></div></div>
+      </div>
+      {% endfor %}
     </div>
     {% else %}
-    <div class="budget-foot muted">Sem orçamento definido — <a href="{{ url_for('budgets') }}">defina um teto</a></div>
+    <p class="muted">Nenhuma categoria estourou o orçamento neste mês.</p>
     {% endif %}
   </div>
-  {% endfor %}
 </div>
 
 {% endblock %}

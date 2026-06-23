@@ -10,11 +10,20 @@ DB_PATH = Path(__file__).parent / "financas.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL DEFAULT 'checking',  -- checking | credit | investment
+    bank            TEXT,
+    opening_balance REAL NOT NULL DEFAULT 0,           -- saldo inicial; saldo atual = este + soma dos lançamentos
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS assets (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL,
-    type        TEXT NOT NULL DEFAULT 'checking',  -- checking | credit | investment
-    bank        TEXT,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    category    TEXT NOT NULL DEFAULT 'Outros',  -- Imóvel | Veículo | Investimento | Outros
+    value       REAL NOT NULL DEFAULT 0,         -- valor atual em R$ (positivo)
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -41,6 +50,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     description TEXT NOT NULL,
     raw_memo    TEXT,
     category_id INTEGER,
+    ignored     INTEGER NOT NULL DEFAULT 0,   -- 1 = ignorado: fora de orçamentos, gráficos, saldo e net worth
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (account_id)  REFERENCES accounts(id)   ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,

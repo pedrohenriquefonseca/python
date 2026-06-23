@@ -10,7 +10,7 @@
   <tbody>
   {% for r in rows %}
     <tr>
-      <td><span class="dot" style="background: {{ r.color }}"></span> {{ r.name }}</td>
+      <td><i class="{{ cat_icon(r.name) }}"></i> {{ r.name }}</td>
       <td>
         <form method="post" class="budget-form">
           <input type="hidden" name="category_id" value="{{ r.id }}">

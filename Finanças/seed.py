@@ -3,20 +3,23 @@
 Rode uma vez:  python seed.py
 Para zerar e recomeçar do zero, apague o arquivo financas.db.
 """
+import calendar
 import random
 from datetime import date, timedelta
 
 from db import get_db, init_db
 
 CATEGORIES = [
-    ("Alimentação", "#e3b341", "expense"),
-    ("Transporte", "#5b8def", "expense"),
-    ("Moradia", "#a06be0", "expense"),
-    ("Lazer", "#e08a3c", "expense"),
-    ("Saúde", "#3fb27f", "expense"),
-    ("Mercado", "#d96ba0", "expense"),
-    ("Assinaturas", "#6be0d4", "expense"),
-    ("Salário", "#3fb27f", "income"),
+    ("Alimentação", "#f59f00", "expense"),
+    ("Transporte", "#2f6bff", "expense"),
+    ("Moradia", "#8b5cf6", "expense"),
+    ("Lazer", "#fd7e14", "expense"),
+    ("Saúde", "#12b886", "expense"),
+    ("Mercado", "#ec4899", "expense"),
+    ("Assinaturas", "#06b6d4", "expense"),
+    ("Outros", "#9aa0aa", "expense"),
+    ("Salário", "#22c55e", "income"),
+    ("Transferência", "#9aa0aa", "transfer"),
 ]
 
 BUDGETS = {
@@ -42,10 +45,24 @@ def seed():
     init_db()
     conn = get_db()
 
-    # Conta corrente de exemplo.
-    conn.execute("INSERT INTO accounts (name, type, bank) VALUES (?,?,?)",
-                 ("Conta Corrente (exemplo)", "checking", "Demo"))
+    # Conta corrente de exemplo, com saldo inicial.
+    conn.execute("INSERT INTO accounts (name, type, bank, opening_balance) VALUES (?,?,?,?)",
+                 ("Conta Corrente (exemplo)", "checking", "Demo", 20000.0))
     account_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+    # Segunda conta (poupança), para demonstrar transferências.
+    conn.execute("INSERT INTO accounts (name, type, bank, opening_balance) VALUES (?,?,?,?)",
+                 ("Poupança (exemplo)", "investment", "Demo", 8000.0))
+    savings_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+    # Bens extra-bancários de exemplo (entram no net worth).
+    for name, category, value in [
+        ("Apartamento", "Imóvel", 120000.0),
+        ("Carro", "Veículo", 32000.0),
+        ("Tesouro Direto", "Investimento", 10110.0),
+    ]:
+        conn.execute("INSERT INTO assets (name, category, value) VALUES (?,?,?)",
+                     (name, category, value))
 
     cat_ids = {}
     for name, color, kind in CATEGORIES:
@@ -58,32 +75,56 @@ def seed():
         conn.execute("INSERT OR IGNORE INTO budgets (category_id, amount, month) VALUES (?,?,NULL)",
                      (cat_ids[name], amount))
 
-    # Lançamentos espalhados pelos últimos ~25 dias do mês atual.
+    # Lançamentos espalhados pelos últimos 6 meses, para alimentar os gráficos.
     today = date.today()
-    first = today.replace(day=1)
     fitid = 1000
-    for cat, desc, lo, hi in SAMPLE_TX:
-        n = random.randint(1, 4)
-        for _ in range(n):
-            day_offset = random.randint(0, (today - first).days)
-            d = first + timedelta(days=day_offset)
-            amount = round(random.uniform(lo, hi), 2)
-            fitid += 1
-            conn.execute(
-                """INSERT OR IGNORE INTO transactions
-                   (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
-                   VALUES (?,?,?,?,?,?,?)""",
-                (account_id, str(fitid), d.isoformat(), amount, desc, desc, cat_ids[cat]),
-            )
+    for back in range(5, -1, -1):  # do mês -5 até o mês atual
+        idx = today.year * 12 + (today.month - 1) - back
+        year, mon = idx // 12, idx % 12 + 1
+        first = date(year, mon, 1)
+        days_in_month = calendar.monthrange(year, mon)[1]
+        # No mês corrente só vai até hoje; nos passados, o mês inteiro.
+        max_day = today.day if (year, mon) == (today.year, today.month) else days_in_month
 
-    # Salário do dia 5.
+        for cat, desc, lo, hi in SAMPLE_TX:
+            n = random.randint(1, 4)
+            for _ in range(n):
+                d = first + timedelta(days=random.randint(0, max_day - 1))
+                amount = round(random.uniform(lo, hi), 2)
+                fitid += 1
+                conn.execute(
+                    """INSERT OR IGNORE INTO transactions
+                       (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (account_id, str(fitid), d.isoformat(), amount, desc, desc, cat_ids[cat]),
+                )
+
+        # Salário do dia 5 de cada mês (varia um pouco para o gráfico não ficar reto).
+        fitid += 1
+        conn.execute(
+            """INSERT OR IGNORE INTO transactions
+               (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
+               VALUES (?,?,?,?,?,?,?)""",
+            (account_id, str(fitid), first.replace(day=5).isoformat(),
+             round(random.uniform(11000, 13000), 2),
+             "SALARIO EMPRESA XYZ", "SALARIO", cat_ids["Salário"]),
+        )
+
+    # Transferência de exemplo: R$ 1.500 da conta corrente para a poupança (mês atual).
+    when = first.replace(day=10).isoformat()
     fitid += 1
     conn.execute(
-        """INSERT OR IGNORE INTO transactions
-           (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
+        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
            VALUES (?,?,?,?,?,?,?)""",
-        (account_id, str(fitid), first.replace(day=5).isoformat(), 12000.0,
-         "SALARIO EMPRESA XYZ", "SALARIO", cat_ids["Salário"]),
+        (account_id, str(fitid), when, -1500.0,
+         "Transferência → Poupança (exemplo)", "TRANSF", cat_ids["Transferência"]),
+    )
+    fitid += 1
+    conn.execute(
+        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
+           VALUES (?,?,?,?,?,?,?)""",
+        (savings_id, str(fitid), when, 1500.0,
+         "Transferência ← Conta Corrente (exemplo)", "TRANSF", cat_ids["Transferência"]),
     )
 
     conn.commit()

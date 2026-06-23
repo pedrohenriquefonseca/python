@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Bens — Patrimônio{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <div class="eyebrow">Patrimônio</div>
+    <h1>Bens · extra-bancário</h1>
+  </div>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr><th>Bem</th><th>Categoria</th><th class="right">Valor</th><th class="right">Atualizado</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><i class="{{ asset_icon(r.category) }}"></i> {{ r.name }}</td>
+        <td class="muted">{{ r.category }}</td>
+        <td class="right">R$ {{ r.value|brl }}</td>
+        <td class="right muted nowrap">{{ r.updated_at[:10] }}</td>
+        <td class="right">
+          <form method="post" action="{{ url_for('delete_asset', asset_id=r.id) }}"
+                onsubmit="return confirm('Remover {{ r.name }}?')">
+            <button class="iconbtn" title="Remover"><i class="ti ti-trash"></i></button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">Nenhum bem cadastrado ainda.</td></tr>
+    {% endfor %}
+    </tbody>
+    {% if rows %}
+    <tfoot>
+      <tr><td><b>Total em bens</b></td><td></td><td class="right"><b>R$ {{ total|brl }}</b></td><td colspan="2"></td></tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</div>
+
+<div class="nw-summary card">
+  <div><span class="eyebrow">Saldo em bancos</span><b>R$ {{ nw_bancos|brl }}</b></div>
+  <span class="op">+</span>
+  <div><span class="eyebrow">Total em bens</span><b>R$ {{ nw_bens|brl }}</b></div>
+  <span class="op">=</span>
+  <div class="nw-total"><span class="eyebrow">Patrimônio líquido</span><b class="positive">R$ {{ nw_total|brl }}</b></div>
+</div>
+
+<div class="card form-card">
+  <div class="card-title" style="margin-bottom:14px;">Adicionar bem</div>
+  <form method="post" class="inline-form">
+    <label>Nome <input type="text" name="name" placeholder="Ex.: Apartamento" required></label>
+    <label>Categoria
+      <select name="category">
+        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Valor (R$) <input type="text" name="value" placeholder="120.000,00" inputmode="decimal" required></label>
+    <button class="btn btn-primary" type="submit"><i class="ti ti-plus"></i> Adicionar</button>
+  </form>
+</div>
+
+{% endblock %}

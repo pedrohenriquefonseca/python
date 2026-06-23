@@ -15,6 +15,65 @@ from ofx_import import read_ofx_file
 app = Flask(__name__)
 app.secret_key = "troque-este-segredo-em-producao"
 
+# Ícone (Tabler) fixo por categoria e por tipo de bem.
+CATEGORY_ICONS = {
+    "Moradia": "home", "Transporte": "car", "Alimentação": "tools-kitchen-2",
+    "Mercado": "shopping-cart", "Saúde": "heartbeat", "Lazer": "movie",
+    "Assinaturas": "repeat", "Salário": "cash", "Outros": "dots",
+    "Transferência": "arrows-exchange",
+}
+ASSET_ICONS = {
+    "Imóvel": "home", "Veículo": "car", "Investimento": "chart-line", "Outros": "diamond",
+}
+
+
+def cat_icon(name: str) -> str:
+    return "ti ti-" + CATEGORY_ICONS.get(name, "tag")
+
+
+def asset_icon(category: str) -> str:
+    return "ti ti-" + ASSET_ICONS.get(category, "diamond")
+
+
+app.jinja_env.globals.update(cat_icon=cat_icon, asset_icon=asset_icon)
+
+
+@app.template_filter("brl")
+def brl(v: float) -> str:
+    """Formata em reais no padrão BR: 1.234.567,89."""
+    s = f"{abs(v):,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    return ("-" if v < 0 else "") + s
+
+
+@app.template_filter("kmil")
+def kmil(v: float) -> str:
+    """Compacta para milhares: 162110 -> 162,1k."""
+    return f"{v / 1000:.1f}".replace(".", ",") + "k"
+
+
+@app.template_filter("n0")
+def n0(v: float) -> str:
+    """Inteiro com separador de milhar BR: 7200 -> 7.200."""
+    return f"{v:,.0f}".replace(",", ".")
+
+
+def net_worth_parts() -> tuple[float, float, float]:
+    """(saldo em bancos, total em bens, patrimônio líquido).
+    Saldo em bancos = saldos iniciais + soma de todos os lançamentos."""
+    conn = get_db()
+    opening = conn.execute("SELECT COALESCE(SUM(opening_balance), 0) AS v FROM accounts").fetchone()["v"]
+    moves = conn.execute("SELECT COALESCE(SUM(amount), 0) AS v FROM transactions WHERE ignored = 0").fetchone()["v"]
+    assets = conn.execute("SELECT COALESCE(SUM(value), 0) AS v FROM assets").fetchone()["v"]
+    conn.close()
+    bancos = opening + moves
+    return bancos, assets, bancos + assets
+
+
+@app.context_processor
+def inject_net_worth():
+    bancos, bens, total = net_worth_parts()
+    return {"nw_bancos": bancos, "nw_bens": bens, "nw_total": total}
+
 
 # ----------------------------------------------------------------------------- helpers
 def current_month() -> str:
@@ -33,6 +92,14 @@ def month_label(month: str) -> str:
              "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
     year, mon = month.split("-")
     return f"{meses[int(mon)]}/{year}"
+
+
+def month_short(month: str) -> str:
+    """Rótulo curto para eixos de gráfico, ex.: 'jun/26'."""
+    abbr = ["", "jan", "fev", "mar", "abr", "mai", "jun",
+            "jul", "ago", "set", "out", "nov", "dez"]
+    year, mon = month.split("-")
+    return f"{abbr[int(mon)]}/{year[2:]}"
 
 
 def pace_for_month(month: str) -> tuple[int, int]:
@@ -77,7 +144,7 @@ def dashboard():
                COALESCE(SUM(CASE WHEN t.amount < 0 THEN -t.amount ELSE 0 END), 0) AS spent
         FROM categories c
         LEFT JOIN transactions t
-            ON t.category_id = c.id AND t.posted_on BETWEEN ? AND ?
+            ON t.category_id = c.id AND t.posted_on BETWEEN ? AND ? AND t.ignored = 0
         WHERE c.kind = 'expense'
         GROUP BY c.id
         ORDER BY spent DESC
@@ -116,14 +183,28 @@ def dashboard():
     # Lançamentos sem categoria pedem atenção.
     uncategorized = conn.execute(
         "SELECT COUNT(*) AS n FROM transactions WHERE category_id IS NULL "
-        "AND posted_on BETWEEN ? AND ?", (start, end),
+        "AND ignored = 0 AND posted_on BETWEEN ? AND ?", (start, end),
     ).fetchone()["n"]
 
     income = conn.execute(
         "SELECT COALESCE(SUM(amount), 0) AS v FROM transactions t "
         "JOIN categories c ON c.id = t.category_id "
-        "WHERE c.kind = 'income' AND t.posted_on BETWEEN ? AND ?", (start, end),
+        "WHERE c.kind = 'income' AND t.ignored = 0 AND t.posted_on BETWEEN ? AND ?", (start, end),
     ).fetchone()["v"]
+
+    # Séries mensais dos gráficos da home.
+    charts = build_charts(conn, month)
+
+    # Top 3 estouros de orçamento do mês selecionado.
+    overruns = sorted(
+        ({"category": c["category"], "color": c["color"],
+          "overrun": c["spent"] - c["budget"]}
+         for c in budget_cards if c["budget"] and c["spent"] > c["budget"]),
+        key=lambda x: x["overrun"], reverse=True,
+    )[:3]
+    over_h = _scaled_heights([o["overrun"] for o in overruns])
+    for o, h in zip(overruns, over_h):
+        o["h"] = h
 
     conn.close()
     return render_template(
@@ -133,6 +214,7 @@ def dashboard():
         cards=budget_cards, total_spent=total_spent, total_budget=total_budget,
         days_elapsed=days_elapsed, days_total=days_total,
         uncategorized=uncategorized, income=income,
+        charts=charts, overruns=overruns,
     )
 
 
@@ -140,6 +222,82 @@ def shift_month(month: str, delta: int) -> str:
     year, mon = (int(p) for p in month.split("-"))
     idx = year * 12 + (mon - 1) + delta
     return f"{idx // 12}-{idx % 12 + 1:02d}"
+
+
+def _scaled_heights(values: list[float], min_visible: float = 4.0) -> list[float]:
+    """Converte valores em alturas 0–100% relativas ao máximo da série.
+    Dá uma altura mínima visível a valores positivos para a barra não sumir."""
+    mx = max(values) if values else 0
+    out = []
+    for v in values:
+        if mx <= 0 or v <= 0:
+            out.append(0.0)
+        else:
+            out.append(max(v / mx * 100, min_visible))
+    return out
+
+
+def build_charts(conn, month: str, n_months: int = 6) -> dict:
+    """Séries mensais (gasto, receita, orçado) dos últimos n meses até `month`."""
+    months = [shift_month(month, -i) for i in range(n_months - 1, -1, -1)]
+    expense_cats = conn.execute(
+        "SELECT id FROM categories WHERE kind = 'expense'"
+    ).fetchall()
+
+    gastos, receitas, orcados = [], [], []
+    for m in months:
+        start, end = month_bounds(m)
+        gasto = conn.execute(
+            "SELECT COALESCE(SUM(-t.amount), 0) AS v FROM transactions t "
+            "JOIN categories c ON c.id = t.category_id "
+            "WHERE c.kind = 'expense' AND t.ignored = 0 AND t.amount < 0 AND t.posted_on BETWEEN ? AND ?",
+            (start, end),
+        ).fetchone()["v"]
+        receita = conn.execute(
+            "SELECT COALESCE(SUM(t.amount), 0) AS v FROM transactions t "
+            "JOIN categories c ON c.id = t.category_id "
+            "WHERE c.kind = 'income' AND t.ignored = 0 AND t.posted_on BETWEEN ? AND ?",
+            (start, end),
+        ).fetchone()["v"]
+        orcado = sum(b for b in (budget_for(conn, c["id"], m) for c in expense_cats) if b)
+        gastos.append(gasto)
+        receitas.append(receita)
+        orcados.append(orcado)
+
+    labels = [month_short(m) for m in months]
+
+    # ---- Gráfico de linha "Fluxo mensal" (receita, gasto, orçado) ----
+    # Coordenadas em viewBox 480x104; eixo de valor entre y=18 (topo) e y=74 (base = 0).
+    W, x0, x1, top, base = 480, 20, 460, 18, 74
+    n = len(months)
+    xs = [x0 + (x1 - x0) * i / (n - 1) for i in range(n)] if n > 1 else [x0]
+    vmax = max(receitas + gastos + orcados + [1])
+
+    def y_of(v):
+        return base - (v / vmax) * (base - top)
+
+    def fmt_mil(v):
+        return f"{v / 1000:.1f}".replace(".", ",")
+
+    receita_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, receitas))
+    gasto_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, gastos))
+    orcado_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, orcados))
+
+    flow = {
+        "receita_pts": receita_pts, "gasto_pts": gasto_pts, "orcado_pts": orcado_pts,
+        "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) - 7, 1),
+                           "label": fmt_mil(v), "current": m == month}
+                          for x, v, m in zip(xs, receitas, months)],
+        "gasto_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) + 11, 1),
+                         "label": fmt_mil(v), "current": m == month}
+                        for x, v, m in zip(xs, gastos, months)],
+        "month_nodes": [{"x": round(x), "label": l, "current": m == month}
+                        for x, l, m in zip(xs, labels, months)],
+        "orcado_label": fmt_mil(orcados[-1]) if orcados else "0",
+        "orcado_y": round(y_of(orcados[-1]) + 10, 1) if orcados else base,
+    }
+
+    return {"labels": labels, "flow": flow}
 
 
 # ----------------------------------------------------------------------------- transações
@@ -150,7 +308,8 @@ def transactions():
     conn = get_db()
     rows = conn.execute(
         """
-        SELECT t.*, c.name AS category_name, c.color AS category_color, a.name AS account_name
+        SELECT t.*, c.name AS category_name, c.color AS category_color,
+               c.kind AS category_kind, a.name AS account_name
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.category_id
         LEFT JOIN accounts a ON a.id = t.account_id
@@ -158,7 +317,10 @@ def transactions():
         ORDER BY t.posted_on DESC, t.id DESC
         """, (start, end),
     ).fetchall()
-    categories = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
+    # Dropdown de categorias não oferece 'transferência' (uso interno).
+    categories = conn.execute(
+        "SELECT * FROM categories WHERE kind != 'transfer' ORDER BY name"
+    ).fetchall()
     conn.close()
     return render_template(
         "transactions.html", rows=rows, categories=categories,
@@ -187,6 +349,63 @@ def categorize_tx(tx_id: int):
     conn.commit()
     conn.close()
     return redirect(request.referrer or url_for("transactions"))
+
+
+@app.route("/transactions/<int:tx_id>/ignore", methods=["POST"])
+def ignore_tx(tx_id: int):
+    """Alterna 'ignorado': lançamento sai (ou volta) de orçamentos, gráficos, saldo e net worth."""
+    conn = get_db()
+    conn.execute("UPDATE transactions SET ignored = 1 - ignored WHERE id = ?", (tx_id,))
+    conn.commit()
+    conn.close()
+    return redirect(request.referrer or url_for("transactions"))
+
+
+# ----------------------------------------------------------------------------- transferências
+def transfer_category_id(conn) -> int:
+    """Id da categoria 'Transferência' (kind='transfer'), criando-a se não existir."""
+    row = conn.execute("SELECT id FROM categories WHERE kind = 'transfer' ORDER BY id LIMIT 1").fetchone()
+    if row:
+        return row["id"]
+    conn.execute("INSERT INTO categories (name, color, kind) VALUES ('Transferência', '#9aa0aa', 'transfer')")
+    return conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+
+@app.route("/transfer", methods=["POST"])
+def transfer():
+    """Move valor de uma conta para outra: cria duas pernas com categoria 'Transferência',
+    que ficam fora de orçamentos/gráficos mas afetam os saldos das contas."""
+    from_id = int(request.form["from_account"])
+    to_id = int(request.form["to_account"])
+    amount = float((request.form.get("amount") or "0").replace(".", "").replace(",", "."))
+    when = request.form.get("date") or current_month() + "-01"
+    if from_id == to_id:
+        flash("Escolha contas diferentes para a transferência.", "error")
+        return redirect(request.referrer or url_for("accounts"))
+    if amount <= 0:
+        flash("Informe um valor positivo para transferir.", "error")
+        return redirect(request.referrer or url_for("accounts"))
+
+    conn = get_db()
+    cat = transfer_category_id(conn)
+    a_from = conn.execute("SELECT name FROM accounts WHERE id = ?", (from_id,)).fetchone()
+    a_to = conn.execute("SELECT name FROM accounts WHERE id = ?", (to_id,)).fetchone()
+    desc_out = f"Transferência → {a_to['name']}"
+    desc_in = f"Transferência ← {a_from['name']}"
+    conn.execute(
+        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
+           VALUES (?, NULL, ?, ?, ?, ?, ?)""",
+        (from_id, when, -amount, desc_out, desc_out, cat),
+    )
+    conn.execute(
+        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
+           VALUES (?, NULL, ?, ?, ?, ?, ?)""",
+        (to_id, when, amount, desc_in, desc_in, cat),
+    )
+    conn.commit()
+    conn.close()
+    flash(f"Transferência de R$ {amount:.2f} registrada.", "ok")
+    return redirect(request.referrer or url_for("accounts"))
 
 
 # ----------------------------------------------------------------------------- orçamentos
@@ -257,15 +476,59 @@ def import_ofx():
 def accounts():
     conn = get_db()
     if request.method == "POST":
+        opening = float((request.form.get("opening_balance") or "0").replace(".", "").replace(",", ".")) \
+            if request.form.get("opening_balance") else 0.0
         conn.execute(
-            "INSERT INTO accounts (name, type, bank) VALUES (?, ?, ?)",
-            (request.form["name"], request.form["type"], request.form.get("bank", "")),
+            "INSERT INTO accounts (name, type, bank, opening_balance) VALUES (?, ?, ?, ?)",
+            (request.form["name"], request.form["type"], request.form.get("bank", ""), opening),
         )
         conn.commit()
         flash("Conta criada.", "ok")
-    rows = conn.execute("SELECT * FROM accounts ORDER BY name").fetchall()
+    rows = conn.execute(
+        """
+        SELECT a.*,
+               a.opening_balance + COALESCE(
+                   (SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.ignored = 0), 0
+               ) AS balance
+        FROM accounts a ORDER BY a.name
+        """
+    ).fetchall()
     conn.close()
     return render_template("accounts.html", rows=rows)
+
+
+# ----------------------------------------------------------------------------- patrimônio (bens)
+ASSET_CATEGORIES = ["Imóvel", "Veículo", "Investimento", "Outros"]
+
+
+@app.route("/assets", methods=["GET", "POST"])
+def assets():
+    conn = get_db()
+    if request.method == "POST":
+        value = float((request.form.get("value") or "0").replace(".", "").replace(",", "."))
+        conn.execute(
+            "INSERT INTO assets (name, category, value) VALUES (?, ?, ?)",
+            (request.form["name"], request.form.get("category", "Outros"), value),
+        )
+        conn.commit()
+        flash("Bem cadastrado.", "ok")
+        return redirect(url_for("assets"))
+    rows = conn.execute("SELECT * FROM assets ORDER BY value DESC").fetchall()
+    total = sum(r["value"] for r in rows)
+    conn.close()
+    return render_template(
+        "assets.html", rows=rows, total=total, categories=ASSET_CATEGORIES,
+    )
+
+
+@app.route("/assets/<int:asset_id>/delete", methods=["POST"])
+def delete_asset(asset_id: int):
+    conn = get_db()
+    conn.execute("DELETE FROM assets WHERE id = ?", (asset_id,))
+    conn.commit()
+    conn.close()
+    flash("Bem removido.", "ok")
+    return redirect(url_for("assets"))
 
 
 if __name__ == "__main__":

@@ -2,34 +2,62 @@
 {% block title %}Contas{% endblock %}
 {% block content %}
 
-<h1>Contas e cartões</h1>
+<div class="page-head"><h1>Contas e cartões</h1></div>
 
-<form method="post" class="card-form">
-  <label>Nome
-    <input type="text" name="name" placeholder="Ex.: Conta Corrente Itaú" required>
-  </label>
-  <label>Tipo
-    <select name="type">
-      <option value="checking">Conta corrente</option>
-      <option value="credit">Cartão de crédito</option>
-      <option value="investment">Investimento</option>
-    </select>
-  </label>
-  <label>Banco
-    <input type="text" name="bank" placeholder="Ex.: Itaú">
-  </label>
-  <button class="btn btn-primary" type="submit">Adicionar</button>
-</form>
+<div class="card">
+  <table class="data-table">
+    <thead><tr><th>Nome</th><th>Tipo</th><th>Banco</th><th class="right">Saldo inicial</th><th class="right">Saldo atual</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.name }}</td><td class="muted">{{ r.type }}</td><td class="muted">{{ r.bank }}</td>
+        <td class="right muted">R$ {{ r.opening_balance|brl }}</td>
+        <td class="right {{ 'negative' if r.balance < 0 else '' }}">R$ {{ r.balance|brl }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">Nenhuma conta cadastrada.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-<table class="tx-table">
-  <thead><tr><th>Nome</th><th>Tipo</th><th>Banco</th></tr></thead>
-  <tbody>
-  {% for r in rows %}
-    <tr><td>{{ r.name }}</td><td>{{ r.type }}</td><td class="muted">{{ r.bank }}</td></tr>
-  {% else %}
-    <tr><td colspan="3" class="muted">Nenhuma conta cadastrada.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% if rows|length >= 2 %}
+<div class="card form-card">
+  <div class="card-title" style="margin-bottom:14px;">Transferir entre contas</div>
+  <p class="muted" style="margin:0 0 14px; font-size:12px;">Transferências movem saldo entre suas contas e não entram em orçamentos, gráficos nem limites.</p>
+  <form method="post" action="{{ url_for('transfer') }}" class="inline-form">
+    <label>De
+      <select name="from_account" required>
+        {% for a in rows %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Para
+      <select name="to_account" required>
+        {% for a in rows %}<option value="{{ a.id }}" {{ 'selected' if loop.index == 2 }}>{{ a.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Valor (R$) <input type="text" name="amount" placeholder="1.000,00" inputmode="decimal" required></label>
+    <label>Data <input type="text" name="date" placeholder="2026-06-23"></label>
+    <button class="btn btn-primary" type="submit"><i class="ti ti-arrows-exchange"></i> Transferir</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card form-card">
+  <div class="card-title" style="margin-bottom:14px;">Adicionar conta</div>
+  <form method="post" class="inline-form">
+    <label>Nome <input type="text" name="name" placeholder="Ex.: Conta Corrente Itaú" required></label>
+    <label>Tipo
+      <select name="type">
+        <option value="checking">Conta corrente</option>
+        <option value="credit">Cartão de crédito</option>
+        <option value="investment">Investimento</option>
+      </select>
+    </label>
+    <label>Banco <input type="text" name="bank" placeholder="Ex.: Itaú"></label>
+    <label>Saldo inicial (R$) <input type="text" name="opening_balance" placeholder="0,00" inputmode="decimal"></label>
+    <button class="btn btn-primary" type="submit"><i class="ti ti-plus"></i> Adicionar</button>
+  </form>
+</div>
 
 {% endblock %}
