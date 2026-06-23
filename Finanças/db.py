@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     raw_memo    TEXT,
     category_id INTEGER,
     ignored     INTEGER NOT NULL DEFAULT 0,   -- 1 = ignorado: fora de orçamentos, gráficos, saldo e net worth
+    transfer_to INTEGER,                       -- se preenchido: transferência; conta destino creditada automaticamente
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (account_id)  REFERENCES accounts(id)   ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,

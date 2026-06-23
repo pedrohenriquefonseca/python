@@ -28,7 +28,7 @@
 
 <div class="card chart-card">
   <div class="card-head">
-    <div class="card-title">Fluxo mensal <span class="muted">(R$ mil)</span></div>
+    <div class="card-title">Fluxo mensal</div>
     <div class="legend">
       <span class="lg-receita"><i class="ti ti-point-filled"></i> Receita</span>
       <span class="lg-gasto"><i class="ti ti-point-filled"></i> Gasto</span>
@@ -37,7 +37,6 @@
   </div>
   <svg class="flow" viewBox="0 0 480 104">
     <polyline class="fl-orcado" points="{{ charts.flow.orcado_pts }}"/>
-    <text x="460" y="{{ charts.flow.orcado_y }}" text-anchor="end" class="fl-orclabel">orçado {{ charts.flow.orcado_label }}</text>
     <polyline class="fl-gasto" points="{{ charts.flow.gasto_pts }}"/>
     <polyline class="fl-receita" points="{{ charts.flow.receita_pts }}"/>
     {% for nd in charts.flow.receita_nodes %}

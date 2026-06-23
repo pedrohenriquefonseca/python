@@ -2,25 +2,61 @@
 {% block title %}Importar OFX{% endblock %}
 {% block content %}
 
-<h1>Importar extrato OFX</h1>
-<p class="muted">Exporte o OFX da sua conta ou da fatura do cartão e suba aqui. Reimportar o mesmo período não duplica lançamentos.</p>
+<div class="page-head">
+  <div>
+    <div class="eyebrow">Dados</div>
+    <h1>Importar extrato OFX</h1>
+  </div>
+</div>
+<p class="muted" style="margin-top:-8px;">Exporte o OFX da sua conta ou da fatura do cartão. Reimportar o mesmo período não duplica lançamentos.</p>
 
 {% if not accounts %}
   <div class="flash flash-warning">Você ainda não cadastrou nenhuma conta. <a href="{{ url_for('accounts') }}">Crie uma conta primeiro.</a></div>
 {% else %}
-<form method="post" enctype="multipart/form-data" class="card-form">
-  <label>Conta de destino
-    <select name="account_id" required>
-      {% for a in accounts %}
-        <option value="{{ a.id }}">{{ a.name }} ({{ a.type }})</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>Arquivo OFX
-    <input type="file" name="ofx_file" accept=".ofx,.qfx,text/*" required>
-  </label>
-  <button class="btn btn-primary" type="submit">Importar</button>
-</form>
+<div class="card">
+  <form method="post" enctype="multipart/form-data" id="ofx-form">
+    <label class="field">Conta de destino
+      <select name="account_id" required>
+        {% for a in accounts %}
+          <option value="{{ a.id }}">{{ a.name }} ({{ a.type }})</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="dropzone" id="dropzone">
+      <input type="file" name="ofx_file" id="ofx-file" accept=".ofx,.qfx,text/*" required hidden>
+      <i class="ti ti-arrow-bar-to-down"></i>
+      <div class="dz-title">Arraste o arquivo OFX aqui</div>
+      <div class="dz-sub">ou clique para selecionar — arquivos .ofx ou .qfx</div>
+      <div class="dz-file" id="dz-file"></div>
+    </label>
+
+    <button class="btn btn-primary" type="submit"><i class="ti ti-arrow-bar-to-down"></i> Importar lançamentos</button>
+  </form>
+</div>
 {% endif %}
+
+<script>
+(function(){
+  var dz = document.getElementById('dropzone'),
+      inp = document.getElementById('ofx-file'),
+      out = document.getElementById('dz-file');
+  if (!dz) return;
+  function show(){
+    out.textContent = inp.files.length ? inp.files[0].name : '';
+    dz.classList.toggle('has-file', inp.files.length > 0);
+  }
+  inp.addEventListener('change', show);
+  ['dragenter','dragover'].forEach(function(e){
+    dz.addEventListener(e, function(ev){ ev.preventDefault(); dz.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(function(e){
+    dz.addEventListener(e, function(ev){ ev.preventDefault(); dz.classList.remove('drag'); });
+  });
+  dz.addEventListener('drop', function(ev){
+    if (ev.dataTransfer.files.length){ inp.files = ev.dataTransfer.files; show(); }
+  });
+})();
+</script>
 
 {% endblock %}

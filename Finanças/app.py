@@ -63,6 +63,10 @@ def net_worth_parts() -> tuple[float, float, float]:
     conn = get_db()
     opening = conn.execute("SELECT COALESCE(SUM(opening_balance), 0) AS v FROM accounts").fetchone()["v"]
     moves = conn.execute("SELECT COALESCE(SUM(amount), 0) AS v FROM transactions WHERE ignored = 0").fetchone()["v"]
+    # Crédito automático nas contas de destino das transferências (a perna de saída já está em 'moves').
+    moves += conn.execute(
+        "SELECT COALESCE(SUM(-amount), 0) AS v FROM transactions WHERE ignored = 0 AND transfer_to IS NOT NULL"
+    ).fetchone()["v"]
     assets = conn.execute("SELECT COALESCE(SUM(value), 0) AS v FROM assets").fetchone()["v"]
     conn.close()
     bancos = opening + moves
@@ -276,8 +280,8 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
     def y_of(v):
         return base - (v / vmax) * (base - top)
 
-    def fmt_mil(v):
-        return f"{v / 1000:.1f}".replace(".", ",")
+    def fmt_cur(v):
+        return "R$ " + f"{v:,.0f}".replace(",", ".")
 
     receita_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, receitas))
     gasto_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, gastos))
@@ -285,15 +289,15 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
 
     flow = {
         "receita_pts": receita_pts, "gasto_pts": gasto_pts, "orcado_pts": orcado_pts,
-        "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) - 7, 1),
-                           "label": fmt_mil(v), "current": m == month}
+        "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) - 6, 1),
+                           "label": fmt_cur(v), "current": m == month}
                           for x, v, m in zip(xs, receitas, months)],
-        "gasto_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) + 11, 1),
-                         "label": fmt_mil(v), "current": m == month}
+        "gasto_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) + 10, 1),
+                         "label": fmt_cur(v), "current": m == month}
                         for x, v, m in zip(xs, gastos, months)],
         "month_nodes": [{"x": round(x), "label": l, "current": m == month}
                         for x, l, m in zip(xs, labels, months)],
-        "orcado_label": fmt_mil(orcados[-1]) if orcados else "0",
+        "orcado_label": fmt_cur(orcados[-1]) if orcados else "R$ 0",
         "orcado_y": round(y_of(orcados[-1]) + 10, 1) if orcados else base,
     }
 
@@ -317,13 +321,14 @@ def transactions():
         ORDER BY t.posted_on DESC, t.id DESC
         """, (start, end),
     ).fetchall()
-    # Dropdown de categorias não oferece 'transferência' (uso interno).
+    # Dropdown lista categorias normais (kind != transfer) + as contas como destino de transferência.
     categories = conn.execute(
         "SELECT * FROM categories WHERE kind != 'transfer' ORDER BY name"
     ).fetchall()
+    accounts_list = conn.execute("SELECT id, name FROM accounts ORDER BY name").fetchall()
     conn.close()
     return render_template(
-        "transactions.html", rows=rows, categories=categories,
+        "transactions.html", rows=rows, categories=categories, accounts=accounts_list,
         month=month, month_label=month_label(month),
         prev_month=shift_month(month, -1), next_month=shift_month(month, +1),
     )
@@ -331,10 +336,26 @@ def transactions():
 
 @app.route("/transactions/<int:tx_id>/categorize", methods=["POST"])
 def categorize_tx(tx_id: int):
-    category_id = request.form.get("category_id") or None
+    value = request.form.get("category_id") or ""
     make_rule = request.form.get("make_rule")
     conn = get_db()
-    conn.execute("UPDATE transactions SET category_id = ? WHERE id = ?", (category_id, tx_id))
+
+    # Opção "Para <conta>": marca o lançamento como transferência para aquela conta.
+    if value.startswith("transfer:"):
+        dest_id = int(value.split(":", 1)[1])
+        tx = conn.execute("SELECT account_id FROM transactions WHERE id = ?", (tx_id,)).fetchone()
+        if tx and dest_id != tx["account_id"]:
+            cat = transfer_category_id(conn)
+            conn.execute("UPDATE transactions SET category_id = ?, transfer_to = ? WHERE id = ?",
+                         (cat, dest_id, tx_id))
+            conn.commit()
+        conn.close()
+        return redirect(request.referrer or url_for("transactions"))
+
+    # Categoria normal: limpa qualquer marcação de transferência.
+    category_id = value or None
+    conn.execute("UPDATE transactions SET category_id = ?, transfer_to = NULL WHERE id = ?",
+                 (category_id, tx_id))
     # Opcional: aprender uma regra a partir desta correção.
     if make_rule and category_id:
         tx = conn.execute("SELECT description FROM transactions WHERE id = ?", (tx_id,)).fetchone()
@@ -371,43 +392,6 @@ def transfer_category_id(conn) -> int:
     return conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
 
-@app.route("/transfer", methods=["POST"])
-def transfer():
-    """Move valor de uma conta para outra: cria duas pernas com categoria 'Transferência',
-    que ficam fora de orçamentos/gráficos mas afetam os saldos das contas."""
-    from_id = int(request.form["from_account"])
-    to_id = int(request.form["to_account"])
-    amount = float((request.form.get("amount") or "0").replace(".", "").replace(",", "."))
-    when = request.form.get("date") or current_month() + "-01"
-    if from_id == to_id:
-        flash("Escolha contas diferentes para a transferência.", "error")
-        return redirect(request.referrer or url_for("accounts"))
-    if amount <= 0:
-        flash("Informe um valor positivo para transferir.", "error")
-        return redirect(request.referrer or url_for("accounts"))
-
-    conn = get_db()
-    cat = transfer_category_id(conn)
-    a_from = conn.execute("SELECT name FROM accounts WHERE id = ?", (from_id,)).fetchone()
-    a_to = conn.execute("SELECT name FROM accounts WHERE id = ?", (to_id,)).fetchone()
-    desc_out = f"Transferência → {a_to['name']}"
-    desc_in = f"Transferência ← {a_from['name']}"
-    conn.execute(
-        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
-           VALUES (?, NULL, ?, ?, ?, ?, ?)""",
-        (from_id, when, -amount, desc_out, desc_out, cat),
-    )
-    conn.execute(
-        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
-           VALUES (?, NULL, ?, ?, ?, ?, ?)""",
-        (to_id, when, amount, desc_in, desc_in, cat),
-    )
-    conn.commit()
-    conn.close()
-    flash(f"Transferência de R$ {amount:.2f} registrada.", "ok")
-    return redirect(request.referrer or url_for("accounts"))
-
-
 # ----------------------------------------------------------------------------- orçamentos
 @app.route("/budgets", methods=["GET", "POST"])
 def budgets():
@@ -429,8 +413,9 @@ def budgets():
         FROM categories c WHERE c.kind = 'expense' ORDER BY c.name
         """
     ).fetchall()
+    total = sum(r["budget"] for r in rows if r["budget"])
     conn.close()
-    return render_template("budgets.html", rows=rows)
+    return render_template("budgets.html", rows=rows, total=total)
 
 
 # ----------------------------------------------------------------------------- import OFX
@@ -487,14 +472,45 @@ def accounts():
     rows = conn.execute(
         """
         SELECT a.*,
-               a.opening_balance + COALESCE(
-                   (SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.ignored = 0), 0
-               ) AS balance
+               a.opening_balance
+               + COALESCE((SELECT SUM(t.amount) FROM transactions t
+                           WHERE t.account_id = a.id AND t.ignored = 0), 0)
+               + COALESCE((SELECT SUM(-t.amount) FROM transactions t
+                           WHERE t.transfer_to = a.id AND t.ignored = 0), 0) AS balance
         FROM accounts a ORDER BY a.name
         """
     ).fetchall()
     conn.close()
     return render_template("accounts.html", rows=rows)
+
+
+@app.route("/accounts/<int:account_id>/balance", methods=["POST"])
+def set_balance(account_id: int):
+    """Ajusta o saldo inicial para que o saldo atual bata com o valor informado."""
+    raw = (request.form.get("balance") or "").strip()
+    if not raw:
+        return redirect(url_for("accounts"))
+    desired = float(raw.replace(".", "").replace(",", "."))
+    conn = get_db()
+    row = conn.execute(
+        """
+        SELECT a.opening_balance,
+               a.opening_balance
+               + COALESCE((SELECT SUM(t.amount) FROM transactions t
+                           WHERE t.account_id = a.id AND t.ignored = 0), 0)
+               + COALESCE((SELECT SUM(-t.amount) FROM transactions t
+                           WHERE t.transfer_to = a.id AND t.ignored = 0), 0) AS balance
+        FROM accounts a WHERE a.id = ?
+        """, (account_id,),
+    ).fetchone()
+    if row:
+        movimentos = row["balance"] - row["opening_balance"]
+        conn.execute("UPDATE accounts SET opening_balance = ? WHERE id = ?",
+                     (desired - movimentos, account_id))
+        conn.commit()
+        flash("Saldo ajustado.", "ok")
+    conn.close()
+    return redirect(url_for("accounts"))
 
 
 # ----------------------------------------------------------------------------- patrimônio (bens)

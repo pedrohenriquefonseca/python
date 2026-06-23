@@ -103,10 +103,10 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .fl-orcado { stroke: #c4c6cf; stroke-width: 1.4; stroke-dasharray: 5 4; }
 .fl-gasto { stroke: var(--red); stroke-width: 1.6; }
 .fl-receita { stroke: var(--green); stroke-width: 1.6; }
-.fl-orclabel { fill: var(--faint); font-size: 7px; }
+.fl-orclabel { fill: var(--faint); font-size: 5.5px; }
 .nd-receita { fill: var(--green); }
 .nd-gasto { fill: var(--red); }
-.nd-label { fill: var(--muted); font-size: 7px; }
+.nd-label { fill: var(--muted); font-size: 5.5px; }
 .nd-month { fill: var(--faint); font-size: 8.5px; }
 .nd-month.is-current { fill: var(--ink); font-weight: 600; }
 
@@ -138,6 +138,8 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .data-table tfoot td { border-top: 1.5px solid #ddd; }
 .tx-table tr.uncat { background: #fcf6e8; }
 .tx-table tr.is-ignored td { opacity: .45; }
+.year-sep td { padding: 16px 10px 4px; border-top: none; font-size: 24px; font-weight: 700;
+  color: var(--faint); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .tx-table tr.is-ignored td:last-child { opacity: 1; }
 .cat-ico { color: var(--muted); margin-right: 6px; }
 .transfer-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--indigo); }
@@ -153,6 +155,24 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 
 /* ---------- formulários ---------- */
 .form-card .inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+
+/* ---------- importar OFX (drag & drop) ---------- */
+#ofx-form { display: flex; flex-direction: column; gap: 18px; }
+#ofx-form .btn-primary { align-self: flex-start; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--muted); max-width: 340px; }
+.dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; text-align: center; cursor: pointer; color: var(--muted);
+  border: 1.5px dashed var(--border); border-radius: 12px; padding: 40px 20px;
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover { border-color: var(--indigo); }
+.dropzone.drag { border-color: var(--indigo); background: #f3f4f8; }
+.dropzone.has-file { border-style: solid; border-color: var(--green); }
+.dropzone i { font-size: 34px; color: var(--indigo); }
+.dz-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.dz-sub { font-size: 12px; }
+.dz-file { font-size: 12px; color: var(--green); font-weight: 500; margin-top: 4px; }
 .inline-form label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--muted); }
 .budget-form { display: flex; gap: 8px; }
 input[type=text], input[type=file], select {

@@ -111,20 +111,15 @@ def seed():
         )
 
     # Transferência de exemplo: R$ 1.500 da conta corrente para a poupança (mês atual).
+    # Modelo: uma transação (saída) marcada com transfer_to; a poupança é creditada automaticamente.
     when = first.replace(day=10).isoformat()
     fitid += 1
     conn.execute(
-        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
-           VALUES (?,?,?,?,?,?,?)""",
+        """INSERT INTO transactions
+           (account_id, fitid, posted_on, amount, description, raw_memo, category_id, transfer_to)
+           VALUES (?,?,?,?,?,?,?,?)""",
         (account_id, str(fitid), when, -1500.0,
-         "Transferência → Poupança (exemplo)", "TRANSF", cat_ids["Transferência"]),
-    )
-    fitid += 1
-    conn.execute(
-        """INSERT INTO transactions (account_id, fitid, posted_on, amount, description, raw_memo, category_id)
-           VALUES (?,?,?,?,?,?,?)""",
-        (savings_id, str(fitid), when, 1500.0,
-         "Transferência ← Conta Corrente (exemplo)", "TRANSF", cat_ids["Transferência"]),
+         "Aplicação na poupança", "TRANSF", cat_ids["Transferência"], savings_id),
     )
 
     conn.commit()
