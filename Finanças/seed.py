@@ -122,6 +122,14 @@ def seed():
          "Aplicação na poupança", "TRANSF", cat_ids["Transferência"], savings_id),
     )
 
+    # Snapshots de saldo da poupança (investimento) p/ demonstrar o rendimento mensal.
+    for back, val in [(2, 9200.0), (1, 9350.0), (0, 9500.0)]:
+        idx = today.year * 12 + (today.month - 1) - back
+        y, mo = idx // 12, idx % 12 + 1
+        snap_date = date(y, mo, min(today.day, 28)).isoformat()
+        conn.execute("INSERT INTO account_snapshots (account_id, on_date, balance) VALUES (?,?,?)",
+                     (savings_id, snap_date, val))
+
     # Impressão digital de dedup nos lançamentos de exemplo.
     for r in conn.execute(
         "SELECT id, posted_on, amount, description FROM transactions WHERE fingerprint IS NULL"

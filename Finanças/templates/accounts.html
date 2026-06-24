@@ -8,11 +8,21 @@
   <table class="data-table">
     <thead><tr><th>Nome</th><th>Tipo</th><th class="right">Saldo atual</th><th class="right">Ajustar saldo final</th></tr></thead>
     <tbody>
+    {% set tipo_label = {'checking': 'Conta corrente', 'credit': 'Cartão de crédito', 'investment': 'Investimento'} %}
     {% for r in rows %}
       <tr>
         <td>{{ r.name }} <span class="muted">· {{ r.bank }}</span></td>
-        <td class="muted">{{ r.type }}</td>
-        <td class="right {{ 'negative' if r.balance < 0 else '' }}">R$ {{ r.balance|brl }}</td>
+        <td class="muted">{{ tipo_label.get(r.type, r.type) }}</td>
+        <td class="right {{ 'negative' if r.balance < 0 else '' }}">
+          R$ {{ r.balance|brl }}
+          {% if r.id in rendimentos %}
+            <div class="rendimento {{ 'positive' if rendimentos[r.id] >= 0 else 'negative' }}">
+              {{ '+' if rendimentos[r.id] >= 0 }}R$ {{ rendimentos[r.id]|brl }} no mês
+            </div>
+          {% elif r.type == 'investment' %}
+            <div class="rendimento muted">atualize o saldo p/ ver o rendimento</div>
+          {% endif %}
+        </td>
         <td class="right">
           <form method="post" action="{{ url_for('set_balance', account_id=r.id) }}" class="budget-form" style="justify-content:flex-end;">
             <input type="text" name="balance" placeholder="{{ r.balance|brl }}" inputmode="decimal"

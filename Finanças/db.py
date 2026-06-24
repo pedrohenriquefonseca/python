@@ -87,8 +87,17 @@ CREATE TABLE IF NOT EXISTS budgets (
     UNIQUE (category_id, month)
 );
 
+CREATE TABLE IF NOT EXISTS account_snapshots (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id  INTEGER NOT NULL,
+    on_date     TEXT NOT NULL,          -- YYYY-MM-DD do registro
+    balance     REAL NOT NULL,          -- valor informado naquele momento (p/ calcular rendimento)
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_tx_posted ON transactions(posted_on);
 CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions(account_id);
+CREATE INDEX IF NOT EXISTS idx_snap_acc ON account_snapshots(account_id, on_date);
 """
 
 

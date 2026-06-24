@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Bens — Patrimônio{% endblock %}
+{% block title %}Bens e Direitos{% endblock %}
 {% block content %}
 
 <div class="page-head">
   <div>
     <div class="eyebrow">Patrimônio</div>
-    <h1>Bens · extra-bancário</h1>
+    <h1>Bens e Direitos</h1>
   </div>
 </div>
 
@@ -19,7 +19,12 @@
       <tr>
         <td><i class="{{ asset_icon(r.category) }}"></i> {{ r.name }}</td>
         <td class="muted">{{ r.category }}</td>
-        <td class="right">R$ {{ r.value|brl }}</td>
+        <td class="right">
+          <form method="post" action="{{ url_for('update_asset', asset_id=r.id) }}" class="budget-form" style="justify-content:flex-end;">
+            <input type="text" name="value" value="{{ r.value|brl }}" inputmode="decimal" style="width:120px; text-align:right;">
+            <button class="btn" type="submit">Salvar</button>
+          </form>
+        </td>
         <td class="right muted nowrap">{{ r.updated_at[:10] }}</td>
         <td class="right">
           <form method="post" action="{{ url_for('delete_asset', asset_id=r.id) }}"
@@ -34,18 +39,10 @@
     </tbody>
     {% if rows %}
     <tfoot>
-      <tr><td><b>Total em bens</b></td><td></td><td class="right"><b>R$ {{ total|brl }}</b></td><td colspan="2"></td></tr>
+      <tr><td><b>Total</b></td><td></td><td class="right"><b>R$ {{ total|brl }}</b></td><td colspan="2"></td></tr>
     </tfoot>
     {% endif %}
   </table>
-</div>
-
-<div class="nw-summary card">
-  <div><span class="eyebrow">Saldo em bancos</span><b>R$ {{ nw_bancos|brl }}</b></div>
-  <span class="op">+</span>
-  <div><span class="eyebrow">Total em bens</span><b>R$ {{ nw_bens|brl }}</b></div>
-  <span class="op">=</span>
-  <div class="nw-total"><span class="eyebrow">Patrimônio líquido</span><b class="positive">R$ {{ nw_total|brl }}</b></div>
 </div>
 
 <div class="card form-card">

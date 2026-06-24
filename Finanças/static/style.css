@@ -88,27 +88,66 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 /* ---------- cards ---------- */
 .card { background: var(--panel); border: 0.5px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.card-title { font-size: 12px; font-weight: 600; }
+.card-title { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .grid-2 .card { margin-bottom: 0; }
 
 /* ---------- flow line chart ---------- */
-.legend { font-size: 10.5px; display: flex; gap: 12px; }
-.legend i { font-size: 10px; vertical-align: -1px; }
+.legend { font-size: 13px; display: flex; gap: 14px; }
+.legend i { font-size: 12px; vertical-align: -1px; }
 .lg-receita { color: var(--green); }
 .lg-gasto { color: var(--red); }
 .lg-orcado { color: var(--muted); }
+.flow-wrap { position: relative; }
 .flow { width: 100%; height: auto; display: block; }
 .flow polyline { fill: none; vector-effect: non-scaling-stroke; }
+.grid-v { stroke: #ececea; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .fl-orcado { stroke: #c4c6cf; stroke-width: 1.4; stroke-dasharray: 5 4; }
 .fl-gasto { stroke: var(--red); stroke-width: 1.6; }
 .fl-receita { stroke: var(--green); stroke-width: 1.6; }
-.fl-orclabel { fill: var(--faint); font-size: 5.5px; }
+.fl-networth { stroke: var(--indigo); stroke-width: 1.8; }
 .nd-receita { fill: var(--green); }
 .nd-gasto { fill: var(--red); }
-.nd-label { fill: var(--muted); font-size: 6.5px; }
-.nd-month { fill: var(--faint); font-size: 5.5px; }
-.nd-month.is-current { fill: var(--ink); font-size: 6px; font-weight: 600; }
+.nd-networth { fill: var(--indigo); }
+/* barras de evolução do patrimônio */
+.nw-bars { display: flex; align-items: flex-end; gap: 14px; padding-top: 4px; flex: 1; min-height: 0; }
+.nw-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; min-width: 0; }
+.nw-val { font-size: 8.5px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.nw-val.is-current { color: var(--ink); font-weight: 600; }
+.nw-lbl { flex: none; }
+/* trilha centralizada na coluna; altura flexível para preencher o card */
+.nw-bar-track { position: relative; width: 52px; flex: 1; min-height: 0; }
+
+/* segmentos empilhados, ancorados na base da trilha */
+.nw-seg { position: absolute; left: 0; right: 0; min-height: 1px; }
+/* valor anterior preservado (base da barra em subida) */
+.nw-seg.base { bottom: 0; background: #c4c8d8; border-radius: 0; }
+.nw-seg.base.is-current { background: var(--indigo); opacity: .55; }
+/* acréscimo do mês — segmento de cima, mais saturado */
+.nw-seg.add { background: var(--green); border-radius: 4px 4px 0 0; }
+/* descida: contorno tracejado no nível do valor anterior (o que se perdeu) */
+.nw-seg.ghost { bottom: 0; border: 1px dashed var(--faint); border-bottom: 0;
+  border-radius: 4px 4px 0 0; background: repeating-linear-gradient(
+    -45deg, transparent 0 5px, rgba(192,57,43,.06) 5px 6px); }
+/* descida: valor atual, barra cheia menor por cima do contorno */
+.nw-seg.now { bottom: 0; background: #b9bdd0; border-radius: 4px 4px 0 0; z-index: 1; }
+.nw-seg.now.is-current { background: var(--indigo); }
+
+/* rótulo da variação, DENTRO da barra, centralizado no segmento que mudou */
+.nw-pct { position: absolute; left: 50%; transform: translate(-50%, 50%);
+  z-index: 5; font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: .01em; white-space: nowrap; line-height: 1; text-align: center; }
+.nw-pct.up { color: #fff; }
+.nw-pct.down { color: var(--red); }
+
+.nw-lbl { font-size: 11px; color: var(--faint); }
+.nw-lbl.is-current { color: var(--ink); font-weight: 600; }
+/* rótulos do gráfico em HTML (px reais, não escalam com o SVG) */
+.flow-labels { position: absolute; inset: 0; pointer-events: none; }
+.flow-val, .flow-month { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
+.flow-val { font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.flow-month { font-size: 10.5px; color: var(--faint); }
+.flow-month.is-current { color: var(--ink); font-weight: 600; }
 
 /* ---------- orçamentos compactos ---------- */
 .budget-compact { display: grid; grid-template-columns: 1fr; gap: 11px; }
@@ -120,6 +159,29 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .bc-fill { height: 100%; background: var(--indigo); border-radius: 2px; }
 .bc-fill.over { background: var(--red); }
 .bc-set { grid-column: 1 / -1; font-size: 11px; color: var(--indigo); }
+
+/* ---------- popup orçado × gasto (hover na categoria) ---------- */
+.bc-row { position: relative; }
+.bc-popup {
+  position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 30;
+  width: 280px; background: var(--panel); border: 0.5px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow); padding: 11px 13px; display: none;
+}
+.bc-row:hover .bc-popup { display: block; }
+.bcp-title { font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+.bcp-bars { display: flex; align-items: flex-end; gap: 8px; height: 72px; }
+.bcp-col { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
+.bcp-stack { width: 100%; height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.bcp-bar { width: 7px; border-radius: 2px 2px 0 0; min-height: 1px; }
+.bcp-bar.budget { background: #dfe1e7; }
+.bcp-bar.spent { background: var(--indigo); }
+.bcp-bar.spent.over { background: var(--red); }
+.bcp-lbl { font-size: 8.5px; color: var(--faint); }
+.bcp-lbl.is-current { color: var(--ink); font-weight: 600; }
+.bcp-legend { display: flex; gap: 14px; margin-top: 9px; font-size: 9.5px; color: var(--muted); }
+.bcp-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.bcp-legend i.budget { background: #dfe1e7; }
+.bcp-legend i.spent { background: var(--indigo); }
 
 /* ---------- tabelas ---------- */
 .data-table, .tx-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -134,6 +196,8 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
   color: var(--faint); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .tx-table tr.is-ignored td:last-child { opacity: 1; }
 .cat-ico { color: var(--muted); margin-right: 6px; }
+.rendimento { font-size: 11px; margin-top: 2px; font-weight: 500; }
+.rendimento.muted { font-weight: 400; }
 .transfer-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--indigo); }
 .transfer-tag i { color: var(--indigo); }
 
@@ -188,6 +252,83 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 .flash-ok { background: #e9f5ee; border: 0.5px solid var(--green); color: #1c5a39; }
 .flash-error { background: #fbecea; border: 0.5px solid var(--red); color: #8d281d; }
 .flash-warning { background: #fcf4e2; border: 0.5px solid var(--amber); color: #876b12; }
+
+/* ---------- dashboard: grade modular que preenche a viewport (sem scroll) ---------- */
+.dash { height: calc(100vh - 44px); display: flex; flex-direction: column; gap: 12px; }
+.dash-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex: none; }
+.dh-title { display: flex; align-items: baseline; gap: 14px; }
+.page-month { font-size: 27px; font-weight: 700; letter-spacing: -.02em; margin: 0; line-height: 1; }
+.dh-net { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dh-net.positive { color: var(--green); }
+.dh-net.negative { color: var(--red); }
+.flash-slim { margin: 0; padding: 7px 12px; font-size: 12px; }
+.dash-grid {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 12px;
+}
+.dash-grid .card.widget {
+  margin: 0; min-height: 0; min-width: 0; padding: 12px 14px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.w-title { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  font-size: 15px; font-weight: 700; letter-spacing: -.01em; flex: none; margin-bottom: 10px; }
+.w-title .muted { font-weight: 400; font-variant-numeric: tabular-nums; }
+.w-title .delta { font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+.w-title .delta.up { color: var(--green); }
+.w-title .delta.down { color: var(--red); }
+.w-title .delta i { font-size: 14px; }
+.w-title .legend { font-size: 11px; font-weight: 400; }
+.w-link { font-size: 11px; color: var(--indigo); font-weight: 500; }
+.w-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.w-body.center { justify-content: center; }
+.w-body.spread { justify-content: space-between; }
+.widget .flow-wrap { width: 100%; }
+
+/* rosca de gastos por categoria */
+.donut-body { flex-direction: row; align-items: center; gap: 16px; }
+.donut { width: 44%; max-width: 168px; height: auto; flex: none; }
+.donut-track { fill: none; stroke: #eef0f2; stroke-width: 7; }
+.donut-seg { fill: none; stroke-width: 7; }
+.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.dl-head, .dl-row, .dl-total { display: grid; grid-template-columns: 1fr 42px 72px; align-items: center; gap: 8px; font-size: 12px; }
+.dl-head { font-size: 8.5px; color: var(--muted); letter-spacing: .03em; text-transform: uppercase; }
+.dl-name { display: flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.dl-pct { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.dl-val { font-variant-numeric: tabular-nums; text-align: right; font-weight: 500; }
+.dl-total { border-top: 0.5px solid var(--line); padding-top: 7px; margin-top: 1px; font-weight: 600; }
+.dl-total .dl-val { font-weight: 700; }
+
+/* orçamentos compactos no widget */
+.wb-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+.wb-cat { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.wb-cat i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; }
+.wb-amount { font-size: 12px; font-variant-numeric: tabular-nums; }
+.wb-bar { grid-column: 1 / -1; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; }
+.wb-fill { height: 100%; background: var(--indigo); border-radius: 2px; }
+.wb-fill.over { background: var(--red); }
+
+/* transações recentes */
+.tx-row { display: flex; align-items: center; gap: 9px; font-size: 11px; }
+.tx-date { color: var(--faint); font-variant-numeric: tabular-nums; width: 34px; flex: none; }
+.tx-row > i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; flex: none; }
+.tx-desc { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-amt { font-variant-numeric: tabular-nums; flex: none; }
+.tx-amt.positive { color: var(--green); }
+
+/* contas e bens */
+.ca-lists { display: flex; flex-direction: column; gap: 9px; }
+.ca-group { display: flex; flex-direction: column; gap: 9px; }
+.ca-assets { border-top: 0.5px solid var(--line); padding-top: 9px; }
+.ca-split { display: flex; flex-direction: column; gap: 6px; }
+.ca-splitbar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; }
+.ca-splitbar i { display: block; height: 100%; }
+.ca-splitlbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.ca-key { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.ca-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; }
+.ca-name { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ca-name i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; flex: none; }
+.ca-row b { font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
 
 @media (max-width: 760px) {
   .app { flex-direction: column; }

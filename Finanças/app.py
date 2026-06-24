@@ -46,6 +46,13 @@ def brl(v: float) -> str:
     return ("-" if v < 0 else "") + s
 
 
+@app.template_filter("brl0")
+def brl0(v: float) -> str:
+    """Reais sem centavos, padrão BR: 1.234.567 (com sinal para negativos)."""
+    s = f"{abs(v):,.0f}".replace(",", ".")
+    return ("-" if v < 0 else "") + s
+
+
 @app.template_filter("kmil")
 def kmil(v: float) -> str:
     """Compacta para milhares: 162110 -> 162,1k."""
@@ -134,6 +141,28 @@ def budget_for(conn, category_id: int, month: str) -> float | None:
     return row["amount"] if row else None
 
 
+def category_history(conn, category_id: int, month: str, n_months: int = 6) -> list[dict]:
+    """Orçado × gasto da categoria nos últimos n meses (para o popup do dashboard)."""
+    months = [shift_month(month, -i) for i in range(n_months - 1, -1, -1)]
+    data = []
+    for m in months:
+        start, end = month_bounds(m)
+        spent = conn.execute(
+            "SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END), 0) AS v "
+            "FROM transactions WHERE category_id = ? AND ignored = 0 AND posted_on BETWEEN ? AND ?",
+            (category_id, start, end),
+        ).fetchone()["v"]
+        budget = budget_for(conn, category_id, m) or 0
+        data.append((m, spent, budget))
+
+    mx = max([s for _, s, _ in data] + [b for _, _, b in data] + [1])
+    return [{
+        "label": month_short(m), "spent": s, "budget": b,
+        "spent_h": round(s / mx * 100, 1), "budget_h": round(b / mx * 100, 1),
+        "over": s > b and b > 0, "current": m == month,
+    } for m, s, b in data]
+
+
 # ----------------------------------------------------------------------------- dashboard
 @app.route("/")
 def dashboard():
@@ -183,6 +212,7 @@ def dashboard():
             "spent": spent, "budget": budget, "pct": pct,
             "projected": projected, "remaining": (budget - spent) if budget else None,
             "status": status,
+            "history": category_history(conn, row["id"], month),
         })
 
     # Lançamentos sem categoria pedem atenção.
@@ -199,6 +229,7 @@ def dashboard():
 
     # Séries mensais dos gráficos da home.
     charts = build_charts(conn, month)
+    nw_chart = build_networth_chart(conn, month)
 
     # Top 3 estouros de orçamento do mês selecionado.
     overruns = sorted(
@@ -211,6 +242,45 @@ def dashboard():
     for o, h in zip(overruns, over_h):
         o["h"] = h
 
+    # Rosca "gastos por categoria": top 5 + "Demais", com offsets cumulativos
+    # para o stroke-dasharray (pathLength=100) do SVG.
+    spend_total = sum(c["spent"] for c in budget_cards)
+    spent_cats = [c for c in budget_cards if c["spent"] > 0]
+    donut_items = [{"category": c["category"], "color": c["color"], "spent": c["spent"]}
+                   for c in spent_cats[:5]]
+    rest = spent_cats[5:]
+    if rest:
+        donut_items.append({"category": "Demais", "color": "#b6b9c0",
+                            "spent": sum(c["spent"] for c in rest)})
+    acc = 0.0
+    for d in donut_items:
+        frac = (d["spent"] / spend_total * 100) if spend_total else 0.0
+        d["pct"] = round(frac)
+        d["dash"] = round(frac, 2)
+        d["offset"] = round(-acc, 2)
+        acc += frac
+
+    # Transações recentes (qualquer mês), as últimas lançadas.
+    recent_tx = conn.execute(
+        "SELECT t.posted_on, t.description, t.amount, t.transfer_to, "
+        "       c.name AS cat, c.kind AS kind "
+        "FROM transactions t LEFT JOIN categories c ON c.id = t.category_id "
+        "WHERE t.ignored = 0 ORDER BY t.posted_on DESC, t.id DESC LIMIT 8"
+    ).fetchall()
+
+    # Saldo atual por conta = saldo inicial + lançamentos + créditos de transferência.
+    accounts_bal = conn.execute(
+        "SELECT a.name, a.type, a.opening_balance "
+        "  + COALESCE((SELECT SUM(amount) FROM transactions "
+        "              WHERE account_id = a.id AND ignored = 0), 0) "
+        "  + COALESCE((SELECT SUM(-amount) FROM transactions "
+        "              WHERE transfer_to = a.id AND ignored = 0), 0) AS balance "
+        "FROM accounts a ORDER BY balance DESC"
+    ).fetchall()
+    assets_list = conn.execute(
+        "SELECT name, category, value FROM assets ORDER BY value DESC"
+    ).fetchall()
+
     conn.close()
     return render_template(
         "dashboard.html",
@@ -219,7 +289,9 @@ def dashboard():
         cards=budget_cards, total_spent=total_spent, total_budget=total_budget,
         days_elapsed=days_elapsed, days_total=days_total,
         uncategorized=uncategorized, income=income,
-        charts=charts, overruns=overruns,
+        charts=charts, nw_chart=nw_chart, overruns=overruns,
+        donut=donut_items, spend_total=spend_total,
+        recent_tx=recent_tx, accounts_bal=accounts_bal, assets_list=assets_list,
     )
 
 
@@ -272,8 +344,10 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
     labels = [month_short(m) for m in months]
 
     # ---- Gráfico de linha "Fluxo mensal" (receita, gasto, orçado) ----
-    # Coordenadas em viewBox 480x104; eixo de valor entre y=18 (topo) e y=74 (base = 0).
-    W, x0, x1, top, base = 480, 20, 460, 18, 74
+    # Coordenadas em viewBox 480 x VBH; eixo de valor entre y=top e y=base (=0).
+    # VBH alto deixa o gráfico mais "cheio" no card alto do dashboard.
+    W, x0, x1, top, base, VBH = 480, 24, 456, 36, 200, 236
+    grid_top, grid_bottom = 16, 212
     n = len(months)
     xs = [x0 + (x1 - x0) * i / (n - 1) for i in range(n)] if n > 1 else [x0]
     vmax = max(receitas + gastos + orcados + [1])
@@ -289,20 +363,80 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
     orcado_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, orcados))
 
     flow = {
+        "vb_h": VBH, "grid_top": grid_top, "grid_bottom": grid_bottom,
+        "month_y": round((grid_bottom + 14) / VBH * 100, 2),
         "receita_pts": receita_pts, "gasto_pts": gasto_pts, "orcado_pts": orcado_pts,
-        "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) - 6, 1),
+        "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) - 9, 1),
                            "label": fmt_cur(v), "current": m == month}
                           for x, v, m in zip(xs, receitas, months)],
-        "gasto_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) + 10, 1),
+        "gasto_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) + 13, 1),
                          "label": fmt_cur(v), "current": m == month}
                         for x, v, m in zip(xs, gastos, months)],
         "month_nodes": [{"x": round(x), "label": l, "current": m == month}
                         for x, l, m in zip(xs, labels, months)],
         "orcado_label": fmt_cur(orcados[-1]) if orcados else "R$ 0",
-        "orcado_y": round(y_of(orcados[-1]) + 10, 1) if orcados else base,
+        "orcado_y": round(y_of(orcados[-1]) + 13, 1) if orcados else base,
     }
 
     return {"labels": labels, "flow": flow}
+
+
+def build_networth_chart(conn, month: str, n_months: int = 6) -> dict:
+    """Série do patrimônio líquido ao fim de cada um dos últimos n meses."""
+    # Um mês extra para trás dá o valor anterior da primeira barra (variação m/m).
+    months = [shift_month(month, -i) for i in range(n_months, -1, -1)]
+    opening = conn.execute("SELECT COALESCE(SUM(opening_balance), 0) AS v FROM accounts").fetchone()["v"]
+    assets = conn.execute("SELECT COALESCE(SUM(value), 0) AS v FROM assets").fetchone()["v"]
+
+    values = []
+    for m in months:
+        end = month_bounds(m)[1]
+        moves = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS v FROM transactions "
+            "WHERE ignored = 0 AND posted_on <= ?", (end,),
+        ).fetchone()["v"]
+        moves += conn.execute(
+            "SELECT COALESCE(SUM(-amount), 0) AS v FROM transactions "
+            "WHERE ignored = 0 AND transfer_to IS NOT NULL AND posted_on <= ?", (end,),
+        ).fetchone()["v"]
+        values.append(opening + moves + assets)
+
+    # Eixo truncado (min..max sobre toda a série, incl. o mês extra) para destacar
+    # a evolução; barra mínima ~30% de altura. O mesmo mapeamento vale para o valor
+    # atual e o anterior, então os segmentos casam visualmente.
+    vmin, vmax = min(values), max(values)
+    span = (vmax - vmin) or 1
+
+    def height(v):
+        return round(30 + (v - vmin) / span * 70, 1)
+
+    def fmt_cur(v):
+        return "R$ " + f"{v:,.0f}".replace(",", ".")
+
+    def fmt_pct(p):
+        return ("+" if p >= 0 else "−") + f"{abs(p):.1f}%".replace(".", ",")
+
+    bars = []
+    for i in range(1, len(months)):
+        m, v, prev = months[i], values[i], values[i - 1]
+        delta = v - prev
+        pct = (delta / abs(prev) * 100) if prev else 0.0
+        up = delta >= 0
+        h, h_prev = height(v), height(prev)
+        bars.append({
+            "label": month_short(m),
+            "value": fmt_cur(v),
+            "current": m == month,
+            "up": up,
+            "pct": fmt_pct(pct),
+            "h": h,                       # altura da barra do valor atual
+            "h_prev": h_prev,            # altura no nível do valor anterior
+            "h_base": min(h, h_prev),    # parte comum (valor anterior preservado)
+            "h_delta": round(abs(h - h_prev), 1),  # acréscimo (subida) ou perda (descida)
+            "h_top": max(h, h_prev),     # nível onde fica o rótulo de %
+        })
+
+    return {"bars": bars}
 
 
 # ----------------------------------------------------------------------------- transações
@@ -509,8 +643,18 @@ def accounts():
         FROM accounts a ORDER BY a.name
         """
     ).fetchall()
+    # Rendimento dos investimentos: diferença entre os dois últimos valores informados.
+    rendimentos = {}
+    for r in rows:
+        if r["type"] == "investment":
+            snaps = conn.execute(
+                "SELECT balance FROM account_snapshots WHERE account_id = ? "
+                "ORDER BY on_date DESC, id DESC LIMIT 2", (r["id"],),
+            ).fetchall()
+            if len(snaps) == 2:
+                rendimentos[r["id"]] = snaps[0]["balance"] - snaps[1]["balance"]
     conn.close()
-    return render_template("accounts.html", rows=rows)
+    return render_template("accounts.html", rows=rows, rendimentos=rendimentos)
 
 
 @app.route("/accounts/<int:account_id>/balance", methods=["POST"])
@@ -523,7 +667,7 @@ def set_balance(account_id: int):
     conn = get_db()
     row = conn.execute(
         """
-        SELECT a.opening_balance,
+        SELECT a.type, a.opening_balance,
                a.opening_balance
                + COALESCE((SELECT SUM(t.amount) FROM transactions t
                            WHERE t.account_id = a.id AND t.ignored = 0), 0)
@@ -536,6 +680,12 @@ def set_balance(account_id: int):
         movimentos = row["balance"] - row["opening_balance"]
         conn.execute("UPDATE accounts SET opening_balance = ? WHERE id = ?",
                      (desired - movimentos, account_id))
+        # Investimentos: guarda o valor informado para calcular o rendimento entre atualizações.
+        if row["type"] == "investment":
+            conn.execute(
+                "INSERT INTO account_snapshots (account_id, on_date, balance) VALUES (?, ?, ?)",
+                (account_id, date.today().isoformat(), desired),
+            )
         conn.commit()
         flash("Saldo ajustado.", "ok")
     conn.close()
@@ -564,6 +714,21 @@ def assets():
     return render_template(
         "assets.html", rows=rows, total=total, categories=ASSET_CATEGORIES,
     )
+
+
+@app.route("/assets/<int:asset_id>/update", methods=["POST"])
+def update_asset(asset_id: int):
+    """Atualiza o valor de um bem já cadastrado."""
+    raw = (request.form.get("value") or "").strip()
+    if raw:
+        value = float(raw.replace(".", "").replace(",", "."))
+        conn = get_db()
+        conn.execute("UPDATE assets SET value = ?, updated_at = ? WHERE id = ?",
+                     (value, date.today().isoformat(), asset_id))
+        conn.commit()
+        conn.close()
+        flash("Valor do bem atualizado.", "ok")
+    return redirect(url_for("assets"))
 
 
 @app.route("/assets/<int:asset_id>/delete", methods=["POST"])
