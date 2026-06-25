@@ -38,8 +38,8 @@
         <div class="nw-bars">
           {% for b in nw_chart.bars %}
           <div class="nw-col">
-            <span class="nw-val {{ 'is-current' if b.current }}">{{ b.value }}</span>
             <div class="nw-bar-track">
+              <span class="nw-val {{ 'is-current' if b.current }}" style="bottom: calc({{ b.h }}% + 5px)">{{ b.value }}</span>
               {% if b.up %}
               <div class="nw-seg base {{ 'is-current' if b.current }}" style="height: {{ b.h_base }}%"></div>
               <div class="nw-seg add" style="height: {{ b.h_delta }}%; bottom: {{ b.h_base }}%"></div>
@@ -142,9 +142,9 @@
         {% for t in recent_tx %}
         <div class="tx-row">
           <span class="tx-date">{{ t.posted_on[8:10] }}/{{ t.posted_on[5:7] }}</span>
-          <i class="{{ cat_icon(t.cat) if t.cat else 'ti ti-help' }}"></i>
+          <span class="cat-badge" style="--c: {{ cat_color(t.cat) }}"><i class="{{ cat_icon(t.cat) if t.cat else 'ti ti-help' }}"></i></span>
           <span class="tx-desc">{{ t.description }}</span>
-          <span class="tx-amt {{ 'positive' if t.amount > 0 }}">{{ '+' if t.amount > 0 }}R$ {{ t.amount|brl0 }}</span>
+          <span class="tx-amt {{ 'positive' if t.amount > 0 }}">{{ '+' if t.amount > 0 }}R$ {{ t.amount|brl }}</span>
         </div>
         {% endfor %}
       </div>

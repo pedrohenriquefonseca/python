@@ -9,9 +9,10 @@ from datetime import date
 
 from flask import Flask, flash, redirect, render_template, request, url_for
 
-from categorizer import categorize, load_rules, recategorize_uncategorized
+from categorizer import categorize, load_rules, recategorize_uncategorized, rule_keyword
 from db import get_db, init_db, tx_fingerprint
 from ofx_import import read_ofx_file
+from xls_import import read_card_xlsx_file
 
 app = Flask(__name__)
 app.secret_key = "troque-este-segredo-em-producao"
@@ -37,6 +38,24 @@ def asset_icon(category: str) -> str:
 
 
 app.jinja_env.globals.update(cat_icon=cat_icon, asset_icon=asset_icon)
+
+DEFAULT_CAT_COLOR = "#b6b9c0"
+
+
+@app.context_processor
+def inject_cat_color():
+    """Disponibiliza cat_color(nome) nos templates, com a MESMA cor que cada
+    categoria tem no gráfico "Gastos por categoria" (coluna color do banco).
+    Carregado uma vez por render — a tabela de categorias é pequena."""
+    conn = get_db()
+    colors = {r["name"]: r["color"]
+              for r in conn.execute("SELECT name, color FROM categories")}
+    conn.close()
+
+    def cat_color(name: str | None) -> str:
+        return colors.get(name or "", DEFAULT_CAT_COLOR)
+
+    return {"cat_color": cat_color}
 
 
 @app.template_filter("brl")
@@ -147,8 +166,9 @@ def category_history(conn, category_id: int, month: str, n_months: int = 6) -> l
     data = []
     for m in months:
         start, end = month_bounds(m)
+        # Gasto líquido: débito soma, crédito (estorno/reembolso) abate.
         spent = conn.execute(
-            "SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END), 0) AS v "
+            "SELECT COALESCE(SUM(-amount), 0) AS v "
             "FROM transactions WHERE category_id = ? AND ignored = 0 AND posted_on BETWEEN ? AND ?",
             (category_id, start, end),
         ).fetchone()["v"]
@@ -171,11 +191,11 @@ def dashboard():
     days_elapsed, days_total = pace_for_month(month)
     conn = get_db()
 
-    # Gasto por categoria (apenas saídas: amount < 0).
+    # Gasto líquido por categoria: débito soma, crédito (estorno/reembolso) abate.
     spent_rows = conn.execute(
         """
         SELECT c.id, c.name, c.color,
-               COALESCE(SUM(CASE WHEN t.amount < 0 THEN -t.amount ELSE 0 END), 0) AS spent
+               COALESCE(SUM(-t.amount), 0) AS spent
         FROM categories c
         LEFT JOIN transactions t
             ON t.category_id = c.id AND t.posted_on BETWEEN ? AND ? AND t.ignored = 0
@@ -327,7 +347,7 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
         gasto = conn.execute(
             "SELECT COALESCE(SUM(-t.amount), 0) AS v FROM transactions t "
             "JOIN categories c ON c.id = t.category_id "
-            "WHERE c.kind = 'expense' AND t.ignored = 0 AND t.amount < 0 AND t.posted_on BETWEEN ? AND ?",
+            "WHERE c.kind = 'expense' AND t.ignored = 0 AND t.posted_on BETWEEN ? AND ?",
             (start, end),
         ).fetchone()["v"]
         receita = conn.execute(
@@ -408,7 +428,9 @@ def build_networth_chart(conn, month: str, n_months: int = 6) -> dict:
     span = (vmax - vmin) or 1
 
     def height(v):
-        return round(30 + (v - vmin) / span * 70, 1)
+        # Teto em 88% (e não 100%) deixa folga no topo da trilha para o rótulo
+        # do valor, que agora flutua logo acima de cada barra.
+        return round(30 + (v - vmin) / span * 58, 1)
 
     def fmt_cur(v):
         return "R$ " + f"{v:,.0f}".replace(",", ".")
@@ -460,10 +482,17 @@ def transactions():
     categories = conn.execute(
         "SELECT * FROM categories WHERE kind != 'transfer' ORDER BY name"
     ).fetchall()
+    # Categoria "Transferência" (kind='transfer'): opção para marcar um lançamento
+    # como transferência sem creditar a outra conta — usada quando as duas pontas já
+    # foram importadas (ex.: pagamento do cartão). Fica fora de gastos/receitas.
+    transfer_cat = conn.execute(
+        "SELECT id, name FROM categories WHERE kind = 'transfer' ORDER BY id LIMIT 1"
+    ).fetchone()
     accounts_list = conn.execute("SELECT id, name FROM accounts ORDER BY name").fetchall()
     conn.close()
     return render_template(
         "transactions.html", rows=rows, categories=categories, accounts=accounts_list,
+        transfer_cat=transfer_cat,
         month=month, month_label=month_label(month),
         prev_month=shift_month(month, -1), next_month=shift_month(month, +1),
     )
@@ -495,7 +524,7 @@ def categorize_tx(tx_id: int):
     if make_rule and category_id:
         tx = conn.execute("SELECT description FROM transactions WHERE id = ?", (tx_id,)).fetchone()
         if tx:
-            keyword = tx["description"].split()[0][:24] if tx["description"] else ""
+            keyword = rule_keyword(tx["description"])
             if keyword:
                 conn.execute(
                     "INSERT INTO rules (pattern, category_id, priority) VALUES (?, ?, 50)",
@@ -505,6 +534,50 @@ def categorize_tx(tx_id: int):
     conn.commit()
     conn.close()
     return redirect(request.referrer or url_for("transactions"))
+
+
+@app.route("/transactions/save", methods=["POST"])
+def transactions_save():
+    """Salva em lote as categorias escolhidas na tela (campos cat:<id>) e, para os
+    itens marcados como regra (rule:<id>), cria a regra e a aplica a TODO o histórico."""
+    conn = get_db()
+    rules_created = 0
+    for key, value in request.form.items():
+        if not key.startswith("cat:"):
+            continue
+        tx_id = int(key.split(":", 1)[1])
+
+        # "Para <conta>": transferência de mão única (credita a conta destino).
+        if value.startswith("transfer:"):
+            dest_id = int(value.split(":", 1)[1])
+            tx = conn.execute("SELECT account_id FROM transactions WHERE id = ?", (tx_id,)).fetchone()
+            if tx and dest_id != tx["account_id"]:
+                conn.execute("UPDATE transactions SET category_id = ?, transfer_to = ? WHERE id = ?",
+                             (transfer_category_id(conn), dest_id, tx_id))
+            continue
+
+        category_id = value or None
+        conn.execute("UPDATE transactions SET category_id = ?, transfer_to = NULL WHERE id = ?",
+                     (category_id, tx_id))
+
+        # Marcado como "regra": aprende a regra a partir desta correção.
+        if request.form.get(f"rule:{tx_id}") and category_id:
+            tx = conn.execute("SELECT description FROM transactions WHERE id = ?", (tx_id,)).fetchone()
+            keyword = rule_keyword(tx["description"]) if tx else ""
+            if keyword and not conn.execute(
+                "SELECT 1 FROM rules WHERE pattern = ? AND category_id = ?", (keyword, category_id)
+            ).fetchone():
+                conn.execute("INSERT INTO rules (pattern, category_id, priority) VALUES (?, ?, 50)",
+                             (keyword, category_id))
+                rules_created += 1
+    conn.commit()
+
+    # Aplica todas as regras ao histórico inteiro (lançamentos ainda sem categoria).
+    applied = recategorize_uncategorized(conn)
+    conn.close()
+    flash(f"Salvo. {rules_created} regra(s) nova(s); {applied} lançamento(s) categorizado(s) "
+          f"automaticamente em todo o histórico.", "ok")
+    return redirect(url_for("transactions", month=request.form.get("month") or current_month()))
 
 
 @app.route("/transactions/<int:tx_id>/ignore", methods=["POST"])
@@ -549,8 +622,27 @@ def budgets():
         """
     ).fetchall()
     total = sum(r["budget"] for r in rows if r["budget"])
+
+    # Gasto médio mensal dos últimos 6 meses (incl. o mês atual) por categoria.
+    # Soma das saídas na janela ÷ 6 meses — meses sem gasto contam como zero.
+    n_months = 6
+    cur = current_month()
+    win_start = month_bounds(shift_month(cur, -(n_months - 1)))[0]
+    win_end = month_bounds(cur)[1]
+    avg_rows = conn.execute(
+        """
+        SELECT category_id, SUM(-amount) / ? AS avg_month
+        FROM transactions
+        WHERE ignored = 0 AND category_id IS NOT NULL
+          AND posted_on BETWEEN ? AND ?
+        GROUP BY category_id
+        """,
+        (n_months, win_start, win_end),
+    ).fetchall()
+    avg6 = {r["category_id"]: r["avg_month"] for r in avg_rows}
+
     conn.close()
-    return render_template("budgets.html", rows=rows, total=total)
+    return render_template("budgets.html", rows=rows, total=total, avg6=avg6, avg_months=n_months)
 
 
 # ----------------------------------------------------------------------------- import OFX
@@ -562,10 +654,21 @@ def import_ofx():
         account_id = int(request.form["account_id"])
         file = request.files.get("ofx_file")
         if not file or not file.filename:
-            flash("Selecione um arquivo OFX.", "error")
+            flash("Selecione um arquivo.", "error")
             return redirect(url_for("import_ofx"))
 
-        txns = read_ofx_file(file.read())
+        # Aceita OFX (extrato/cartão) e XLSX (fatura do cartão do Itaú, que não
+        # exporta OFX). O parser certo é escolhido pela extensão.
+        raw = file.read()
+        name = file.filename.lower()
+        try:
+            if name.endswith((".xlsx", ".xls")):
+                txns = read_card_xlsx_file(raw)
+            else:
+                txns = read_ofx_file(raw)
+        except Exception as exc:
+            flash(f"Não consegui ler o arquivo: {exc}", "error")
+            return redirect(url_for("import_ofx"))
         rules = load_rules(conn)
 
         # Dedup robusta em camadas, por conta:

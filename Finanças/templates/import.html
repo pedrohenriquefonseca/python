@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Importar OFX{% endblock %}
+{% block title %}Importar{% endblock %}
 {% block content %}
 
 <div class="page-head">
   <div>
     <div class="eyebrow">Dados</div>
-    <h1>Importar extrato OFX</h1>
+    <h1>Importar extrato</h1>
   </div>
 </div>
-<p class="muted" style="margin-top:-8px;">Exporte o OFX da sua conta ou da fatura do cartão. Reimportar o mesmo período não duplica lançamentos.</p>
+<p class="muted" style="margin-top:-8px;">Suba o <b>OFX</b> da conta/cartão ou o <b>XLSX</b> da fatura do cartão do Itaú. Reimportar o mesmo período não duplica lançamentos.</p>
 
 {% if not accounts %}
   <div class="flash flash-warning">Você ainda não cadastrou nenhuma conta. <a href="{{ url_for('accounts') }}">Crie uma conta primeiro.</a></div>
@@ -24,10 +24,10 @@
     </label>
 
     <label class="dropzone" id="dropzone">
-      <input type="file" name="ofx_file" id="ofx-file" accept=".ofx,.qfx,text/*" required hidden>
+      <input type="file" name="ofx_file" id="ofx-file" accept=".ofx,.qfx,.xlsx,.xls,text/*" required hidden>
       <i class="ti ti-arrow-bar-to-down"></i>
-      <div class="dz-title">Arraste o arquivo OFX aqui</div>
-      <div class="dz-sub">ou clique para selecionar — arquivos .ofx ou .qfx</div>
+      <div class="dz-title">Arraste o arquivo aqui</div>
+      <div class="dz-sub">ou clique para selecionar — .ofx, .qfx ou .xlsx (fatura do cartão)</div>
       <div class="dz-file" id="dz-file"></div>
     </label>
 

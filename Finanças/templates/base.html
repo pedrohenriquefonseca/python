@@ -25,7 +25,7 @@
         <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
         <a href="{{ url_for('transactions') }}" class="{{ 'active' if request.endpoint == 'transactions' }}"><i class="ti ti-list"></i> Lançamentos</a>
         <a href="{{ url_for('budgets') }}" class="{{ 'active' if request.endpoint == 'budgets' }}"><i class="ti ti-target"></i> Orçamentos</a>
-        <a href="{{ url_for('import_ofx') }}" class="{{ 'active' if request.endpoint == 'import_ofx' }}"><i class="ti ti-arrow-bar-to-down"></i> Importar OFX</a>
+        <a href="{{ url_for('import_ofx') }}" class="{{ 'active' if request.endpoint == 'import_ofx' }}"><i class="ti ti-arrow-bar-to-down"></i> Importar</a>
         <a href="{{ url_for('accounts') }}" class="{{ 'active' if request.endpoint == 'accounts' }}"><i class="ti ti-building-bank"></i> Contas</a>
       </nav>
 

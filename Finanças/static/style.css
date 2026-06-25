@@ -112,7 +112,10 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 /* barras de evolução do patrimônio */
 .nw-bars { display: flex; align-items: flex-end; gap: 14px; padding-top: 4px; flex: 1; min-height: 0; }
 .nw-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; min-width: 0; }
-.nw-val { font-size: 8.5px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+/* valor flutua logo acima do topo de cada barra, acompanhando sua altura */
+.nw-val { position: absolute; left: 50%; transform: translateX(-50%); z-index: 6;
+  font-size: 8.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  white-space: nowrap; line-height: 1; }
 .nw-val.is-current { color: var(--ink); font-weight: 600; }
 .nw-lbl { flex: none; }
 /* trilha centralizada na coluna; altura flexível para preencher o card */
@@ -185,6 +188,11 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 
 /* ---------- tabelas ---------- */
 .data-table, .tx-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+/* orçamentos: largura conforme o conteúdo, sem esticar pela página inteira,
+   para as colunas ficarem juntas e cada cabeçalho alinhado sobre seus dados */
+.budgets-table { width: auto; min-width: 460px; }
+.budgets-table th, .budgets-table td { white-space: nowrap; }
+.budgets-table th:not(.right), .budgets-table td:not(.right) { padding-right: 28px; }
 .data-table th, .tx-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 10px; }
 .data-table td, .tx-table td { padding: 9px 10px; border-top: 0.5px solid var(--line); font-variant-numeric: tabular-nums; }
 .data-table td i, .tx-table td i { color: var(--muted); margin-right: 7px; }
@@ -196,6 +204,14 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
   color: var(--faint); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .tx-table tr.is-ignored td:last-child { opacity: 1; }
 .cat-ico { color: var(--muted); margin-right: 6px; }
+
+/* selo da categoria — fundo tingido + ícone na cor da categoria (a mesma do
+   gráfico "Gastos por categoria"), p/ o usuário associar cor ↔ categoria */
+.cat-badge { display: inline-flex; align-items: center; justify-content: center;
+  width: 25px; height: 25px; border-radius: 7px; flex: none; margin: 0;
+  background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); }
+.cat-badge i { font-size: 15px; margin: 0; color: inherit; }
+.cat-badge-empty { background: var(--line); color: var(--faint); }
 .rendimento { font-size: 11px; margin-top: 2px; font-weight: 500; }
 .rendimento.muted { font-weight: 400; }
 .transfer-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--indigo); }
@@ -244,8 +260,15 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 .btn-primary { background: var(--indigo); border-color: var(--indigo); color: #fff; }
 .iconbtn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; font-size: 15px; }
 .iconbtn:hover { color: var(--red); }
-.cat-form { display: flex; align-items: center; gap: 8px; }
+.cat-form, .cat-cell { display: flex; align-items: center; gap: 8px; }
 .rule-check { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+/* barra de salvar fixa no rodapé da aba Lançamentos */
+.save-bar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 14px;
+  margin-top: 14px; padding: 12px 16px; background: var(--panel);
+  border: 0.5px solid var(--border); border-radius: 10px;
+  box-shadow: 0 -6px 18px rgba(0,0,0,.06); }
+.save-hint { font-size: 12px; color: var(--muted); }
 
 /* ---------- flashes ---------- */
 .flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
@@ -311,7 +334,6 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 /* transações recentes */
 .tx-row { display: flex; align-items: center; gap: 9px; font-size: 11px; }
 .tx-date { color: var(--faint); font-variant-numeric: tabular-nums; width: 34px; flex: none; }
-.tx-row > i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; flex: none; }
 .tx-desc { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tx-amt { font-variant-numeric: tabular-nums; flex: none; }
 .tx-amt.positive { color: var(--green); }

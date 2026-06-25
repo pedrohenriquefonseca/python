@@ -10,6 +10,12 @@
   </div>
 </div>
 
+{# Formulário único: os <select>/checkbox abaixo se associam por form="bulkform".
+   Selecionar categoria NÃO recarrega a página — só "Salvar" envia tudo de uma vez. #}
+<form id="bulkform" method="post" action="{{ url_for('transactions_save') }}">
+  <input type="hidden" name="month" value="{{ month }}">
+</form>
+
 <div class="card">
 <table class="data-table tx-table">
   <thead>
@@ -28,15 +34,33 @@
       <td class="muted">{{ t.account_name }}</td>
       <td class="right {{ 'negative' if t.amount < 0 else 'positive' }}">R$ {{ t.amount|brl }}</td>
       <td>
-        <form method="post" action="{{ url_for('categorize_tx', tx_id=t.id) }}" class="cat-form">
-          {% if t.transfer_to %}<i class="{{ cat_icon('Transferência') }} cat-ico"></i>
-          {% elif t.category_name %}<i class="{{ cat_icon(t.category_name) }} cat-ico"></i>{% endif %}
-          {% set kind = 'expense' if t.amount < 0 else 'income' %}
-          <select name="category_id" onchange="this.form.submit()" {{ 'disabled' if t.ignored }}>
+        <div class="cat-cell">
+          {% if t.transfer_to %}<span class="cat-badge" style="--c: {{ cat_color('Transferência') }}"><i class="{{ cat_icon('Transferência') }}"></i></span>
+          {% elif t.category_name %}<span class="cat-badge" style="--c: {{ cat_color(t.category_name) }}"><i class="{{ cat_icon(t.category_name) }}"></i></span>
+          {% else %}<span class="cat-badge cat-badge-empty"><i class="ti ti-help"></i></span>{% endif %}
+          <select name="cat:{{ t.id }}" form="bulkform" {{ 'disabled' if t.ignored }}>
             <option value="">— sem categoria —</option>
-            {% for c in categories if c.kind == kind %}
-              <option value="{{ c.id }}" {{ 'selected' if c.id == t.category_id and not t.transfer_to else '' }}>{{ c.name }}</option>
-            {% endfor %}
+            {% if transfer_cat %}
+              <option value="{{ transfer_cat.id }}" {{ 'selected' if t.category_id == transfer_cat.id and not t.transfer_to else '' }}>↔ Transferência (entre contas)</option>
+            {% endif %}
+            {% if t.amount < 0 %}
+              {# Débito: categorias de gasto #}
+              {% for c in categories if c.kind == 'expense' %}
+                <option value="{{ c.id }}" {{ 'selected' if c.id == t.category_id and not t.transfer_to else '' }}>{{ c.name }}</option>
+              {% endfor %}
+            {% else %}
+              {# Crédito: receitas e também gastos (estorno/reembolso abate o orçamento) #}
+              <optgroup label="Receitas">
+                {% for c in categories if c.kind == 'income' %}
+                  <option value="{{ c.id }}" {{ 'selected' if c.id == t.category_id and not t.transfer_to else '' }}>{{ c.name }}</option>
+                {% endfor %}
+              </optgroup>
+              <optgroup label="Gastos (estorno/reembolso)">
+                {% for c in categories if c.kind == 'expense' %}
+                  <option value="{{ c.id }}" {{ 'selected' if c.id == t.category_id and not t.transfer_to else '' }}>{{ c.name }}</option>
+                {% endfor %}
+              </optgroup>
+            {% endif %}
             {% if t.amount < 0 %}
             <optgroup label="Transferências">
               {% for a in accounts if a.id != t.account_id %}
@@ -46,11 +70,11 @@
             {% endif %}
           </select>
           {% if not t.transfer_to %}
-          <label class="rule-check" title="Criar regra para lançamentos parecidos">
-            <input type="checkbox" name="make_rule" value="1"> regra
+          <label class="rule-check" title="Criar regra e aplicar a todo o histórico ao salvar">
+            <input type="checkbox" name="rule:{{ t.id }}" value="1" form="bulkform"> regra
           </label>
           {% endif %}
-        </form>
+        </div>
       </td>
       <td class="right">
         <form method="post" action="{{ url_for('ignore_tx', tx_id=t.id) }}">
@@ -68,5 +92,23 @@
   </tbody>
 </table>
 </div>
+
+{% if rows %}
+<div class="save-bar">
+  <button type="submit" form="bulkform" class="btn btn-primary"><i class="ti ti-device-floppy"></i> Salvar</button>
+  <span class="save-hint">Escolha as categorias e clique em <b>Salvar</b>. Itens marcados como <b>regra</b> viram regra e são aplicados a todo o histórico.</span>
+</div>
+{% endif %}
+
+<script>
+(function(){
+  // Preserva a posição de scroll entre recarregamentos (qualquer envio de formulário
+  // nesta página), para a tela não "subir pro topo" ao salvar ou ignorar.
+  var KEY = 'tx-scroll';
+  var saved = sessionStorage.getItem(KEY);
+  if (saved !== null) { window.scrollTo(0, parseInt(saved, 10) || 0); sessionStorage.removeItem(KEY); }
+  document.addEventListener('submit', function(){ sessionStorage.setItem(KEY, window.scrollY); }, true);
+})();
+</script>
 
 {% endblock %}
