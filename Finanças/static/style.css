@@ -109,42 +109,26 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .nd-receita { fill: var(--green); }
 .nd-gasto { fill: var(--red); }
 .nd-networth { fill: var(--indigo); }
-/* barras de evolução do patrimônio */
-.nw-bars { display: flex; align-items: flex-end; gap: 14px; padding-top: 4px; flex: 1; min-height: 0; }
-.nw-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; min-width: 0; }
-/* valor flutua logo acima do topo de cada barra, acompanhando sua altura */
-.nw-val { position: absolute; left: 50%; transform: translateX(-50%); z-index: 6;
-  font-size: 8.5px; color: var(--muted); font-variant-numeric: tabular-nums;
-  white-space: nowrap; line-height: 1; }
-.nw-val.is-current { color: var(--ink); font-weight: 600; }
-.nw-lbl { flex: none; }
-/* trilha centralizada na coluna; altura flexível para preencher o card */
-.nw-bar-track { position: relative; width: 52px; flex: 1; min-height: 0; }
+/* evolução do patrimônio — linha/área com eixo "zoom" (mesma base do fluxo) */
+.nw-wrap { width: 100%; }
+.nw-base { stroke: var(--border); stroke-width: 1; }
+.nw-area { fill: var(--indigo); fill-opacity: .10; }
+.nw-line { fill: none; stroke: var(--indigo); stroke-width: 1.8;
+  stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.nw-dot { fill: var(--indigo); }
+.nw-dot.is-current { stroke: var(--panel); stroke-width: 1.5; }
 
-/* segmentos empilhados, ancorados na base da trilha */
-.nw-seg { position: absolute; left: 0; right: 0; min-height: 1px; }
-/* valor anterior preservado (base da barra em subida) */
-.nw-seg.base { bottom: 0; background: #c4c8d8; border-radius: 0; }
-.nw-seg.base.is-current { background: var(--indigo); opacity: .55; }
-/* acréscimo do mês — segmento de cima, mais saturado */
-.nw-seg.add { background: var(--green); border-radius: 4px 4px 0 0; }
-/* descida: contorno tracejado no nível do valor anterior (o que se perdeu) */
-.nw-seg.ghost { bottom: 0; border: 1px dashed var(--faint); border-bottom: 0;
-  border-radius: 4px 4px 0 0; background: repeating-linear-gradient(
-    -45deg, transparent 0 5px, rgba(192,57,43,.06) 5px 6px); }
-/* descida: valor atual, barra cheia menor por cima do contorno */
-.nw-seg.now { bottom: 0; background: #b9bdd0; border-radius: 4px 4px 0 0; z-index: 1; }
-.nw-seg.now.is-current { background: var(--indigo); }
+/* rótulos do patrimônio: delta m/m por ponto, valor atual e escala do eixo */
+.nw-delta, .nw-value, .nw-axis { position: absolute; transform: translate(-50%, -50%);
+  white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1; }
+.nw-delta { font-size: 9.5px; font-weight: 600; }
+.nw-delta.up { color: var(--green); }
+.nw-delta.down { color: var(--red); }
+.nw-value { font-size: 11px; font-weight: 600; color: var(--ink); transform: translate(-100%, -50%); }
+/* pontas alinhadas à borda p/ não vazar nem encostar nos vizinhos */
+.nw-delta.edge-l { transform: translate(0, -50%); }
+.nw-delta.edge-r { transform: translate(-100%, -50%); }
 
-/* rótulo da variação, DENTRO da barra, centralizado no segmento que mudou */
-.nw-pct { position: absolute; left: 50%; transform: translate(-50%, 50%);
-  z-index: 5; font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums;
-  letter-spacing: .01em; white-space: nowrap; line-height: 1; text-align: center; }
-.nw-pct.up { color: #fff; }
-.nw-pct.down { color: var(--red); }
-
-.nw-lbl { font-size: 11px; color: var(--faint); }
-.nw-lbl.is-current { color: var(--ink); font-weight: 600; }
 /* rótulos do gráfico em HTML (px reais, não escalam com o SVG) */
 .flow-labels { position: absolute; inset: 0; pointer-events: none; }
 .flow-val, .flow-month { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
@@ -285,12 +269,12 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 .dh-net.positive { color: var(--green); }
 .dh-net.negative { color: var(--red); }
 .flash-slim { margin: 0; padding: 7px 12px; font-size: 12px; }
-.dash-grid {
-  flex: 1; min-height: 0; display: grid;
-  grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 12px;
-}
+.dash-grid { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.dash-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.dash-col-main { flex: 1.4; }
+.dash-col-side { flex: 1; }
 .dash-grid .card.widget {
-  margin: 0; min-height: 0; min-width: 0; padding: 12px 14px;
+  margin: 0; flex: 1; min-height: 0; min-width: 0; padding: 12px 14px;
   display: flex; flex-direction: column; overflow: hidden;
 }
 .w-title { display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -322,33 +306,37 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 .dl-total { border-top: 0.5px solid var(--line); padding-top: 7px; margin-top: 1px; font-weight: 600; }
 .dl-total .dl-val { font-weight: 700; }
 
-/* orçamentos compactos no widget */
-.wb-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
-.wb-cat { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
-.wb-cat i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; }
-.wb-amount { font-size: 12px; font-variant-numeric: tabular-nums; }
-.wb-bar { grid-column: 1 / -1; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; }
-.wb-fill { height: 100%; background: var(--indigo); border-radius: 2px; }
-.wb-fill.over { background: var(--red); }
+/* composição do patrimônio — barra horizontal empilhada */
+.comp-bar { display: flex; width: 100%; height: 30px; border-radius: 6px; overflow: hidden;
+  font-size: 11px; font-weight: 600; }
+.comp-seg { display: flex; align-items: center; justify-content: center; color: #fff;
+  white-space: nowrap; padding: 0 4px; min-width: 0; }
+.comp-seg:first-child { justify-content: flex-start; padding-left: 10px; }
+.comp-legend { display: flex; flex-wrap: wrap; gap: 7px 16px; margin-top: 13px;
+  font-size: 12px; color: var(--muted); }
+.comp-key { display: flex; align-items: center; gap: 6px; }
+.comp-dot { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.comp-key b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.comp-key b.neg { color: var(--red); }
 
-/* transações recentes */
-.tx-row { display: flex; align-items: center; gap: 9px; font-size: 11px; }
-.tx-date { color: var(--faint); font-variant-numeric: tabular-nums; width: 34px; flex: none; }
-.tx-desc { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tx-amt { font-variant-numeric: tabular-nums; flex: none; }
-.tx-amt.positive { color: var(--green); }
-
-/* contas e bens */
-.ca-lists { display: flex; flex-direction: column; gap: 9px; }
-.ca-group { display: flex; flex-direction: column; gap: 9px; }
-.ca-assets { border-top: 0.5px solid var(--line); padding-top: 9px; }
-.ca-split { display: flex; flex-direction: column; gap: 6px; }
-.ca-splitbar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; }
-.ca-splitbar i { display: block; height: 100%; }
-.ca-splitlbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-.ca-key { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
-.ca-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; }
-.ca-name { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* orçamentos — ritmo do mês: barra que enche e extravasa quando estoura */
+.bg-row { display: flex; flex-direction: column; gap: 5px; }
+.bg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; }
+.bg-cat { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bg-cat i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; flex: none; }
+.bg-amount { font-size: 12px; font-variant-numeric: tabular-nums; flex: none; }
+.bg-amount.over { color: var(--red); }
+.bg-amount .muted { color: var(--faint); }
+.bg-noset { font-size: 10.5px; color: var(--faint); }
+/* trilha: 0–80% = teto; 80–100% = zona de estouro (tingida) */
+.bg-track { position: relative; height: 7px; border-radius: 4px;
+  background: linear-gradient(to right, var(--line) 0 80%, rgba(192,57,43,.10) 80% 100%); }
+.bg-main { position: absolute; left: 0; top: 0; bottom: 0; background: var(--indigo); border-radius: 4px; }
+.bg-main.warn { background: var(--amber); }
+.bg-main.over { background: var(--red); border-radius: 4px 0 0 4px; }
+.bg-over { position: absolute; left: 80%; top: -1px; bottom: -1px; background: #8f231a; border-radius: 0 3px 3px 0; }
+.bg-marker { position: absolute; left: 80%; top: -3px; bottom: -3px; width: 1.5px; background: var(--ink); opacity: .5; }
+.bg-overnote { font-size: 10.5px; color: var(--red); }
 .ca-name i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; flex: none; }
 .ca-row b { font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
 

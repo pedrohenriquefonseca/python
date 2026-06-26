@@ -3,7 +3,6 @@
 {% block content %}
 
 {% set result = income - total_spent %}
-{% set nwb = nw_chart.bars[-1] %}
 
 <div class="dash">
   <div class="dash-head">
@@ -26,166 +25,142 @@
 
   <div class="dash-grid">
 
-    <!-- 1 · Patrimônio líquido -->
-    <div class="card widget">
-      <div class="w-title">
-        <span>Patrimônio líquido</span>
-        <span class="delta {{ 'up' if nwb.up else 'down' }}">
-          <i class="ti ti-trending-{{ 'up' if nwb.up else 'down' }}"></i> {{ nwb.pct }}
-        </span>
-      </div>
-      <div class="w-body">
-        <div class="nw-bars">
-          {% for b in nw_chart.bars %}
-          <div class="nw-col">
-            <div class="nw-bar-track">
-              <span class="nw-val {{ 'is-current' if b.current }}" style="bottom: calc({{ b.h }}% + 5px)">{{ b.value }}</span>
-              {% if b.up %}
-              <div class="nw-seg base {{ 'is-current' if b.current }}" style="height: {{ b.h_base }}%"></div>
-              <div class="nw-seg add" style="height: {{ b.h_delta }}%; bottom: {{ b.h_base }}%"></div>
-              {% else %}
-              <div class="nw-seg ghost" style="height: {{ b.h_prev }}%"></div>
-              <div class="nw-seg now {{ 'is-current' if b.current }}" style="height: {{ b.h }}%"></div>
-              {% endif %}
-              <span class="nw-pct {{ 'up' if b.up else 'down' }}" style="bottom: {{ ((b.h_base + b.h_top) / 2)|round(1) }}%">{{ b.pct }}</span>
+    <!-- Coluna principal: Patrimônio · Fluxo · Composição -->
+    <div class="dash-col dash-col-main">
+
+      <!-- Patrimônio líquido -->
+      <div class="card widget">
+        <div class="w-title">
+          <span>Patrimônio líquido</span>
+          <span class="delta {{ 'up' if nw_chart.up else 'down' }}">
+            <i class="ti ti-trending-{{ 'up' if nw_chart.up else 'down' }}"></i> {{ nw_chart.pct }}
+          </span>
+        </div>
+        <div class="w-body center">
+          <div class="flow-wrap nw-wrap">
+            <svg class="flow" viewBox="0 0 480 {{ nw_chart.vb_h }}" preserveAspectRatio="xMidYMid meet">
+              <line class="nw-base" x1="30" y1="{{ nw_chart.base_y }}" x2="450" y2="{{ nw_chart.base_y }}"/>
+              <path class="nw-area" d="{{ nw_chart.area_d }}"/>
+              <polyline class="nw-line" points="{{ nw_chart.line_pts }}"/>
+              {% for d in nw_chart.dots %}<circle class="nw-dot {{ 'is-current' if d.current }}" cx="{{ d.x }}" cy="{{ d.y }}" r="{{ 3.4 if d.current else 2.4 }}"/>{% endfor %}
+            </svg>
+            <div class="flow-labels">
+              {% for d in nw_chart.delta_nodes %}<span class="nw-delta {{ 'up' if d.up else 'down' }} {{ 'edge-l' if loop.first }}{{ 'edge-r' if loop.last }}" style="left:{{ (d.x/480*100)|round(2) }}%; top:{{ (d.ly/nw_chart.vb_h*100)|round(2) }}%">{{ d.label }}</span>{% endfor %}
+              <span class="nw-value" style="left:{{ (nw_chart.value_x/480*100)|round(2) }}%; top:{{ (nw_chart.value_y/nw_chart.vb_h*100)|round(2) }}%">{{ nw_chart.value_label }}</span>
+              {% for m in nw_chart.month_nodes %}<span class="flow-month {{ 'is-current' if m.current }}" style="left:{{ (m.x/480*100)|round(2) }}%; top:{{ nw_chart.month_y }}%">{{ m.label }}</span>{% endfor %}
             </div>
-            <span class="nw-lbl {{ 'is-current' if b.current }}">{{ b.label }}</span>
           </div>
-          {% endfor %}
         </div>
       </div>
+
+      <!-- Fluxo mensal -->
+      <div class="card widget">
+        <div class="w-title">
+          <span>Fluxo mensal</span>
+          <span class="legend">
+            <span class="lg-receita"><i class="ti ti-point-filled"></i> Receita</span>
+            <span class="lg-gasto"><i class="ti ti-point-filled"></i> Gasto</span>
+            <span class="lg-orcado"><i class="ti ti-minus"></i> Orçado</span>
+          </span>
+        </div>
+        <div class="w-body center">
+          <div class="flow-wrap">
+            <svg class="flow" viewBox="0 0 480 {{ charts.flow.vb_h }}" preserveAspectRatio="xMidYMid meet">
+              {% for m in charts.flow.month_nodes %}<line class="grid-v" x1="{{ m.x }}" y1="{{ charts.flow.grid_top }}" x2="{{ m.x }}" y2="{{ charts.flow.grid_bottom }}"/>{% endfor %}
+              <polyline class="fl-orcado" points="{{ charts.flow.orcado_pts }}"/>
+              <polyline class="fl-gasto" points="{{ charts.flow.gasto_pts }}"/>
+              <polyline class="fl-receita" points="{{ charts.flow.receita_pts }}"/>
+              {% for nd in charts.flow.receita_nodes %}<circle class="nd-receita" cx="{{ nd.x }}" cy="{{ nd.y }}" r="{{ 3 if nd.current else 2.6 }}"/>{% endfor %}
+              {% for nd in charts.flow.gasto_nodes %}<circle class="nd-gasto" cx="{{ nd.x }}" cy="{{ nd.y }}" r="{{ 3 if nd.current else 2.6 }}"/>{% endfor %}
+            </svg>
+            <div class="flow-labels">
+              {% for nd in charts.flow.receita_nodes %}<span class="flow-val" style="left:{{ (nd.x/480*100)|round(2) }}%; top:{{ (nd.ly/charts.flow.vb_h*100)|round(2) }}%">{{ nd.label }}</span>{% endfor %}
+              {% for nd in charts.flow.gasto_nodes %}<span class="flow-val" style="left:{{ (nd.x/480*100)|round(2) }}%; top:{{ (nd.ly/charts.flow.vb_h*100)|round(2) }}%">{{ nd.label }}</span>{% endfor %}
+              {% for m in charts.flow.month_nodes %}<span class="flow-month {{ 'is-current' if m.current }}" style="left:{{ (m.x/480*100)|round(2) }}%; top:{{ charts.flow.month_y }}%">{{ m.label }}</span>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Composição do patrimônio -->
+      <div class="card widget">
+        <div class="w-title"><span>Composição do patrimônio</span><span class="muted">{{ composition.total }}</span></div>
+        <div class="w-body center">
+          <div class="comp-bar">
+            {% for s in composition.segs if s.positive %}
+            <div class="comp-seg" style="width: {{ s.width }}%; background: {{ s.color }}">{% if s.show_name %}{{ s.name }} · {% endif %}{{ s.pct }}%</div>
+            {% endfor %}
+          </div>
+          <div class="comp-legend">
+            {% for s in composition.segs %}
+            <span class="comp-key"><span class="comp-dot" style="background: {{ s.color }}"></span>{{ s.name }} <b class="{{ 'neg' if not s.positive }}">{{ s.value }}</b></span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <!-- 2 · Fluxo mensal -->
-    <div class="card widget">
-      <div class="w-title">
-        <span>Fluxo mensal</span>
-        <span class="legend">
-          <span class="lg-receita"><i class="ti ti-point-filled"></i> Receita</span>
-          <span class="lg-gasto"><i class="ti ti-point-filled"></i> Gasto</span>
-          <span class="lg-orcado"><i class="ti ti-minus"></i> Orçado</span>
-        </span>
-      </div>
-      <div class="w-body center">
-        <div class="flow-wrap">
-          <svg class="flow" viewBox="0 0 480 {{ charts.flow.vb_h }}" preserveAspectRatio="xMidYMid meet">
-            {% for m in charts.flow.month_nodes %}<line class="grid-v" x1="{{ m.x }}" y1="{{ charts.flow.grid_top }}" x2="{{ m.x }}" y2="{{ charts.flow.grid_bottom }}"/>{% endfor %}
-            <polyline class="fl-orcado" points="{{ charts.flow.orcado_pts }}"/>
-            <polyline class="fl-gasto" points="{{ charts.flow.gasto_pts }}"/>
-            <polyline class="fl-receita" points="{{ charts.flow.receita_pts }}"/>
-            {% for nd in charts.flow.receita_nodes %}<circle class="nd-receita" cx="{{ nd.x }}" cy="{{ nd.y }}" r="{{ 3 if nd.current else 2.6 }}"/>{% endfor %}
-            {% for nd in charts.flow.gasto_nodes %}<circle class="nd-gasto" cx="{{ nd.x }}" cy="{{ nd.y }}" r="{{ 3 if nd.current else 2.6 }}"/>{% endfor %}
+    <!-- Coluna lateral: Gastos · Orçamentos -->
+    <div class="dash-col dash-col-side">
+
+      <!-- Gastos por categoria -->
+      <div class="card widget">
+        <div class="w-title"><span>Gastos por categoria</span></div>
+        <div class="w-body donut-body">
+          <svg class="donut" viewBox="0 0 42 42">
+            <circle class="donut-track" cx="21" cy="21" r="15.9159"></circle>
+            {% for d in donut %}
+            <circle class="donut-seg" cx="21" cy="21" r="15.9159" pathLength="100"
+                    stroke="{{ d.color }}" stroke-dasharray="{{ d.dash }} {{ (100 - d.dash)|round(2) }}"
+                    stroke-dashoffset="{{ d.offset }}" transform="rotate(-90 21 21)"></circle>
+            {% endfor %}
           </svg>
-          <div class="flow-labels">
-            {% for nd in charts.flow.receita_nodes %}<span class="flow-val" style="left:{{ (nd.x/480*100)|round(2) }}%; top:{{ (nd.ly/charts.flow.vb_h*100)|round(2) }}%">{{ nd.label }}</span>{% endfor %}
-            {% for nd in charts.flow.gasto_nodes %}<span class="flow-val" style="left:{{ (nd.x/480*100)|round(2) }}%; top:{{ (nd.ly/charts.flow.vb_h*100)|round(2) }}%">{{ nd.label }}</span>{% endfor %}
-            {% for m in charts.flow.month_nodes %}<span class="flow-month {{ 'is-current' if m.current }}" style="left:{{ (m.x/480*100)|round(2) }}%; top:{{ charts.flow.month_y }}%">{{ m.label }}</span>{% endfor %}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 3 · Gastos por categoria -->
-    <div class="card widget">
-      <div class="w-title"><span>Gastos por categoria</span></div>
-      <div class="w-body donut-body">
-        <svg class="donut" viewBox="0 0 42 42">
-          <circle class="donut-track" cx="21" cy="21" r="15.9159"></circle>
-          {% for d in donut %}
-          <circle class="donut-seg" cx="21" cy="21" r="15.9159" pathLength="100"
-                  stroke="{{ d.color }}" stroke-dasharray="{{ d.dash }} {{ (100 - d.dash)|round(2) }}"
-                  stroke-dashoffset="{{ d.offset }}" transform="rotate(-90 21 21)"></circle>
-          {% endfor %}
-        </svg>
-        <div class="donut-legend">
-          <div class="dl-head">
-            <span class="dl-name">Categoria</span>
-            <span class="dl-pct">% total</span>
-            <span class="dl-val">Gasto</span>
-          </div>
-          {% for d in donut %}
-          <div class="dl-row">
-            <span class="dl-name"><span class="dl-dot" style="background: {{ d.color }}"></span>{{ d.category }}</span>
-            <span class="dl-pct">{{ d.pct }}%</span>
-            <span class="dl-val">R$ {{ d.spent|n0 }}</span>
-          </div>
-          {% endfor %}
-          <div class="dl-total">
-            <span class="dl-name">Total</span>
-            <span class="dl-pct"></span>
-            <span class="dl-val">R$ {{ total_spent|n0 }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4 · Orçamentos -->
-    <div class="card widget">
-      <div class="w-title"><span>Orçamentos</span><a class="w-link" href="{{ url_for('budgets') }}">ver todos</a></div>
-      <div class="w-body spread">
-        {% for c in cards if c.budget or c.spent > 0 %}
-        <div class="wb-row">
-          <span class="wb-cat"><i class="{{ cat_icon(c.category) }}"></i> {{ c.category }}</span>
-          <span class="wb-amount">R$ {{ c.spent|n0 }}{% if c.budget %}<span class="muted"> / R$ {{ c.budget|n0 }}</span>{% endif %}</span>
-          <div class="wb-bar">
-            {% if c.budget %}<div class="wb-fill {{ 'over' if c.status == 'over' }}" style="width: {{ [c.pct, 100]|min }}%"></div>{% endif %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- 5 · Transações recentes -->
-    <div class="card widget">
-      <div class="w-title"><span>Transações recentes</span><a class="w-link" href="{{ url_for('transactions', month=month) }}">ver todas</a></div>
-      <div class="w-body spread">
-        {% for t in recent_tx %}
-        <div class="tx-row">
-          <span class="tx-date">{{ t.posted_on[8:10] }}/{{ t.posted_on[5:7] }}</span>
-          <span class="cat-badge" style="--c: {{ cat_color(t.cat) }}"><i class="{{ cat_icon(t.cat) if t.cat else 'ti ti-help' }}"></i></span>
-          <span class="tx-desc">{{ t.description }}</span>
-          <span class="tx-amt {{ 'positive' if t.amount > 0 }}">{{ '+' if t.amount > 0 }}R$ {{ t.amount|brl }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- 6 · Contas e bens -->
-    <div class="card widget">
-      <div class="w-title"><span>Contas e bens</span></div>
-      <div class="w-body spread">
-        <div class="ca-lists">
-          <div class="ca-group">
-            {% for a in accounts_bal %}
-            <div class="ca-row">
-              <span class="ca-name"><i class="ti ti-building-bank"></i> {{ a.name }}</span>
-              <b>R$ {{ a.balance|n0 }}</b>
+          <div class="donut-legend">
+            <div class="dl-head">
+              <span class="dl-name">Categoria</span>
+              <span class="dl-pct">% total</span>
+              <span class="dl-val">Gasto</span>
+            </div>
+            {% for d in donut %}
+            <div class="dl-row">
+              <span class="dl-name"><span class="dl-dot" style="background: {{ d.color }}"></span>{{ d.category }}</span>
+              <span class="dl-pct">{{ d.pct }}%</span>
+              <span class="dl-val">R$ {{ d.spent|n0 }}</span>
             </div>
             {% endfor %}
-          </div>
-          {% if assets_list %}
-          <div class="ca-group ca-assets">
-            {% for a in assets_list %}
-            <div class="ca-row">
-              <span class="ca-name"><i class="{{ asset_icon(a.category) }}"></i> {{ a.name }}</span>
-              <b>R$ {{ a.value|n0 }}</b>
+            <div class="dl-total">
+              <span class="dl-name">Total</span>
+              <span class="dl-pct"></span>
+              <span class="dl-val">R$ {{ total_spent|n0 }}</span>
             </div>
-            {% endfor %}
-          </div>
-          {% endif %}
-        </div>
-        {% set tot = nw_total or 1 %}
-        <div class="ca-split">
-          <div class="ca-splitbar">
-            <i style="width: {{ (nw_bancos / tot * 100)|round(1) }}%; background: var(--indigo)"></i>
-            <i style="width: {{ (nw_bens / tot * 100)|round(1) }}%; background: #9aa0b5"></i>
-          </div>
-          <div class="ca-splitlbl">
-            <span><span class="ca-key" style="background: var(--indigo)"></span>Bancos R$ {{ nw_bancos|n0 }}</span>
-            <span><span class="ca-key" style="background: #9aa0b5"></span>Bens R$ {{ nw_bens|n0 }}</span>
           </div>
         </div>
       </div>
+
+      <!-- Orçamentos · ritmo do mês -->
+      <div class="card widget">
+        <div class="w-title"><span>Orçamentos</span><a class="w-link" href="{{ url_for('budgets') }}">ver todos</a></div>
+        <div class="w-body spread">
+          {% for c in cards if c.budget or c.spent > 0 %}
+          <div class="bg-row">
+            <div class="bg-head">
+              <span class="bg-cat"><i class="{{ cat_icon(c.category) }}"></i> {{ c.category }}</span>
+              <span class="bg-amount {{ 'over' if c.status == 'over' }}">R$ {{ c.spent|n0 }}{% if c.budget %} <span class="muted">de R$ {{ c.budget|n0 }}</span>{% else %} <span class="bg-noset">sem teto</span>{% endif %}</span>
+            </div>
+            {% if c.budget %}
+            <div class="bg-track">
+              <div class="bg-main {{ c.bar_class }}" style="width: {{ c.main_w }}%"></div>
+              {% if c.over_w %}<div class="bg-over" style="width: {{ c.over_w }}%"></div>{% endif %}
+              <span class="bg-marker"></span>
+            </div>
+            {% if c.over_txt %}<div class="bg-overnote">{{ c.over_txt }}</div>{% endif %}
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
     </div>
 
   </div>

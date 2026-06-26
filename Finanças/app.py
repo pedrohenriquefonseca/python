@@ -22,7 +22,8 @@ CATEGORY_ICONS = {
     "Moradia": "home", "Transporte": "car", "Alimentação": "tools-kitchen-2",
     "Mercado": "shopping-cart", "Saúde": "heartbeat", "Lazer": "movie",
     "Assinaturas": "repeat", "Salário": "cash", "Outros": "dots",
-    "Transferência": "arrows-exchange",
+    "Cuidados Pessoais": "sparkles", "Compras": "shopping-bag",
+    "Juros e Impostos": "receipt-tax", "Transferência": "arrows-exchange",
 }
 ASSET_ICONS = {
     "Imóvel": "home", "Veículo": "car", "Investimento": "chart-line", "Outros": "diamond",
@@ -227,11 +228,27 @@ def dashboard():
                 status = "ok"
         else:
             status = "nobudget"
+        # Barra "ritmo do mês": o teto fica na marca de 80% da trilha, deixando
+        # 20% à direita para o estouro extravasar sem vazar do card (cap 125%).
+        FULL = 80.0
+        if budget:
+            ratio = spent / budget
+            main_w = round(min(ratio, 1.0) * FULL, 1)
+            over_w = round((min(ratio, 1.25) - 1.0) * FULL, 1) if ratio > 1 else 0.0
+            over_txt = ("estourou em R$ " + f"{spent - budget:,.0f}".replace(",", ".")
+                        + f" ({pct:.0f}%)") if ratio > 1 else None
+            bar_class = "over" if status == "over" else (
+                "warn" if status in ("warning", "pace_over") else "ok")
+        else:
+            main_w = over_w = 0.0
+            over_txt = None
+            bar_class = "none"
         budget_cards.append({
             "category": row["name"], "color": row["color"],
             "spent": spent, "budget": budget, "pct": pct,
             "projected": projected, "remaining": (budget - spent) if budget else None,
             "status": status,
+            "main_w": main_w, "over_w": over_w, "over_txt": over_txt, "bar_class": bar_class,
             "history": category_history(conn, row["id"], month),
         })
 
@@ -280,26 +297,9 @@ def dashboard():
         d["offset"] = round(-acc, 2)
         acc += frac
 
-    # Transações recentes (qualquer mês), as últimas lançadas.
-    recent_tx = conn.execute(
-        "SELECT t.posted_on, t.description, t.amount, t.transfer_to, "
-        "       c.name AS cat, c.kind AS kind "
-        "FROM transactions t LEFT JOIN categories c ON c.id = t.category_id "
-        "WHERE t.ignored = 0 ORDER BY t.posted_on DESC, t.id DESC LIMIT 8"
-    ).fetchall()
-
-    # Saldo atual por conta = saldo inicial + lançamentos + créditos de transferência.
-    accounts_bal = conn.execute(
-        "SELECT a.name, a.type, a.opening_balance "
-        "  + COALESCE((SELECT SUM(amount) FROM transactions "
-        "              WHERE account_id = a.id AND ignored = 0), 0) "
-        "  + COALESCE((SELECT SUM(-amount) FROM transactions "
-        "              WHERE transfer_to = a.id AND ignored = 0), 0) AS balance "
-        "FROM accounts a ORDER BY balance DESC"
-    ).fetchall()
-    assets_list = conn.execute(
-        "SELECT name, category, value FROM assets ORDER BY value DESC"
-    ).fetchall()
+    # Composição do patrimônio (barra horizontal empilhada): bens por tipo +
+    # investimentos + bancos. Saldo atual = inicial + lançamentos + transferências.
+    composition = build_composition(conn)
 
     conn.close()
     return render_template(
@@ -311,7 +311,7 @@ def dashboard():
         uncategorized=uncategorized, income=income,
         charts=charts, nw_chart=nw_chart, overruns=overruns,
         donut=donut_items, spend_total=spend_total,
-        recent_tx=recent_tx, accounts_bal=accounts_bal, assets_list=assets_list,
+        composition=composition,
     )
 
 
@@ -382,16 +382,28 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
     gasto_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, gastos))
     orcado_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, orcados))
 
+    # Rótulo de cada ponto fica do lado OPOSTO à outra linha: a série mais alta
+    # no mês recebe o rótulo acima do nó, a mais baixa abaixo. Assim, quando as
+    # linhas se cruzam (ex.: receita e gasto próximos), os textos nunca colidem.
+    # O rótulo de baixo é limitado para não invadir a faixa dos meses.
+    def lbl_y(v, above):
+        y = y_of(v) + (-9 if above else 13)
+        # Não deixa o rótulo de baixo invadir a faixa dos meses (grid_bottom+14):
+        # quando a série está rente à base, o texto flutua logo acima da linha.
+        return round(min(y, grid_bottom - 16), 1)
+
+    receita_above = [receitas[i] >= gastos[i] for i in range(n)]
+
     flow = {
         "vb_h": VBH, "grid_top": grid_top, "grid_bottom": grid_bottom,
         "month_y": round((grid_bottom + 14) / VBH * 100, 2),
         "receita_pts": receita_pts, "gasto_pts": gasto_pts, "orcado_pts": orcado_pts,
-        "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) - 9, 1),
+        "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": lbl_y(v, receita_above[i]),
                            "label": fmt_cur(v), "current": m == month}
-                          for x, v, m in zip(xs, receitas, months)],
-        "gasto_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": round(y_of(v) + 13, 1),
+                          for i, (x, v, m) in enumerate(zip(xs, receitas, months))],
+        "gasto_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": lbl_y(v, not receita_above[i]),
                          "label": fmt_cur(v), "current": m == month}
-                        for x, v, m in zip(xs, gastos, months)],
+                        for i, (x, v, m) in enumerate(zip(xs, gastos, months))],
         "month_nodes": [{"x": round(x), "label": l, "current": m == month}
                         for x, l, m in zip(xs, labels, months)],
         "orcado_label": fmt_cur(orcados[-1]) if orcados else "R$ 0",
@@ -421,44 +433,109 @@ def build_networth_chart(conn, month: str, n_months: int = 6) -> dict:
         ).fetchone()["v"]
         values.append(opening + moves + assets)
 
-    # Eixo truncado (min..max sobre toda a série, incl. o mês extra) para destacar
-    # a evolução; barra mínima ~30% de altura. O mesmo mapeamento vale para o valor
-    # atual e o anterior, então os segmentos casam visualmente.
-    vmin, vmax = min(values), max(values)
+    # Linha/área com eixo "zoom" (min..max dos meses exibidos). Como o patrimônio
+    # varia pouco (~0,2%/mês), barras empilhadas exageravam micro-variações; a linha
+    # mostra honestamente a estabilidade e o rótulo de cada ponto traz o delta m/m.
+    disp = values[1:]                       # meses exibidos (sem o mês extra)
+    vmin, vmax = min(disp), max(disp)
     span = (vmax - vmin) or 1
 
-    def height(v):
-        # Teto em 88% (e não 100%) deixa folga no topo da trilha para o rótulo
-        # do valor, que agora flutua logo acima de cada barra.
-        return round(30 + (v - vmin) / span * 58, 1)
+    # Geometria do viewBox (mesma largura do "Fluxo mensal" p/ o overlay de rótulos).
+    W, x0, x1, VBH = 480, 30, 450, 176
+    ytop, ybot, base_y, month_y = 44, 140, 156, 168
+    n = len(disp)
+    xs = [x0 + (x1 - x0) * i / (n - 1) for i in range(n)] if n > 1 else [x0]
 
-    def fmt_cur(v):
+    def y_of(v):
+        return ybot - (v - vmin) / span * (ybot - ytop)
+
+    def fmt_full(v):
         return "R$ " + f"{v:,.0f}".replace(",", ".")
+
+    def fmt_delta(d):
+        return ("+" if d >= 0 else "−") + "R$ " + f"{abs(d):,.0f}".replace(",", ".")
 
     def fmt_pct(p):
         return ("+" if p >= 0 else "−") + f"{abs(p):.1f}%".replace(".", ",")
 
-    bars = []
-    for i in range(1, len(months)):
-        m, v, prev = months[i], values[i], values[i - 1]
-        delta = v - prev
-        pct = (delta / abs(prev) * 100) if prev else 0.0
-        up = delta >= 0
-        h, h_prev = height(v), height(prev)
-        bars.append({
-            "label": month_short(m),
-            "value": fmt_cur(v),
-            "current": m == month,
-            "up": up,
-            "pct": fmt_pct(pct),
-            "h": h,                       # altura da barra do valor atual
-            "h_prev": h_prev,            # altura no nível do valor anterior
-            "h_base": min(h, h_prev),    # parte comum (valor anterior preservado)
-            "h_delta": round(abs(h - h_prev), 1),  # acréscimo (subida) ou perda (descida)
-            "h_top": max(h, h_prev),     # nível onde fica o rótulo de %
-        })
+    ys = [round(y_of(v), 1) for v in disp]
+    line_pts = " ".join(f"{x:.0f},{y}" for x, y in zip(xs, ys))
+    area_d = (f"M{xs[0]:.0f},{ys[0]} "
+              + " ".join(f"L{x:.0f},{y}" for x, y in zip(xs, ys))
+              + f" L{xs[-1]:.0f},{base_y} L{xs[0]:.0f},{base_y} Z")
 
-    return {"bars": bars}
+    dots, delta_nodes, month_nodes = [], [], []
+    for i in range(n):
+        m, v = months[i + 1], disp[i]
+        prev = values[i]                    # mês imediatamente anterior
+        delta = v - prev
+        dots.append({"x": round(xs[i]), "y": ys[i], "current": m == month})
+        delta_nodes.append({
+            "x": round(xs[i]), "ly": round(max(ys[i] - 9, 12), 1),
+            "label": fmt_delta(delta), "up": delta >= 0, "current": m == month,
+        })
+        month_nodes.append({"x": round(xs[i]), "label": month_short(m), "current": m == month})
+
+    last_delta = disp[-1] - values[-2]
+    last_pct = (last_delta / abs(values[-2]) * 100) if values[-2] else 0.0
+
+    return {
+        "vb_h": VBH,
+        "base_y": base_y,
+        "month_y": round(month_y / VBH * 100, 2),
+        "line_pts": line_pts, "area_d": area_d,
+        "dots": dots, "delta_nodes": delta_nodes, "month_nodes": month_nodes,
+        "pct": fmt_pct(last_pct), "up": last_delta >= 0,
+        "value_label": fmt_full(disp[-1]),
+        "value_x": round(xs[-1]), "value_y": round(min(ys[-1] + 15, base_y - 4), 1),
+    }
+
+
+def build_composition(conn) -> dict:
+    """Composição do patrimônio para a barra horizontal empilhada: bens por
+    tipo + investimentos + bancos. Só valores positivos ganham largura; valores
+    negativos (ex.: conta no vermelho) aparecem apenas na legenda."""
+    bal = conn.execute(
+        "SELECT a.type, a.opening_balance "
+        "  + COALESCE((SELECT SUM(amount) FROM transactions "
+        "              WHERE account_id = a.id AND ignored = 0), 0) "
+        "  + COALESCE((SELECT SUM(-amount) FROM transactions "
+        "              WHERE transfer_to = a.id AND ignored = 0), 0) AS v "
+        "FROM accounts a"
+    ).fetchall()
+    bancos = sum(r["v"] for r in bal if r["type"] in ("checking", "credit"))
+    invest_contas = sum(r["v"] for r in bal if r["type"] == "investment")
+
+    assets = conn.execute("SELECT category, SUM(value) AS v FROM assets GROUP BY category").fetchall()
+    by_cat = {r["category"]: r["v"] for r in assets}
+    imovel = by_cat.get("Imóvel", 0)
+    veiculo = by_cat.get("Veículo", 0)
+    invest = invest_contas + by_cat.get("Investimento", 0)
+    outros = by_cat.get("Outros", 0)
+
+    raw = [
+        ("Imóvel", imovel, "var(--indigo)"),
+        ("Investimentos", invest, "var(--green)"),
+        ("Veículo", veiculo, "var(--amber)"),
+        ("Outros bens", outros, "#7a8aa0"),
+        ("Bancos", bancos, "var(--faint)"),
+    ]
+    segs = [(n, v, c) for n, v, c in raw if v != 0]
+    total = sum(v for _, v, _ in segs) or 1          # patrimônio líquido
+    pos_total = sum(v for _, v, _ in segs if v > 0) or 1
+
+    def fmt(v):
+        return ("−" if v < 0 else "") + "R$ " + f"{abs(v):,.0f}".replace(",", ".")
+
+    out = []
+    for name, v, color in sorted(segs, key=lambda s: s[1], reverse=True):
+        width = (v / pos_total * 100) if v > 0 else 0.0
+        out.append({
+            "name": name, "color": color, "value": fmt(v),
+            "pct": round(v / total * 100),
+            "width": round(width, 2), "show_name": width >= 16, "positive": v > 0,
+        })
+    return {"segs": out, "total": fmt(total)}
 
 
 # ----------------------------------------------------------------------------- transações
