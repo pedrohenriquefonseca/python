@@ -25,19 +25,46 @@ reconhecível como recompensa a cada passo.
 | Tonalidade | Dó maior (sem acidentes) | armaduras com bemóis (Fá, Si♭, Mi♭, Lá♭) |
 | Andamento | Largo | Adagio → Andante (ver abaixo) |
 
-## Andamento: eixo ortogonal (3 por exercício; Allegro removido em 19/jun/2026)
+## Andamento: eixo ortogonal, 3 velocidades OBRIGATÓRIAS por nível (implementado 1/jul/2026)
 
 Cada exercício existe em **3 velocidades**. O **conteúdo** (notas/ritmo/armadura)
-avança pela tabela de níveis; o **andamento** é o quanto se aperta cada nível.
+avança pela tabela de níveis; o **andamento** é o quanto se aperta cada nível — e,
+diferente do esboço original, **as 3 são sequenciais e obrigatórias**, sem
+estrelas/recorde: é só o jeito de garantir que o jogador pratique o mesmo
+conteúdo em 3 velocidades antes de seguir em frente.
 
 | Andamento | BPM aprox. | Papel |
 |---|---|---|
-| Largo | ~40 | nota nova estreia aqui, janela de acerto generosa — *passar libera o próximo nível* |
+| Largo | ~40 | todo nível **estreia aqui**, janela de acerto generosa |
 | Adagio | ~66 | velocidade de leitura intermediária |
-| Andante | ~92 | velocidade "real" — desafio de domínio (estrelas / recorde) |
+| Andante | ~92 | velocidade "real" — passar aqui **libera o próximo nível** |
 
-Efeito pedagógico: a nota nova sempre estreia devagar (Largo) e só vira pressão
-de velocidade depois (Adagio/Andante).
+**Fluxo de uma fase** (`app/src/game/Game.ts`): o nível roda uma fase estendida
+(cota de notas — ver "Fase estendida" abaixo) na velocidade atual. Ao fim:
+- **≥ 80% de acerto** e ainda não é Andante → tela **"Congrats! Let's speed
+  things up!"** (`speedUp.ts` `showSpeedUp`, implementada 1/jul/2026) — **sem
+  botões**: estética circense/carnaval (confete, balões, faíscas/estrelas,
+  flores/corações), conta **3→2→1→Go!** (cada dígito estoura — cresce e esmaece)
+  e volta sozinha pro MESMO nível na próxima velocidade (Largo→Adagio→Andante),
+  vidas renovadas. Mockup aprovado pelo usuário antes de implementar.
+- **≥ 80% de acerto** em Andante (a última) → tela **"Nível completo!"** (com
+  botões Next/Home, `levelComplete.ts`) → libera e avança para o próximo nível
+  (que estreia de novo em Largo).
+- **< 80% de acerto**, em qualquer velocidade → cai na **mesma lógica de vidas /
+  Game Over** (sem tela própria de "quase lá" — decisão de simplicidade): Retry
+  refaz a mesma velocidade, Home volta ao menu.
+
+Sem estrelas, sem recorde — o jogo é simples e o foco é o aprendizado, não pontuação
+(decisão 1/jul/2026).
+
+## Fase estendida: mais conteúdo pra memorizar (implementado 1/jul/2026)
+
+A cota de notas por fase subiu (`LEVEL_QUOTA` em `Game.ts`) e os fragmentos de
+melodia do nível **circulam sem repetir** (`melodyCycle`, embaralha e esgota antes
+de repetir — ver `docs/04`) em vez de sortear um só ao acaso. Como cada nível já
+passa pelas 3 velocidades antes de avançar, o jogador acaba exposto ao mesmo
+conteúdo (notas, ritmo, armadura, todas as melodias do nível) **3× por padrão**,
+sem precisar de repetição manual.
 
 ## Armaduras de clave desde cedo, privilegiando bemóis (decisão 17/jun/2026)
 
@@ -99,7 +126,7 @@ Um gerador lê parâmetros e produz exercícios infinitos. Esboço por nível:
   "tempos": { "largo": 40, "adagio": 66, "andante": 92 },
   "melodySources": ["..."],
   "proceduralWeight": 0.3,
-  "masteryGate": { "minAccuracy": 0.9, "maxReactionMs": 600 }
+  "masteryGate": { "minAccuracy": 0.8 }
 }
 ```
 

@@ -1,5 +1,5 @@
-// Seleção de nível: grade com os 12 níveis (número + música + estrelas). Só os
-// níveis liberados pela porta de domínio são jogáveis; os demais aparecem trancados.
+// Seleção de nível: grade com os 12 níveis (número + música). Só os níveis
+// liberados pela porta de domínio são jogáveis; os demais aparecem trancados.
 // Overlay sobre o #app, no estilo do menu; resolve com o número do nível escolhido,
 // ou null se voltar para a tela inicial.
 
@@ -36,9 +36,7 @@ export function showLevelSelect(host: HTMLElement): Promise<number | null> {
 
     back.addEventListener("pointerdown", () => finish(null))
 
-    const progress = loadProgress()
-    const unlocked = progress?.unlocked ?? 1
-    const stars = progress?.stars ?? {}
+    const unlocked = loadProgress()?.unlocked ?? 1
 
     for (const lv of LEVELS) {
       const locked = lv.n > unlocked
@@ -54,18 +52,7 @@ export function showLevelSelect(host: HTMLElement): Promise<number | null> {
       music.className = "level-tile-music"
       music.textContent = lv.music
 
-      // Estrelas conquistadas (3 espaços; preenchidas até o melhor resultado).
-      const earned = stars[lv.n] ?? 0
-      const starRow = document.createElement("span")
-      starRow.className = "level-tile-stars"
-      for (let i = 1; i <= 3; i++) {
-        const star = document.createElement("span")
-        star.className = i <= earned ? "lc-star on" : "lc-star"
-        star.textContent = "★"
-        starRow.appendChild(star)
-      }
-
-      tile.append(num, music, starRow)
+      tile.append(num, music)
       if (!locked) tile.addEventListener("pointerdown", () => finish(lv.n))
       grid.appendChild(tile)
     }

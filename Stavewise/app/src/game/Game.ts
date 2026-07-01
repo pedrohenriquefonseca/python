@@ -5,13 +5,14 @@ import { drawScene, noteScreenY, hitXForKey } from "./render"
 import { validPositionsForMidi, noteName } from "../data/slidePositions"
 import { keyAccidental, soundingMidi } from "../data/keys"
 import { tempoById, type Tempo, type TempoId } from "./tempo"
-import { levelByNumber } from "./levels"
+import { levelByNumber, LEVELS } from "./levels"
 import { RHYTHMS, pickRhythm, type RhythmId, type RhythmFigure } from "./rhythm"
-import { pickMelody, type MelodyNote } from "./melodies"
+import { MELODIES, shuffledIds, type MelodyNote } from "./melodies"
 import { Audio, MISS_LABELS, type MissSound } from "./audio"
 import { hapticHit, hapticMiss } from "./haptics"
-import { saveCurrentLevel, recordMastery, clearProgress } from "./storage"
+import { saveCurrentLevel, unlockLevel, clearProgress } from "./storage"
 import type { LevelResult } from "./levelComplete"
+import type { SpeedUpInfo } from "./speedUp"
 
 // Intensidade fixa da explosão de acerto (antes escalava com o combo, removido).
 const HIT_INTENSITY = 10
@@ -21,9 +22,14 @@ const HIT_INTENSITY = 10
 const MAX_LIVES = 10
 
 // Cota de notas (com altura — pausas não contam) que define uma "fase". Ao
-// resolver essa quantidade, a porta de domínio (masteryGate) é avaliada: precisão
-// suficiente libera o próximo nível. Ver docs/03.
-const LEVEL_QUOTA = 20
+// resolver essa quantidade, a porta de domínio (masteryGate) é avaliada. Ver
+// docs/03.
+const LEVEL_QUOTA = 28
+
+// As 3 velocidades, na ordem em que se sobem dentro do MESMO nível (docs/03):
+// todo nível estreia em Largo; passar a cota acelera para a próxima; passar em
+// Andante (a última) libera o próximo nível. Sem estrelas/recorde — só precisão.
+const TEMPO_STAGES: TempoId[] = ["largo", "adagio", "andante"]
 
 export class Game {
   private ctx: CanvasRenderingContext2D
@@ -43,20 +49,22 @@ export class Game {
   private flash = 0
   private shake = 0
 
-  // Desempenho da fase atual (zera a cada loadLevel). roundDone = notas com altura
-  // resolvidas (acerto ou erro); roundHits = acertos; reaction = soma/contagem do
-  // erro de tempo |distância à linha| em ms, para a 3ª estrela. roundOver congela o
-  // jogo enquanto a tela de fim de fase decide o próximo passo.
+  // Desempenho da fase atual (zera a cada resetRound). roundDone = notas com
+  // altura resolvidas (acerto ou erro); roundHits = acertos. roundOver congela o
+  // jogo enquanto a tela de fim de fase/game over decide o próximo passo.
   private roundDone = 0
   private roundHits = 0
-  private roundReactSum = 0
-  private roundReactCount = 0
   private roundOver = false
+  // Preenchimento da barra "Trombone Slide Position" (DOM): dobra como medidor de
+  // progresso da fase, crescendo da esquerda p/ a direita — evita um elemento
+  // separado no canvas que colidiria com o HUD (ver render.ts, sem barra própria).
+  private progressFillEl: HTMLDivElement | null = null
 
   private spawnAcc = 0
-  // No preview (dev) começa sempre no Largo para facilitar os testes; em produção,
-  // Andante. Ver memória "preview-always-largo".
-  private tempo: Tempo = tempoById(import.meta.env.DEV ? "largo" : "andante")
+  // Todo nível (e toda troca de velocidade dentro dele) começa em Largo — quem
+  // acelera é resetRound()/loadLevel(), nunca uma escolha de DEV/produção.
+  private tempo: Tempo = tempoById(TEMPO_STAGES[0])
+  private tempoStage: 0 | 1 | 2 = 0 // índice em TEMPO_STAGES da velocidade atual do nível
   // Estado dirigido pelo nível atual (ver loadLevel). O pool e os extremos do
   // intervalo definem as notas que entram e o tamanho da pauta; a armadura vem
   // junto. `[`/`]` navegam os níveis.
@@ -69,6 +77,7 @@ export class Game {
   private melodyIds: string[] = [] // melodySources do nível (ids em melodies.ts)
   private proceduralWeight = 1 // fração de sorteios que ficam procedurais (vs. melodia servida)
   private melodyQueue: MelodyNote[] = [] // notas restantes do fragmento em execução
+  private melodyCycle: string[] = [] // ids do nível ainda não tocados nesta fase (embaralhados)
   private keySig = 0 // armadura do nível, em quintas (negativo = bemóis)
   private rangeMin = 48
   private rangeMax = 57
@@ -80,12 +89,17 @@ export class Game {
   // 1ª abertura, sem nada para continuar.
   private active = false
 
-  // Chamado uma vez quando as vidas zeram. O main mostra a tela de game over e
-  // decide: recomeçar a fase (retryLevel) ou voltar ao menu (stop + tela inicial).
+  // Chamado uma vez quando as vidas zeram OU a cota fecha com < 80% de acerto —
+  // mesmo tratamento por simplicidade. O main mostra a tela de game over e decide:
+  // recomeçar a MESMA fase/velocidade (retryLevel) ou voltar ao menu.
   onGameOver?: () => void
 
-  // Chamado uma vez quando a cota da fase é resolvida. O main mostra a tela de fim
-  // de fase e decide: avançar (advanceLevel), repetir (retryLevel) ou menu.
+  // Chamado ao passar a cota (≥ 80%) numa velocidade que não é a última. O main
+  // mostra "vamos acelerar" e chama advanceTempo() para seguir na mesma fase.
+  onSpeedUp?: (info: SpeedUpInfo) => void
+
+  // Chamado ao passar a cota (≥ 80%) na última velocidade (Andante): o nível foi
+  // dominado. O main mostra a tela de fim de nível e chama advanceLevel().
   onLevelComplete?: (result: LevelResult) => void
 
   constructor(
@@ -155,7 +169,7 @@ export class Game {
   }
 
   // Carrega um nível: define o pool de notas, a armadura e o intervalo (min..max)
-  // que redimensiona a pauta. Limpa as notas em tela para um recomeço limpo.
+  // que redimensiona a pauta. Todo nível novo estreia em Largo (tempoStage = 0).
   loadLevel(n: number): void {
     const lv = levelByNumber(n)
     this.level = lv.n
@@ -164,25 +178,14 @@ export class Game {
     this.rhythmPool = lv.rhythmPool
     this.melodyIds = lv.melodySources
     this.proceduralWeight = lv.proceduralWeight
-    this.melodyQueue = []
     this.keySig = lv.keySig
     this.rangeMin = Math.min(...lv.notePool)
     this.rangeMax = Math.max(...lv.notePool)
-    this.notes = []
-    this.lastMidi = -1
-    this.lastWasRest = false
-    this.spawnAcc = 0
-    this.nextSpawnIn = this.beatMs // a 1ª nota da fase entra após ~1 tempo
-    this.lives = MAX_LIVES // mudança de fase reenche as vidas
-    this.gameOver = false // uma fase recém-carregada nunca está em game over
-    this.roundDone = 0 // novo nível, novo desempenho de fase
-    this.roundHits = 0
-    this.roundReactSum = 0
-    this.roundReactCount = 0
-    this.roundOver = false
+    this.tempoStage = 0
+    this.tempo = tempoById(TEMPO_STAGES[0])
+    this.resetRound()
     this.recomputeHitX()
-    // Cada avanço de nível durante o jogo atualiza o "continuar" (preserva liberados
-    // e estrelas).
+    // Cada avanço de nível durante o jogo atualiza o "continuar" (preserva o liberado).
     if (this.active) saveCurrentLevel(this.level)
   }
 
@@ -191,18 +194,47 @@ export class Game {
     return this.level
   }
 
-  // Recomeça a fase atual do zero (Retry do game over / Replay ou Try again do fim
-  // de fase). O loop continua rodando — loadLevel limpa notas/vidas/desempenho e
-  // tira de game over/round over, e o jogo retoma.
+  // Limpa o desempenho da fase (notas em tela, vidas, cota) sem tocar em
+  // nível/velocidade — usado tanto ao carregar um nível quanto ao acelerar dentro
+  // do mesmo nível (advanceTempo) e ao repetir a mesma tentativa (retryLevel).
+  private resetRound(): void {
+    this.melodyQueue = []
+    this.melodyCycle = []
+    this.notes = []
+    this.lastMidi = -1
+    this.lastWasRest = false
+    this.spawnAcc = 0
+    this.nextSpawnIn = this.beatMs // a 1ª nota da fase entra após ~1 tempo
+    this.lives = MAX_LIVES // toda nova tentativa reenche as vidas
+    this.gameOver = false
+    this.roundDone = 0
+    this.roundHits = 0
+    this.roundOver = false
+    this.updateProgressFill()
+  }
+
+  // Recomeça a MESMA tentativa (Retry do game over — vidas zeradas ou < 80% de
+  // acerto na cota). Mantém nível e velocidade atuais: não é um nível novo, é a
+  // mesma prova de novo.
   retryLevel(): void {
     this.score = 0
     this.labels = []
-    this.loadLevel(this.level)
+    this.resetRound()
   }
 
-  // Avança para o próximo nível (Next level da tela de fim de fase). levelByNumber
-  // satura no último, então no nível 12 isto repete o 12 — o main só oferece "Next"
-  // quando há próximo.
+  // Acelera para a próxima velocidade dentro do MESMO nível (Largo→Adagio→Andante,
+  // "vamos acelerar as coisas"). Conteúdo (notas/ritmo/armadura/melodias) não muda.
+  advanceTempo(): void {
+    this.score = 0
+    this.labels = []
+    this.tempoStage = Math.min(2, this.tempoStage + 1) as 0 | 1 | 2
+    this.tempo = tempoById(TEMPO_STAGES[this.tempoStage])
+    this.resetRound()
+  }
+
+  // Avança para o próximo nível (dominado nas 3 velocidades). levelByNumber satura
+  // no último, então no nível 12 isto repete o 12 — o main só oferece isso quando
+  // há próximo.
   advanceLevel(): void {
     this.score = 0
     this.labels = []
@@ -239,12 +271,8 @@ export class Game {
       }
     }
     if (!target) return
-    if (target.positions.includes(pos)) {
-      // Erro de tempo = |distância à linha| convertido a ms pela velocidade de
-      // rolagem; alimenta a média de reação (3ª estrela).
-      const reactionMs = bestDist / (this.speed / 1000)
-      this.resolveHit(target, reactionMs)
-    } else this.resolveMiss(target, true)
+    if (target.positions.includes(pos)) this.resolveHit(target)
+    else this.resolveMiss(target, true)
   }
 
   private remove(note: Note): void {
@@ -264,7 +292,7 @@ export class Game {
     })
   }
 
-  private resolveHit(note: Note, reactionMs: number): void {
+  private resolveHit(note: Note): void {
     this.score += 10
     // Som da nota na altura soante (com a armadura), pela duração da figura: 1 tempo
     // = 60/bpm s, então a mínima soa 2 tempos, a colcheia meio, etc.
@@ -274,8 +302,6 @@ export class Game {
     this.addLabel(note, theme.accent, 28)
     this.remove(note)
     this.roundHits++
-    this.roundReactSum += reactionMs
-    this.roundReactCount++
     this.countNote() // acerto conta para a cota da fase
   }
 
@@ -297,37 +323,56 @@ export class Game {
   // fase. Game over (vidas = 0) tem prioridade — não avalia domínio se já perdeu.
   private countNote(): void {
     this.roundDone++
+    this.updateProgressFill()
     if (!this.gameOver && this.roundDone >= LEVEL_QUOTA) this.endRound()
   }
 
-  // Avalia a porta de domínio ao fim da cota e congela o jogo. Precisão ≥
-  // minAccuracy libera o próximo nível; estrelas extras por precisão quase perfeita
-  // e por reação média dentro do alvo. Dispara onLevelComplete uma única vez.
+  // Sincroniza a largura do preenchimento da barra "Trombone Slide Position" com o
+  // progresso da fase (0 → LEVEL_QUOTA).
+  private updateProgressFill(): void {
+    if (!this.progressFillEl) return
+    const frac = Math.max(0, Math.min(1, this.roundDone / LEVEL_QUOTA))
+    this.progressFillEl.style.width = `${frac * 100}%`
+  }
+
+  // Avalia a porta de domínio ao fim da cota e congela o jogo. < 80%: cai na MESMA
+  // lógica de game over (sem tela "quase lá" separada — simplicidade). ≥ 80% e
+  // ainda não é a última velocidade: acelera (Largo→Adagio→Andante), mesmo
+  // conteúdo. ≥ 80% na última (Andante): libera e avança para o próximo nível.
   private endRound(): void {
     if (this.roundOver) return
     this.roundOver = true
     const accuracy = this.roundDone > 0 ? this.roundHits / this.roundDone : 0
-    const avgReact = this.roundReactCount > 0 ? this.roundReactSum / this.roundReactCount : Infinity
     const gate = levelByNumber(this.level).masteryGate
-    const mastered = accuracy >= gate.minAccuracy
-    let stars = 0
-    if (mastered) {
-      stars = 1
-      if (accuracy >= 0.95) stars++ // quase sem erros (≥ 19/20)
-      if (avgReact <= gate.maxReactionMs) stars++ // tempo de reação no alvo
+    if (accuracy < gate.minAccuracy) {
+      this.triggerGameOver()
+      return
     }
-    if (mastered) recordMastery(this.level, stars)
-    this.onLevelComplete?.({ level: this.level, music: this.music, mastered, stars, accuracy })
+    if (this.tempoStage < 2) {
+      this.onSpeedUp?.({
+        level: this.level,
+        music: this.music,
+        nextTempoName: tempoById(TEMPO_STAGES[this.tempoStage + 1]).name,
+      })
+    } else {
+      unlockLevel(Math.min(LEVELS.length, this.level + 1))
+      this.onLevelComplete?.({ level: this.level, music: this.music, accuracy })
+    }
   }
 
   // Perde 1 vida; ao zerar, dispara o Game Over (congela em update()).
   private loseLife(): void {
     this.lives = Math.max(0, this.lives - 1)
-    if (this.lives === 0) {
-      this.gameOver = true
-      clearProgress() // o jogo acabou: não há mais o que "continuar" pelo menu
-      this.onGameOver?.() // o main exibe a tela de game over
-    }
+    if (this.lives === 0) this.triggerGameOver()
+  }
+
+  // Fim de jogo: zerou vidas OU não atingiu 80% de acerto na cota (mesmo
+  // tratamento — sem tela separada). Reaproveita a tela de Game Over: Retry
+  // mantém nível/velocidade atuais (ver retryLevel), Home volta ao menu.
+  private triggerGameOver(): void {
+    this.gameOver = true
+    clearProgress() // o jogo acabou: não há mais o que "continuar" pelo menu
+    this.onGameOver?.() // o main exibe a tela de game over
   }
 
   // Alterna entre as 3 alternativas de som de erro e toca um preview, mostrando
@@ -346,7 +391,14 @@ export class Game {
 
     const label = document.createElement("div")
     label.className = "controls-label"
-    label.textContent = "Trombone Slide Position"
+    const fill = document.createElement("div")
+    fill.className = "controls-fill"
+    label.appendChild(fill)
+    this.progressFillEl = fill
+    const text = document.createElement("span")
+    text.className = "controls-label-text"
+    text.textContent = "Trombone Slide Position"
+    label.appendChild(text)
     this.controls.appendChild(label)
 
     const row = document.createElement("div")
@@ -395,9 +447,13 @@ export class Game {
   private spawn(): void {
     // Entre fragmentos, cada sorteio tem chance (1 - proceduralWeight) de começar
     // um fragmento de melodia do nível; uma vez iniciado, toca até o fim antes do
-    // próximo sorteio (ver melodies.ts). Sem melodySources ou puro azar → procedural.
+    // próximo sorteio. Os fragmentos CIRCULAM sem repetir (melodyCycle) até
+    // esgotar e reembaralhar — a fase (agora mais longa) acaba expondo todas as
+    // melodias do nível, não só a sorteada por acaso. Sem melodySources ou puro
+    // azar → procedural.
     if (this.melodyQueue.length === 0 && this.melodyIds.length > 0 && Math.random() >= this.proceduralWeight) {
-      const frag = pickMelody(this.melodyIds)
+      if (this.melodyCycle.length === 0) this.melodyCycle = shuffledIds(this.melodyIds)
+      const frag = MELODIES[this.melodyCycle.shift()!]
       if (frag) this.melodyQueue = [...frag.notes]
     }
 
@@ -531,8 +587,6 @@ export class Game {
       music: this.music,
       minMidi: this.rangeMin,
       maxMidi: this.rangeMax,
-      roundDone: this.roundDone,
-      roundTotal: LEVEL_QUOTA,
     })
     this.particles.draw(ctx)
     this.drawLabels()

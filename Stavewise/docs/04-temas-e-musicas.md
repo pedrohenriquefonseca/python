@@ -18,7 +18,12 @@ separados de (notas/ritmos/âmbito): eles são deriváveis da própria sequênci
 
 `Game.spawn` (Game.ts) sorteia, entre um fragmento e outro, se inicia um novo (peso
 `1 - proceduralWeight` do nível) ou sorteia nota+ritmo procedural; uma vez iniciado,
-o fragmento toca até o fim antes do próximo sorteio.
+o fragmento toca até o fim antes do próximo sorteio. **Circulam sem repetir**
+(`melodyCycle`, embaralhado por `shuffledIds` — 1/jul): em vez de sortear com
+reposição (podendo repetir a mesma melodia várias vezes e nunca tocar outra), o
+nível esgota todos os seus `melodySources` embaralhados antes de reembaralhar —
+garante que a fase (agora mais longa, ver `docs/03` "Fase estendida") exponha
+todas as músicas do nível.
 
 ## Repertório por nível
 

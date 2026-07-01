@@ -143,34 +143,89 @@ As telas que eram pendência em 19/jun foram desenhadas e já estão no código
   no pontuado, glifo de pausa (`render.ts` `drawNote`/`drawRest`/`drawFlags`). A
   **pausa** é silêncio que rola: não se toca (transparente ao julgamento em `press`)
   e cruza a linha sem perder vida. Sem pausas seguidas (peso baixo + guarda).
-- **Progressão de fase / porta de domínio (30/jun):** cada nível é uma fase de
-  **20 notas** (com altura — pausas não contam; constante `LEVEL_QUOTA`). Ao
-  resolver a cota, o `Game` avalia o `masteryGate`: **precisão ≥ `minAccuracy`**
-  libera o próximo nível. **Estrelas (0–3):** 1 por dominar, +1 por precisão ≥ 0,95,
-  +1 por reação média (|distância à linha| em ms) ≤ `maxReactionMs`. **Tela de fim de
-  fase** (`levelComplete.ts`): "Level complete" com estrelas + *Next/Replay/Home*, ou
-  "Almost!" + *Try again/Home* se não dominou. **Barra de progresso** fina na divisa
-  cabeçalho/pauta (`render.ts`). **Persistência** (`storage.ts`): nível atual, maior
-  **nível liberado** e **melhor estrela por nível** (compatível com saves antigos). O
-  **level select** tranca os não liberados (🔒) e exibe as estrelas. O avanço agora
-  acontece no jogo — as teclas `[`/`]` continuam só para DEV.
-- **Biblioteca de fragmentos melódicos (30/jun):** `app/src/game/melodies.ts`
-  (`MELODIES`) — cada fragmento é escrito como **grau da escala** (índice no
-  `notePool`, não midi absoluto), então o mesmo fragmento serve qualquer nível cujo
-  pool alcance aquele grau (a armadura recolore o som via `soundingMidi`, sem
-  transposição explícita). `Game.spawn` sorteia, entre um fragmento e outro,
-  começar um novo (peso `1 - proceduralWeight`) ou seguir procedural; iniciado, o
-  fragmento toca até o fim. Repertório conhecido transcrito (Hot Cross Buns, Mary
-  Had a Little Lamb, Ode to Joy, Frère Jacques, Jingle Bells, Twinkle Twinkle,
-  London Bridge, Silent Night, When the Saints). Os 5 temas antes "a definir"
-  (níveis 5, 7, 9, 10, 11) foram **compostos** para este jogo — não são canções de
-  domínio público — visando o eixo pedagógico do nível (o grau recolorido pela
-  armadura, a nova oitava, a pausa, a síncope, a semicolcheia); ver
-  `docs/04-temas-e-musicas.md`. Verificado por script que todo grau cabe no pool e
-  todo ritmo usado está no `rhythmPool` liberado do nível.
+- **Progressão de fase / 3 velocidades obrigatórias (30/jun, redesenhado 1/jul):**
+  cada nível roda uma fase estendida (**28 notas** com altura — pausas não contam;
+  `LEVEL_QUOTA`) na velocidade atual. Ao fechar a cota, o `Game` avalia o
+  `masteryGate` (**só precisão ≥ 80%, sem estrelas/recorde** — decisão explícita:
+  jogo simples, foco em aprendizado): **≥ 80% e não é Andante** → tela "Congrats!
+  Let's speed things up!" (`speedUp.ts` `showSpeedUp` — ver detalhe abaixo) → o
+  MESMO nível recomeça na próxima velocidade (Largo→Adagio→Andante); **≥ 80% em
+  Andante** (a última) → "Nível completo!" (com botões, `levelComplete.ts`) →
+  libera e avança o próximo nível; **< 80%**, em qualquer velocidade,
+  **cai na mesma lógica de vidas/Game Over** (sem tela própria de "quase lá") —
+  Retry refaz a mesma velocidade. Todo nível novo sempre estreia em Largo. **Barra
+  de progresso** = preenchimento da própria barra "Trombone Slide Position" (ver
+  abaixo). **Persistência** (`storage.ts`): só nível atual + maior nível liberado
+  (sem estrelas). Level select tranca os não liberados (🔒). Teclas `[`/`]`/`` ` ``/
+  `q`/`w` continuam só para DEV.
+- **Biblioteca de fragmentos melódicos (30/jun) + fase estendida (1/jul):**
+  `app/src/game/melodies.ts` (`MELODIES`) — cada fragmento é escrito como **grau da
+  escala** (índice no `notePool`, não midi absoluto), então o mesmo fragmento serve
+  qualquer nível cujo pool alcance aquele grau (a armadura recolore o som via
+  `soundingMidi`, sem transposição explícita). `Game.spawn` sorteia, entre um
+  fragmento e outro, começar um novo (peso `1 - proceduralWeight`) ou seguir
+  procedural; iniciado, o fragmento toca até o fim. **Os fragmentos circulam sem
+  repetir** (`melodyCycle`, embaralhado por `shuffledIds`) em vez de sortear com
+  reposição — a fase (mais longa agora, e repetida 3× pelas velocidades) acaba
+  expondo TODAS as melodias do nível, não só uma sorteada por acaso. Repertório
+  conhecido transcrito (Hot Cross Buns, Mary Had a Little Lamb, Ode to Joy, Frère
+  Jacques, Jingle Bells, Twinkle Twinkle, London Bridge, Silent Night, When the
+  Saints). Os 5 temas antes "a definir" (níveis 5, 7, 9, 10, 11) foram **compostos**
+  para este jogo — não são canções de domínio público — visando o eixo pedagógico
+  do nível (o grau recolorido pela armadura, a nova oitava, a pausa, a síncope, a
+  semicolcheia); ver `docs/04-temas-e-musicas.md`. Verificado por script que todo
+  grau cabe no pool e todo ritmo usado está no `rhythmPool` liberado do nível.
 - **HEADER_H proporcional (30/jun):** `render.ts` — `headerH(h)` substitui a
   constante px fixa (18% da altura, com piso/teto), então o preview reduzido bate
   com o aparelho real.
+- **Correções de layout no HUD e telas de fim (1/jul):** a barra de progresso da
+  fase saiu do canvas (colidia com o texto do HUD em telas baixas) e virou o
+  **preenchimento da própria barra rosa "Trombone Slide Position"**
+  (`.controls-fill`, atualizado por `Game.updateProgressFill`) — ideia do usuário,
+  evita elemento redundante. **Telas de Game Over e Fim de Fase redesenhadas**:
+  fundo sólido (era translúcido) e escala grande, no mesmo estilo visual da Home/
+  Splash; botões reaproveitam `.home-btn` (título + legenda), classes `.eo-*`
+  (`gameOver.ts`, `levelComplete.ts`). **Tutorial:** trava de 350ms por passo
+  (`tutorial.ts`) — um toque duplo/rápido não atravessa mais os 3 momentos
+  instantaneamente (causa mais provável do relato "New game não abriu o
+  tutorial": nenhum bug de lógica encontrado na cadeia main→showTutorial).
+- **Subtítulo central (andamento/música) nunca mais colide com nível/tom ou vidas
+  (1/jul):** `drawHud` media 28px/16px fixos independente da largura do canvas —
+  em telas estreitas ou com títulos compostos mais longos ("Sixteenth Flourish",
+  "Octave Bridge") o bloco central podia invadir os laterais. `render.ts` agora
+  **mede o texto de verdade** (`fitFontSize`, mesmo princípio do `headerH`
+  proporcional) e encolhe a fonte do andamento/música até caber na meia-largura
+  disponível entre o bloco esquerdo (nível+tom) e o direito (vidas).
+- **Waveform na tela de Game Over (1/jul):** a onda decorativa da Home
+  (equalizador neon, `home.ts`) virou módulo compartilhado (`app/src/game/wave.ts`
+  `buildWave()`); Game Over agora também a exibe no rodapé, reforçando a mesma
+  identidade visual das telas iniciais.
+- **Texto do cabeçalho nunca mais vaza pra dentro da pauta (1/jul, correção
+  definitiva):** causa raiz achada — `headerH(h)` é proporcional (56–88px), mas as
+  posições Y do texto (linha 1 em 33, linha 2 em 56) continuavam **fixas**; em
+  telas baixas (`headerH` no piso de 56), a 2ª linha (tom/música, baseline 56)
+  ficava colada exatamente onde a pauta branca começa (`panelTop = headerH`), sem
+  folga. `drawHud`/`drawTempo`/subtítulo da música agora escalam **posição E
+  fonte juntas** por `scale = headerH(h) / 74` (74 = o header fixo de antes) —
+  verificado numericamente: folga de 10–17px entre o texto e a pauta em qualquer
+  altura de tela (56 a 88px de `headerH`). **Coração/nº de vidas ficaram de fora
+  da escala** (revertido no mesmo dia, ficaram pequenos demais): já são
+  centralizados por `cy = headerH/2`, nunca tiveram risco de vazar — fonte
+  fixa (26/28px) como antes.
+- **Tela "vamos acelerar" redesenhada, estética circense (1/jul):**
+  `app/src/game/speedUp.ts` (novo — antes vivia em `levelComplete.ts` como uma
+  tela com botões). Mockup aprovado pelo usuário (`mcp__visualize`) antes de
+  implementar. Mudanças: (1) **sem botões** — só celebra e volta sozinha pro
+  jogo; (2) texto em **inglês**: "Congrats! Let's speed things up!"; (3)
+  **estética circense/carnaval**: confete caindo, balões subindo balançando,
+  faíscas/estrelas (✨🎉⭐) e flores/corações (🌸💗) nos cantos, gerados uma vez ao
+  montar a tela (`spawnDecor`); (4) **contagem 3→2→1→Go!** a 1s cada, cada dígito
+  **estoura** (`@keyframes su-burst`: cresce até 3.1× e esmaece a opacidade) antes
+  do próximo aparecer — ao fim, a tela toda esmaece e resolve, chamando
+  `game.advanceTempo()`. Fonte do título em **Baloo 2** (Google Fonts,
+  arredondada/lúdica) para destoar propositalmente do resto do HUD. A tela
+  "Nível completo!" (`levelComplete.ts`, ao dominar as 3 velocidades) não mudou —
+  continua com botões Next/Home.
 
 ## Próximos passos sugeridos
 

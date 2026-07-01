@@ -187,10 +187,15 @@ export const MELODIES: Record<string, Melody> = {
   },
 }
 
-// Sorteia um fragmento entre os ids liberados no nível (melodySources). null se
-// nenhum id tiver dados na biblioteca (nível ainda 100% procedural).
-export function pickMelody(ids: string[]): Melody | null {
-  const available = ids.map((id) => MELODIES[id]).filter((m): m is Melody => m != null)
-  if (available.length === 0) return null
-  return available[Math.floor(Math.random() * available.length)]
+// Embaralha os ids liberados no nível (Fisher-Yates). O Game consome essa fila
+// como um ciclo (toca cada fragmento uma vez, reembaralha ao esgotar) em vez de
+// sortear com reposição — garante que a fase exponha TODAS as melodias do nível,
+// não só a sorteada por acaso (nível "muito pequeno" antes disso).
+export function shuffledIds(ids: string[]): string[] {
+  const arr = [...ids]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
 }

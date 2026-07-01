@@ -15,12 +15,12 @@ export type { RhythmId }
 // nas 5 linhas (pauta compacta); a 2ª oitava (níveis 7+) abre linhas suplementares
 // acima (allowLedger) e a pauta encolhe sozinha.
 
-// Porta de domínio: critérios para considerar o nível dominado (libera o próximo /
-// concede estrelas). Hoje uniforme conforme o esboço de docs/03; dá para afinar a
-// curva por nível depois sem mexer em quem consome.
+// Porta de domínio: critério simples (sem estrelas/recorde) para passar de uma
+// velocidade para a próxima e, na última, liberar o próximo nível. Hoje uniforme
+// conforme o esboço de docs/03; dá para afinar a curva por nível depois sem mexer
+// em quem consome.
 export interface MasteryGate {
-  minAccuracy: number // fração 0..1 de notas certas exigida
-  maxReactionMs: number // tempo de reação alvo (pressão de velocidade no Andante)
+  minAccuracy: number // fração 0..1 de notas certas exigida (80–100% passa)
 }
 
 export interface Level {
@@ -52,7 +52,7 @@ const TO_G4 = [...TO_B3, "C4", "D4", "E4", "F4", "G4"] // extensão completa (n�
 const TEMPOS: Record<TempoId, number> = { largo: 40, adagio: 66, andante: 92 }
 
 // Critério de domínio padrão (esboço de docs/03). Uniforme por ora.
-const GATE: MasteryGate = { minAccuracy: 0.9, maxReactionMs: 600 }
+const GATE: MasteryGate = { minAccuracy: 0.8 }
 
 interface LevelSpec {
   notes: string[]

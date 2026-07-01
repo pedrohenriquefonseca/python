@@ -30,8 +30,6 @@ export interface Scene {
   music: string
   minMidi: number
   maxMidi: number
-  roundDone: number // notas resolvidas na fase (progresso até a cota)
-  roundTotal: number // cota de notas da fase
 }
 
 // Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo pode
@@ -325,7 +323,35 @@ function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: nu
 
 const HEART = "♥"
 const HEART_RED = "#E5484D"
+const HUD_SANS = "-apple-system, system-ui, sans-serif"
 
+// Tamanhos/posições do HUD foram desenhados para headerH = 74 (o valor fixo
+// antigo). Como headerH agora é proporcional (56–88, ver headerH(h)), todo texto
+// do cabeçalho escala por hudScale = headerH(h)/74 — senão, em headerH pequeno
+// (telas baixas), a 2ª linha (tom/música) mantinha sua posição Y fixa e vazava
+// para dentro da pauta branca logo abaixo. Escalar posição E fonte junto resolve
+// de vez (headerH sozinho não bastava).
+const HEADER_DESIGN_H = 74
+
+// Encolhe o font-size (nunca abaixo de minPx) até o texto medido caber em
+// maxWidth. Mesmo princípio do headerH proporcional: medir de verdade em vez de
+// supor espaço, para o subtítulo central (andamento/música) nunca colidir com o
+// nível/tom à esquerda nem as vidas à direita — sobretudo em telas estreitas ou
+// com títulos compostos mais longos (ex.: "Sixteenth Flourish").
+function fitFontSize(ctx: CanvasRenderingContext2D, text: string, weight: number, basePx: number, minPx: number, maxWidth: number): number {
+  let size = basePx
+  while (size > minPx) {
+    ctx.font = `${weight} ${size}px ${HUD_SANS}`
+    if (ctx.measureText(text).width <= maxWidth) break
+    size -= 1
+  }
+  return size
+}
+
+// Desenha nível+tom (esquerda) e vidas (direita); devolve as bordas internas
+// (borda direita do bloco esquerdo, borda esquerda do bloco de vidas) e a
+// posição Y da 2ª linha (tom) — a música central usa essa MESMA linha de base,
+// escalada igual, para as duas colunas ficarem alinhadas e dentro do cabeçalho.
 function drawHud(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -333,21 +359,31 @@ function drawHud(
   lives: number,
   level: number,
   fifths: number,
-): void {
-  const sans = "-apple-system, system-ui, sans-serif"
+): { leftEdge: number; rightEdge: number; line1Y: number; line2Y: number; scale: number } {
+  const sans = HUD_SANS
+  const scale = headerH(h) / HEADER_DESIGN_H
+  const line1Y = 33 * scale
+  const line2Y = 56 * scale
 
   // Nível (esquerda) — 2 linhas: número do nível em destaque, tom abaixo.
   ctx.textAlign = "left"
   ctx.textBaseline = "alphabetic"
   ctx.fillStyle = theme.hud
-  ctx.font = `600 28px ${sans}` // mesmo tamanho E peso do andamento (Largo)
-  ctx.fillText(`Level ${level}`, 16, 33)
+  ctx.font = `600 ${28 * scale}px ${sans}` // mesmo tamanho E peso do andamento (Largo)
+  const levelText = `Level ${level}`
+  const levelW = ctx.measureText(levelText).width
+  ctx.fillText(levelText, 16, line1Y)
   ctx.fillStyle = theme.muted
-  ctx.font = `500 16px ${sans}` // mesmo tamanho do nome da música
-  ctx.fillText(keyName(fifths), 16, 56)
+  ctx.font = `500 ${16 * scale}px ${sans}` // mesmo tamanho do nome da música
+  const keyText = keyName(fifths)
+  const keyW = ctx.measureText(keyText).width
+  ctx.fillText(keyText, 16, line2Y)
+  const leftEdge = 16 + Math.max(levelW, keyW)
 
   // Vidas (direita), na ordem coração = número, centralizado na vertical do
-  // cabeçalho. Desenhado da direita p/ a esquerda: número → "=" → coração.
+  // cabeçalho. Desenhado da direita p/ a esquerda: número → "=" → coração. Fonte
+  // FIXA (não escala por `scale`): já fica centralizada por cy = headerH/2, então
+  // nunca teve o risco de vazar pra pauta — escalar só encolhia sem necessidade.
   const cy = headerH(h) / 2
   ctx.textAlign = "right"
   ctx.textBaseline = "middle"
@@ -361,19 +397,23 @@ function drawHud(
   ctx.fillStyle = HEART_RED
   ctx.font = `700 28px ${sans}`
   ctx.fillText(HEART, x, cy)
+  const heartW = ctx.measureText(HEART).width
+  const rightEdge = x - heartW
+
+  return { leftEdge, rightEdge, line1Y, line2Y, scale }
 }
 
-function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color: string): void {
-  const sans = "-apple-system, system-ui, sans-serif"
+function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color: string, maxHalfWidth: number, y: number, scale: number): void {
+  const size = fitFontSize(ctx, name, 600, 28 * scale, 14 * scale, maxHalfWidth * 2)
   ctx.textAlign = "center"
   ctx.textBaseline = "alphabetic"
   ctx.fillStyle = color
-  ctx.font = `600 28px ${sans}`
-  ctx.fillText(name, w / 2, 33)
+  ctx.font = `600 ${size}px ${HUD_SANS}`
+  ctx.fillText(name, w / 2, y)
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
-  const { w, h, notes, lives, hitX, flash, tempoName, tempoColor, fifths, level, music, minMidi, maxMidi, roundDone, roundTotal } = scene
+  const { w, h, notes, lives, hitX, flash, tempoName, tempoColor, fifths, level, music, minMidi, maxMidi } = scene
   const L = layoutFor(w, h, minMidi, maxMidi)
 
   ctx.fillStyle = theme.panel
@@ -405,35 +445,24 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   for (const note of notes) drawNote(ctx, note, L, hitX, fifths)
 
-  drawHud(ctx, w, h, lives, level, fifths)
-  drawTempo(ctx, w, tempoName, tempoColor)
+  const { leftEdge, rightEdge, line1Y, line2Y, scale } = drawHud(ctx, w, h, lives, level, fifths)
+  // Meia-largura disponível pro subtítulo central sem invadir nível/tom (esquerda)
+  // nem vidas (direita); GAP dá um respiro visível entre os blocos.
+  const GAP = 14
+  const maxHalfWidth = Math.max(20, Math.min(w / 2 - leftEdge, rightEdge - w / 2) - GAP)
+  drawTempo(ctx, w, tempoName, tempoColor, maxHalfWidth, line1Y, scale)
 
   // Subtítulo central: a música/tema do nível (nível e tom já vão à esquerda).
+  // Mesma linha de base (line2Y) e escala do tom — headerH pequeno (tela baixa)
+  // encolhe as duas juntas, então o texto nunca vaza pra dentro da pauta abaixo.
+  // Encolhe também se preciso pra nunca colidir com os blocos laterais (fitFontSize).
   if (music) {
+    const size = fitFontSize(ctx, music, 500, 16 * scale, 10 * scale, maxHalfWidth * 2)
     ctx.textAlign = "center"
     ctx.textBaseline = "alphabetic"
     ctx.fillStyle = theme.muted
-    ctx.font = `500 16px -apple-system, system-ui, sans-serif`
-    ctx.fillText(music, w / 2, 56)
-  }
-
-  // Progresso da fase: trilho fino na divisa entre o cabeçalho e a pauta, crescendo
-  // da esquerda p/ a direita conforme as notas são resolvidas até a cota.
-  if (roundTotal > 0) {
-    const by = L.panelTop - 5
-    const bx0 = 12
-    const trackW = w - 24
-    const frac = Math.max(0, Math.min(1, roundDone / roundTotal))
-    ctx.fillStyle = theme.ink
-    ctx.globalAlpha = 0.16
-    ctx.beginPath()
-    ctx.roundRect(bx0, by, trackW, 3, 1.5)
-    ctx.fill()
-    ctx.globalAlpha = 1
-    ctx.fillStyle = theme.accent
-    ctx.beginPath()
-    ctx.roundRect(bx0, by, trackW * frac, 3, 1.5)
-    ctx.fill()
+    ctx.font = `500 ${size}px ${HUD_SANS}`
+    ctx.fillText(music, w / 2, line2Y)
   }
 
   if (flash > 0.02) {

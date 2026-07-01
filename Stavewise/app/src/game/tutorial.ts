@@ -153,6 +153,10 @@ export function showTutorial(host: HTMLElement): Promise<void> {
 
     let step = 0
     const last = STEPS.length - 1
+    // Tempo mínimo em tela por passo: sem isso, um toque duplo/rápido (comum em
+    // quem vem de outros apps) atravessa os 3 momentos quase instantaneamente e o
+    // tutorial parece "não ter aberto".
+    let paintedAt = 0
 
     const paint = (): void => {
       sceneEl.innerHTML = scene(step)
@@ -160,10 +164,12 @@ export function showTutorial(host: HTMLElement): Promise<void> {
       coEl.setAttribute("style", c.pos)
       coEl.innerHTML = `<div class="h" style="color:${c.col}">${c.h}</div>`
       footEl.innerHTML = dots(step)
+      paintedAt = performance.now()
     }
     paint()
 
     screen.addEventListener("pointerdown", () => {
+      if (performance.now() - paintedAt < 350) return // debounce: ver comentário acima
       if (step < last) {
         step++
         paint()

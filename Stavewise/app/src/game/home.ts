@@ -2,6 +2,8 @@
 // um novo. Mostra "Continue" só quando há progresso salvo; senão, só "New game".
 // Overlay sobre o #app, no estilo da splash; resolve a Promise com a escolha.
 
+import { buildWave } from "./wave"
+
 export type HomeChoice = "new" | "continue" | "levels"
 
 export interface SavedInfo {
@@ -64,34 +66,6 @@ export function showHome(host: HTMLElement, saved: SavedInfo | null): Promise<Ho
     screen.append(row, buildWave())
     host.appendChild(screen)
   })
-}
-
-// Waveform decorativa na base da home: equalizador que atravessa a tela de fora a
-// fora, com as barras animadas (mesma "respiração" da splash). A cor faz um
-// degradê magenta→ciano ao longo da largura e é esmaecida por uma máscara vertical
-// (forte no rodapé, dissolvendo para cima). Fica atrás do menu (z-index no CSS).
-function buildWave(): HTMLDivElement {
-  const wave = document.createElement("div")
-  wave.className = "home-wave"
-
-  const N = 34
-  const MAG = [255, 46, 136] // --hud (magenta)
-  const CY = [25, 227, 214] // --secondary (ciano)
-  const mix = (a: number, b: number, t: number) => Math.round(a + (b - a) * t)
-
-  for (let i = 0; i < N; i++) {
-    const bar = document.createElement("div")
-    bar.className = "home-wave-bar"
-    const t = i / (N - 1)
-    bar.style.background = `rgb(${mix(MAG[0], CY[0], t)}, ${mix(MAG[1], CY[1], t)}, ${mix(MAG[2], CY[2], t)})`
-    const h = 0.42 + 0.58 * Math.abs(Math.sin(i * 0.7 + (i % 4) * 0.45) * Math.cos(i * 0.18))
-    bar.style.height = `${Math.max(16, Math.min(100, h * 100))}%`
-    // Fases dessincronizadas: a onda "respira" em vez de pulsar em bloco.
-    bar.style.animationDelay = `${(i % 7) * -0.13}s`
-    bar.style.animationDuration = `${1.1 + (i % 5) * 0.12}s`
-    wave.appendChild(bar)
-  }
-  return wave
 }
 
 function makeButton(label: string, sub: string, variant: "primary" | "ghost"): HTMLButtonElement {

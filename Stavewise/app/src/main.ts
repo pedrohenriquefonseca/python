@@ -6,6 +6,7 @@ import { showSplash } from "./game/splash"
 import { showHome } from "./game/home"
 import { showLevelSelect } from "./game/levelSelect"
 import { showGameOver } from "./game/gameOver"
+import { showSpeedUp } from "./game/speedUp"
 import { showLevelComplete } from "./game/levelComplete"
 import { showTutorial } from "./game/tutorial"
 import { loadProgress, clearProgress } from "./game/storage"
@@ -57,7 +58,8 @@ async function menu(): Promise<void> {
   game.start()
 }
 
-// Ao zerar as vidas: tela de game over → recomeçar a fase, ou voltar ao menu.
+// Vidas zeradas OU < 80% de acerto na cota (mesmo tratamento): tela de game over →
+// recomeçar a MESMA fase/velocidade, ou voltar ao menu.
 game.onGameOver = async () => {
   const choice = await showGameOver(app!, {
     level: game.currentLevel,
@@ -71,18 +73,23 @@ game.onGameOver = async () => {
   }
 }
 
-// Ao resolver a cota de notas: tela de fim de fase. Dominou → avançar (ou repetir/
-// menu); não dominou → tentar de novo (ou menu). "Next" só existe se houver próximo.
+// ≥ 80% numa velocidade que não é a última: "vamos acelerar" → celebra (confete/
+// balões/estrelas) e conta 3→2→1→Go! sozinha, sem botão — depois segue no mesmo
+// nível, mais rápido (Largo→Adagio→Andante).
+game.onSpeedUp = async (info) => {
+  await showSpeedUp(app!, info)
+  game.advanceTempo()
+}
+
+// ≥ 80% na última velocidade (Andante): nível dominado → avança para o próximo.
 game.onLevelComplete = async (result) => {
   const isLast = result.level >= LEVELS.length
   const choice = await showLevelComplete(app!, result, isLast)
-  if (choice === "next") {
-    game.advanceLevel()
-  } else if (choice === "retry") {
-    game.retryLevel()
-  } else {
+  if (choice === "home") {
     game.stop()
     await menu()
+  } else {
+    game.advanceLevel()
   }
 }
 
