@@ -6,9 +6,10 @@ import { showSplash } from "./game/splash"
 import { showHome } from "./game/home"
 import { showLevelSelect } from "./game/levelSelect"
 import { showGameOver } from "./game/gameOver"
+import { showLevelComplete } from "./game/levelComplete"
 import { showTutorial } from "./game/tutorial"
 import { loadProgress, clearProgress } from "./game/storage"
-import { levelByNumber } from "./game/levels"
+import { levelByNumber, LEVELS } from "./game/levels"
 
 applyThemeVars()
 void lockLandscape() // app nativo: trava em paisagem (no-op no preview/web)
@@ -46,10 +47,10 @@ async function menu(): Promise<void> {
       await showTutorial(app!)
       break
     }
-    // "levels": abre a grade; null = voltou ao menu (repete o laço).
+    // "levels": abre a grade (só níveis liberados); null = voltou ao menu (repete o
+    // laço). Escolher um nível preserva liberados/estrelas — só muda onde se joga.
     const level = await showLevelSelect(app!)
     if (level == null) continue
-    clearProgress()
     game.loadLevel(level)
     break
   }
@@ -63,6 +64,21 @@ game.onGameOver = async () => {
     music: levelByNumber(game.currentLevel).music,
   })
   if (choice === "retry") {
+    game.retryLevel()
+  } else {
+    game.stop()
+    await menu()
+  }
+}
+
+// Ao resolver a cota de notas: tela de fim de fase. Dominou → avançar (ou repetir/
+// menu); não dominou → tentar de novo (ou menu). "Next" só existe se houver próximo.
+game.onLevelComplete = async (result) => {
+  const isLast = result.level >= LEVELS.length
+  const choice = await showLevelComplete(app!, result, isLast)
+  if (choice === "next") {
+    game.advanceLevel()
+  } else if (choice === "retry") {
     game.retryLevel()
   } else {
     game.stop()

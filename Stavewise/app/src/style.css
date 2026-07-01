@@ -486,6 +486,93 @@ body {
   color: var(--secondary);
 }
 
+/* Fim de fase: mesmo backdrop translúcido do game over. Título + estrelas +
+   botões (Next / Replay / Try again / Home). Reaproveita .go-btn. */
+#levelcomplete {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  background: rgba(10, 6, 18, 0.62);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3.4cqh;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+#levelcomplete.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lc-head {
+  text-align: center;
+  animation: splash-rise 0.4s ease both;
+}
+
+.lc-title {
+  font-size: clamp(20px, 8cqh, 32px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--hud);
+}
+
+.lc-sub {
+  margin-top: 0.8cqh;
+  font-size: clamp(11px, 3.2cqh, 14px);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.lc-stars {
+  display: flex;
+  gap: 2.4cqw;
+  animation: splash-rise 0.4s ease 0.05s both;
+}
+
+.lc-star {
+  font-size: clamp(22px, 9cqh, 40px);
+  line-height: 1;
+  color: var(--btnBorder); /* vazia */
+}
+
+.lc-star.on {
+  color: #ffc53d; /* dourada */
+  text-shadow: 0 0 10px rgba(255, 197, 61, 0.5);
+}
+
+.lc-row {
+  display: flex;
+  gap: 2.5cqw;
+  animation: splash-rise 0.4s ease 0.1s both;
+}
+
+/* Estrelas pequenas no tile do level select (linha sob a música). */
+.level-tile-stars {
+  display: flex;
+  gap: 1cqw;
+  font-size: clamp(8px, 2.4cqh, 12px);
+  line-height: 1;
+}
+
+.level-tile-stars .lc-star {
+  font-size: inherit;
+  text-shadow: none;
+}
+
+/* Nível ainda não liberado: trancado, esmaecido e não clicável. */
+.level-tile.locked {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.level-tile.locked:active {
+  transform: none;
+  background: var(--btn);
+}
+
 /* Tutorial: overlay em papel claro, estilo desenhado à mão (doodle), com 3 momentos
    estáticos. Cada toque avança; o último começa o jogo. Aparece só ao escolher
    "New game". A cena e as setas são desenhadas em SVG pela tutorial.ts. */

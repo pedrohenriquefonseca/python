@@ -1,6 +1,7 @@
 import type { Note } from "./types"
 import { theme } from "../theme"
-import { accidentalsForKey, keyName } from "../data/keys"
+import { accidentalsForKey, keyAccidental, keyName } from "../data/keys"
+import { RHYTHMS } from "./rhythm"
 
 const SEMI_TO_DIATONIC: Record<number, number> = {
   0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6,
@@ -29,11 +30,22 @@ export interface Scene {
   music: string
   minMidi: number
   maxMidi: number
+  roundDone: number // notas resolvidas na fase (progresso até a cota)
+  roundTotal: number // cota de notas da fase
 }
 
-// Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo
-// pode invadir a região branca da pauta — ela começa em panelTop = HEADER_H.
-const HEADER_H = 74
+// Faixa de cabeçalho (cinza) reservada acima da pauta. Nenhum texto do topo pode
+// invadir a região branca da pauta — ela começa em panelTop = headerH(h).
+// Proporcional à altura (18% do viewport) em vez de px fixo, para o preview
+// reduzido do editor bater com o aparelho real; piso/teto evitam extremos em
+// telas muito baixas ou muito altas.
+const HEADER_FRACTION = 0.18
+const HEADER_MIN = 56
+const HEADER_MAX = 88
+function headerH(h: number): number {
+  return Math.max(HEADER_MIN, Math.min(HEADER_MAX, h * HEADER_FRACTION))
+}
+
 const BOTTOM_MARGIN = 0 // o painel da pauta vai até a base do canvas; o respiro
 // para a barra rosa vem do padding-top de #controls (CSS), mantendo os 3 vãos iguais.
 
@@ -54,11 +66,12 @@ function layoutFor(w: number, h: number, minMidi: number, maxMidi: number): Layo
   const spanAbove = Math.max(HALF_STAFF, relAbove / 2) + EDGE_MARGIN
   const spanBelow = Math.max(HALF_STAFF, relBelow / 2) + EDGE_MARGIN
   const units = spanAbove + spanBelow
-  const avail = h - HEADER_H - BOTTOM_MARGIN
+  const hh = headerH(h)
+  const avail = h - hh - BOTTOM_MARGIN
   // Sem teto: o painel preenche todo o `avail`, então o fundo do painel é estável
   // (não sobra folga variável acima da barra rosa). Piso de 14 para telas mínimas.
   const lineGap = Math.max(14, avail / units)
-  const panelTop = HEADER_H
+  const panelTop = hh
   const midY = panelTop + spanAbove * lineGap
   const panelH = units * lineGap
   return {
@@ -198,10 +211,59 @@ function drawLedgers(ctx: CanvasRenderingContext2D, midi: number, x: number, L: 
   }
 }
 
-function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: number): void {
+// Pausa: glifo de pausa de semínima (𝄽) centrado na linha do meio. Não tem altura,
+// não recebe o destaque de "toque agora" nem nome — só marca o silêncio rolando.
+function drawRest(ctx: CanvasRenderingContext2D, x: number, L: Layout): void {
+  ctx.fillStyle = theme.muted
+  ctx.font = `${L.lineGap * 3.2}px ${MUSIC_FONT}`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText("𝄽", x, L.midY)
+}
+
+// Bandeirolas (colcheia = 1, semicolcheia = 2) na ponta livre da haste, curvando
+// para a direita e na direção da cabeça. toHead = sinal de y da ponta para a
+// cabeça (+1 haste p/ cima, -1 haste p/ baixo): empilha as 2 e dá a queda da curva.
+function drawFlags(
+  ctx: CanvasRenderingContext2D,
+  stemX: number,
+  tipY: number,
+  toHead: number,
+  count: number,
+  L: Layout,
+  color: string,
+): void {
+  ctx.strokeStyle = color
+  ctx.lineWidth = L.lineGap * 0.16
+  for (let k = 0; k < count; k++) {
+    const ty = tipY + toHead * k * (L.lineGap * 0.34)
+    ctx.beginPath()
+    ctx.moveTo(stemX, ty)
+    ctx.quadraticCurveTo(
+      stemX + L.lineGap * 0.95,
+      ty + toHead * L.lineGap * 0.5,
+      stemX + L.lineGap * 0.55,
+      ty + toHead * L.lineGap * 1.15,
+    )
+    ctx.stroke()
+  }
+}
+
+function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: number, fifths: number): void {
+  const fig = RHYTHMS[note.rhythm]
+  if (fig.isRest) {
+    drawRest(ctx, note.x, L)
+    return
+  }
+
   const y = noteY(note.midi, L)
   const active = Math.abs(note.x - hitX) < L.lineGap * 0.9
-  const color = active ? theme.accent : theme.ink
+  // Notas que a armadura altera (ex.: si → si♭ em Fá M) ganham cor própria
+  // enquanto rolam, sinalizando o acidente antes de chegar à linha. A nota ativa
+  // ainda vence (magenta) — perto da linha o destaque de "toque agora" prevalece e
+  // o nome com ♭ aparece ali ao lado. Ver docs/03 (cada bemol recolore uma nota).
+  const altered = keyAccidental(note.midi, fifths) !== 0
+  const color = active ? theme.accent : altered ? theme.altered : theme.ink
 
   if (active) {
     ctx.fillStyle = theme.accent
@@ -215,28 +277,50 @@ function drawNote(ctx: CanvasRenderingContext2D, note: Note, L: Layout, hitX: nu
   ctx.strokeStyle = color
   drawLedgers(ctx, note.midi, note.x, L)
 
+  // Cabeça: cheia na maioria; aberta (anel) na mínima.
+  const open = note.rhythm === "half"
   ctx.save()
   ctx.translate(note.x, y)
   ctx.rotate(-0.32)
-  ctx.fillStyle = color
   ctx.beginPath()
   ctx.ellipse(0, 0, L.lineGap * 0.48, L.lineGap * 0.36, 0, 0, Math.PI * 2)
-  ctx.fill()
+  if (open) {
+    ctx.strokeStyle = color
+    ctx.lineWidth = L.lineGap * 0.14
+    ctx.stroke()
+  } else {
+    ctx.fillStyle = color
+    ctx.fill()
+  }
   ctx.restore()
+
+  // Ponto de aumento (pontuado): à direita da cabeça; sobe meio espaço quando a
+  // nota está sobre uma linha, para o ponto cair no espaço acima.
+  if (note.rhythm === "dotted") {
+    const onLine = ((diatonicIndex(note.midi) - D3_INDEX) % 2) === 0
+    const dotY = onLine ? y - L.lineGap * 0.5 : y
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(note.x + L.lineGap * 0.95, dotY, L.lineGap * 0.16, 0, Math.PI * 2)
+    ctx.fill()
+  }
 
   // Haste: notas acima da linha do meio (D3) levam haste para baixo.
   const rel = diatonicIndex(note.midi) - D3_INDEX
   const stemDown = rel > 0
+  const stemX = stemDown ? note.x - L.lineGap * 0.44 : note.x + L.lineGap * 0.44
+  const tipY = stemDown ? y + L.lineGap * 2 : y - L.lineGap * 2
+  ctx.strokeStyle = color
   ctx.lineWidth = 1.6
   ctx.beginPath()
-  if (stemDown) {
-    ctx.moveTo(note.x - L.lineGap * 0.44, y + 2)
-    ctx.lineTo(note.x - L.lineGap * 0.44, y + L.lineGap * 2)
-  } else {
-    ctx.moveTo(note.x + L.lineGap * 0.44, y - 2)
-    ctx.lineTo(note.x + L.lineGap * 0.44, y - L.lineGap * 2)
-  }
+  ctx.moveTo(stemX, stemDown ? y + 2 : y - 2)
+  ctx.lineTo(stemX, tipY)
   ctx.stroke()
+
+  // Bandeirolas: colcheia (1) e semicolcheia (2) penduram da ponta da haste, de
+  // volta na direção da cabeça (flagDir).
+  const flags = note.rhythm === "eighth" ? 1 : note.rhythm === "sixteenth" ? 2 : 0
+  if (flags > 0) drawFlags(ctx, stemX, tipY, stemDown ? -1 : 1, flags, L, color)
 }
 
 const HEART = "♥"
@@ -245,6 +329,7 @@ const HEART_RED = "#E5484D"
 function drawHud(
   ctx: CanvasRenderingContext2D,
   w: number,
+  h: number,
   lives: number,
   level: number,
   fifths: number,
@@ -263,7 +348,7 @@ function drawHud(
 
   // Vidas (direita), na ordem coração = número, centralizado na vertical do
   // cabeçalho. Desenhado da direita p/ a esquerda: número → "=" → coração.
-  const cy = HEADER_H / 2
+  const cy = headerH(h) / 2
   ctx.textAlign = "right"
   ctx.textBaseline = "middle"
   const livesStr = String(lives)
@@ -288,7 +373,7 @@ function drawTempo(ctx: CanvasRenderingContext2D, w: number, name: string, color
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
-  const { w, h, notes, lives, hitX, flash, tempoName, tempoColor, fifths, level, music, minMidi, maxMidi } = scene
+  const { w, h, notes, lives, hitX, flash, tempoName, tempoColor, fifths, level, music, minMidi, maxMidi, roundDone, roundTotal } = scene
   const L = layoutFor(w, h, minMidi, maxMidi)
 
   ctx.fillStyle = theme.panel
@@ -318,9 +403,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.lineTo(hitX, L.panelTop + L.panelH - 6)
   ctx.stroke()
 
-  for (const note of notes) drawNote(ctx, note, L, hitX)
+  for (const note of notes) drawNote(ctx, note, L, hitX, fifths)
 
-  drawHud(ctx, w, lives, level, fifths)
+  drawHud(ctx, w, h, lives, level, fifths)
   drawTempo(ctx, w, tempoName, tempoColor)
 
   // Subtítulo central: a música/tema do nível (nível e tom já vão à esquerda).
@@ -330,6 +415,25 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.fillStyle = theme.muted
     ctx.font = `500 16px -apple-system, system-ui, sans-serif`
     ctx.fillText(music, w / 2, 56)
+  }
+
+  // Progresso da fase: trilho fino na divisa entre o cabeçalho e a pauta, crescendo
+  // da esquerda p/ a direita conforme as notas são resolvidas até a cota.
+  if (roundTotal > 0) {
+    const by = L.panelTop - 5
+    const bx0 = 12
+    const trackW = w - 24
+    const frac = Math.max(0, Math.min(1, roundDone / roundTotal))
+    ctx.fillStyle = theme.ink
+    ctx.globalAlpha = 0.16
+    ctx.beginPath()
+    ctx.roundRect(bx0, by, trackW, 3, 1.5)
+    ctx.fill()
+    ctx.globalAlpha = 1
+    ctx.fillStyle = theme.accent
+    ctx.beginPath()
+    ctx.roundRect(bx0, by, trackW * frac, 3, 1.5)
+    ctx.fill()
   }
 
   if (flash > 0.02) {

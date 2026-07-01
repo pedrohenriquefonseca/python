@@ -7,6 +7,7 @@ export const theme = {
   ink: "#1A1A22", // notação sobre o branco (clave, linhas, notas)
   muted: "#8A6B9C", // texto auxiliar — legível no escuro e no branco
   accent: "#D11E6B", // linha de acerto + nota ativa (lê sobre o branco)
+  altered: "#0C8577", // nota alterada pela armadura (teal escuro, lê sobre o branco)
   hud: "#FF2E88", // números do HUD (magenta vibrante, sobre o escuro)
   secondary: "#19E3D6", // ciano — destaques
   noteName: "#B81C5F", // nome da nota junto à linha de acerto
