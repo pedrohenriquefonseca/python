@@ -23,6 +23,14 @@ def _ascii_upper(token: str) -> str:
     return unicodedata.normalize("NFKD", token).encode("ascii", "ignore").decode().upper()
 
 
+def is_generic_pattern(pattern: str) -> bool:
+    """True se o padrão é curto/genérico demais para virar regra (ex.: 'PIX', 'PAY').
+    Esses prefixos casam com lançamentos de naturezas distintas e bagunçam tudo —
+    nunca devem ser salvos como regra."""
+    norm = _ascii_upper((pattern or "").strip())
+    return not norm or norm in _GENERIC_PREFIXES or len(norm) < 3 or norm.isdigit()
+
+
 def rule_keyword(description: str) -> str:
     """Extrai uma palavra-chave identificadora da descrição para virar regra.
     Pula prefixos genéricos de tipo de operação e números (datas/sequenciais),
@@ -47,8 +55,14 @@ def categorize(description: str, rules: list) -> int | None:
 
 
 def load_rules(conn) -> list:
+    """Regras para categorização automática. NUNCA inclui regras que apontam para
+    'Outros': por decisão do usuário, nada é auto-categorizado como Outros — essa
+    categoria só pode ser atribuída manualmente."""
     return conn.execute(
-        "SELECT pattern, category_id FROM rules ORDER BY priority ASC, length(pattern) DESC"
+        "SELECT r.pattern, r.category_id FROM rules r "
+        "JOIN categories c ON c.id = r.category_id "
+        "WHERE c.name != 'Outros' "
+        "ORDER BY r.priority ASC, length(r.pattern) DESC"
     ).fetchall()
 
 
@@ -65,6 +79,25 @@ def recategorize_uncategorized(conn) -> int:
         cat = categorize(tx["description"], rules)
         if cat is not None:
             conn.execute("UPDATE transactions SET category_id = ? WHERE id = ?", (cat, tx["id"]))
+            count += 1
+    conn.commit()
+    return count
+
+
+def apply_rule_everywhere(conn, pattern: str, category_id: int) -> int:
+    """Aplica UMA regra recém-criada a TODO o histórico, inclusive lançamentos que
+    já tinham categoria — eles passam a seguir a regra nova. Não toca em
+    transferências. Devolve quantos lançamentos foram atualizados."""
+    needle = (pattern or "").lower()
+    if not needle:
+        return 0
+    rows = conn.execute(
+        "SELECT id, description, category_id FROM transactions WHERE transfer_to IS NULL"
+    ).fetchall()
+    count = 0
+    for tx in rows:
+        if needle in (tx["description"] or "").lower() and tx["category_id"] != category_id:
+            conn.execute("UPDATE transactions SET category_id = ? WHERE id = ?", (category_id, tx["id"]))
             count += 1
     conn.commit()
     return count

@@ -48,17 +48,19 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 }
 .content { flex: 1; min-width: 0; padding: 22px 28px; }
 
-/* ---------- net worth card ---------- */
-.nw-card {
-  display: block; background: var(--side-2); border: 0.5px solid #2c313c;
-  border-radius: 9px; padding: 11px 12px; margin-bottom: 12px;
+/* ---------- marca: avatar da Lolinha + nome do app ---------- */
+.brand-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 12px; margin-bottom: 8px;
 }
-.nw-label { display: block; font-size: 9px; color: #7e8492; letter-spacing: .07em; text-transform: uppercase; }
-.nw-value { display: block; font-size: 17px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; margin-top: 2px; }
-.nw-split { display: flex; justify-content: space-between; font-size: 9px; color: #7e8492; margin-top: 5px; }
+.brand-avatar {
+  width: 56px; height: 56px; border-radius: 16px; object-fit: cover;
+  background: var(--side-2);
+}
+.brand-name { color: var(--side-text); font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.brand-tagline { color: #7e8492; font-size: 11px; }
 
 /* ---------- nav ---------- */
-.brand { color: var(--side-text); font-size: 13px; font-weight: 600; padding: 4px 8px 12px; display: flex; align-items: center; gap: 8px; }
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav a {
   display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 6px;
@@ -97,12 +99,10 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .legend i { font-size: 12px; vertical-align: -1px; }
 .lg-receita { color: var(--green); }
 .lg-gasto { color: var(--red); }
-.lg-orcado { color: var(--muted); }
-.flow-wrap { position: relative; }
-.flow { width: 100%; height: auto; display: block; }
+.flow-wrap { position: relative; flex: 1; min-height: 0; width: 100%; }
+.flow { width: 100%; height: 100%; display: block; }
 .flow polyline { fill: none; vector-effect: non-scaling-stroke; }
 .grid-v { stroke: #ececea; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.fl-orcado { stroke: #c4c6cf; stroke-width: 1.4; stroke-dasharray: 5 4; }
 .fl-gasto { stroke: var(--red); stroke-width: 1.6; }
 .fl-receita { stroke: var(--green); stroke-width: 1.6; }
 .fl-networth { stroke: var(--indigo); stroke-width: 1.8; }
@@ -110,7 +110,7 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .nd-gasto { fill: var(--red); }
 .nd-networth { fill: var(--indigo); }
 /* evolução do patrimônio — linha/área com eixo "zoom" (mesma base do fluxo) */
-.nw-wrap { width: 100%; }
+.nw-wrap { width: 100%; height: 100%; }
 .nw-base { stroke: var(--border); stroke-width: 1; }
 .nw-area { fill: var(--indigo); fill-opacity: .10; }
 .nw-line { fill: none; stroke: var(--indigo); stroke-width: 1.8;
@@ -181,21 +181,31 @@ h1 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .data-table td, .tx-table td { padding: 9px 10px; border-top: 0.5px solid var(--line); font-variant-numeric: tabular-nums; }
 .data-table td i, .tx-table td i { color: var(--muted); margin-right: 7px; }
 .data-table .right, .data-table th.right { text-align: right; }
+.data-table .center, .data-table th.center { text-align: center; }
 .data-table tfoot td { border-top: 1.5px solid #ddd; }
 .tx-table tr.uncat { background: #fcf6e8; }
 .tx-table tr.is-ignored td { opacity: .45; }
-.year-sep td { padding: 16px 10px 4px; border-top: none; font-size: 24px; font-weight: 700;
+.tx-month-banner { font-size: 24px; font-weight: 700;
   color: var(--faint); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+/* cabeçalho de Lançamentos: data à esquerda; filtros + setas à direita */
+.tx-head { align-items: center; }
+.tx-head-right { display: flex; align-items: center; gap: 14px; }
+.tx-head .month-nav .navbtn { width: 36px; height: 36px; }
 .tx-table tr.is-ignored td:last-child { opacity: 1; }
+.tx-table th { color: var(--ink); font-weight: 700; }
+.tx-table th, .tx-table td { border-left: 0.5px solid var(--line); }
+.tx-table th:first-child, .tx-table td:first-child { border-left: none; }
 .cat-ico { color: var(--muted); margin-right: 6px; }
 
 /* selo da categoria — fundo tingido + ícone na cor da categoria (a mesma do
    gráfico "Gastos por categoria"), p/ o usuário associar cor ↔ categoria */
 .cat-badge { display: inline-flex; align-items: center; justify-content: center;
-  width: 25px; height: 25px; border-radius: 7px; flex: none; margin: 0;
+  width: 32px; height: 32px; border-radius: 8px; flex: none; margin: 0;
   background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); }
-.cat-badge i { font-size: 15px; margin: 0; color: inherit; }
+.cat-badge i { font-size: 19px; margin: 0; color: inherit; line-height: 1; display: flex; align-items: center; justify-content: center; }
 .cat-badge-empty { background: var(--line); color: var(--faint); }
+.cat-badge-sm { width: 28px; height: 28px; border-radius: 7px; }
+.cat-badge-sm i { font-size: 17px; }
 .rendimento { font-size: 11px; margin-top: 2px; font-weight: 500; }
 .rendimento.muted { font-weight: 400; }
 .transfer-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--indigo); }
@@ -244,8 +254,49 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 .btn-primary { background: var(--indigo); border-color: var(--indigo); color: #fff; }
 .iconbtn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; font-size: 15px; }
 .iconbtn:hover { color: var(--red); }
+.ignore-toggle { display: inline-flex; font-size: 19px; }
+.ignore-toggle .ti-eye { display: none; }
+.ignore-toggle input:checked ~ .ti-eye-off { display: none; }
+.ignore-toggle input:checked ~ .ti-eye { display: inline; }
 .cat-form, .cat-cell { display: flex; align-items: center; gap: 8px; }
-.rule-check { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.cat-cell select { width: 170px; flex: none; }
+.rule-check { display: inline-flex; align-items: center; }
+.rule-check input { width: 18px; height: 18px; accent-color: var(--indigo); cursor: pointer; }
+.tx-filters { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+/* todos os controles do filtro com a MESMA altura/espessura */
+.tx-filters select, .cat-dd-toggle, .filter-check { height: 36px; box-sizing: border-box; }
+.filter-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+/* filtro de categorias: dropdown com checkboxes (multisseleção) */
+.cat-dd { position: relative; }
+.cat-dd-toggle { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 190px; padding: 0 9px; font-size: 13px; font-family: var(--font);
+  background: var(--panel); color: var(--ink); border: 0.5px solid var(--border);
+  border-radius: 7px; cursor: pointer; }
+.cat-dd-toggle:hover, .cat-dd.open .cat-dd-toggle { border-color: var(--indigo); }
+.cat-dd-toggle i { font-size: 15px; color: var(--muted); transition: transform .15s; }
+.cat-dd.open .cat-dd-toggle i { transform: rotate(180deg); }
+.cat-dd-panel { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 220px;
+  background: var(--panel); border: 0.5px solid var(--border); border-radius: 9px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.10); padding: 6px; }
+.cat-dd-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; }
+.cat-dd-opt { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 13px;
+  border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.cat-dd-opt:hover { background: var(--line); }
+.cat-dd-opt input { width: 16px; height: 16px; accent-color: var(--indigo); cursor: pointer; flex: none; }
+.cat-dd-actions { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 4px 2px;
+  border-top: 0.5px solid var(--line); margin-top: 4px; }
+
+/* gráfico "resultado mensal" no topo de Lançamentos — mesmo design do Patrimônio
+   líquido (reusa classes .nw-*). Card flex-column com altura fixa p/ o .w-body e o
+   .flow-wrap herdarem altura, como acontece no grid do dashboard. */
+.tx-chart-card { display: flex; flex-direction: column; height: 200px; padding: 12px 16px; }
+/* pontos do gráfico em HTML (círculos perfeitos, sem distorção do SVG esticado) */
+.nw-dot-h { position: absolute; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--indigo); transform: translate(-50%, -50%); }
+.nw-dot-h.is-current { width: 7px; height: 7px; box-shadow: 0 0 0 1.5px var(--panel); }
+/* rótulos dos nós do gráfico de Gastos sempre em preto */
+.tx-chart .nw-delta { color: var(--ink); }
 
 /* barra de salvar fixa no rodapé da aba Lançamentos */
 .save-bar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 14px;
@@ -277,6 +328,8 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
   margin: 0; flex: 1; min-height: 0; min-width: 0; padding: 12px 14px;
   display: flex; flex-direction: column; overflow: hidden;
 }
+.dash-grid .card.widget.widget-donut { flex: 1; min-height: 0; }
+.dash-grid .card.widget.widget-budgets { flex: none; }
 .w-title { display: flex; justify-content: space-between; align-items: center; gap: 8px;
   font-size: 15px; font-weight: 700; letter-spacing: -.01em; flex: none; margin-bottom: 10px; }
 .w-title .muted { font-weight: 400; font-variant-numeric: tabular-nums; }
@@ -288,15 +341,17 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 .w-link { font-size: 11px; color: var(--indigo); font-weight: 500; }
 .w-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .w-body.center { justify-content: center; }
-.w-body.spread { justify-content: space-between; }
+.w-body.spread { justify-content: flex-start; gap: 10px; }
 .widget .flow-wrap { width: 100%; }
 
 /* rosca de gastos por categoria */
 .donut-body { flex-direction: row; align-items: center; gap: 16px; }
-.donut { width: 44%; max-width: 168px; height: auto; flex: none; }
+.donut { width: 38%; max-width: 190px; height: auto; max-height: 190px; flex: none; }
 .donut-track { fill: none; stroke: #eef0f2; stroke-width: 7; }
 .donut-seg { fill: none; stroke-width: 7; }
-.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.donut-pct { fill: #fff; font-size: 2.2px; font-weight: 700; text-anchor: middle;
+  dominant-baseline: central; font-variant-numeric: tabular-nums; }
+.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .dl-head, .dl-row, .dl-total { display: grid; grid-template-columns: 1fr 42px 72px; align-items: center; gap: 8px; font-size: 12px; }
 .dl-head { font-size: 8.5px; color: var(--muted); letter-spacing: .03em; text-transform: uppercase; }
 .dl-name { display: flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -320,10 +375,11 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 .comp-key b.neg { color: var(--red); }
 
 /* orçamentos — ritmo do mês: barra que enche e extravasa quando estoura */
-.bg-row { display: flex; flex-direction: column; gap: 5px; }
+.bg-row { display: flex; flex-direction: column; gap: 5px; color: inherit; text-decoration: none;
+  border-radius: 6px; margin: -4px -6px; padding: 4px 6px; }
+.bg-row:hover { background: var(--line); }
 .bg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; }
 .bg-cat { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bg-cat i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; flex: none; }
 .bg-amount { font-size: 12px; font-variant-numeric: tabular-nums; flex: none; }
 .bg-amount.over { color: var(--red); }
 .bg-amount .muted { color: var(--faint); }
@@ -343,8 +399,8 @@ input:focus, select:focus { outline: none; border-color: var(--indigo); }
 @media (max-width: 760px) {
   .app { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .nw-card { margin: 0; flex: 1 1 100%; }
-  .brand { padding: 4px 8px; }
+  .brand-card { flex-direction: row; padding: 4px 8px; margin: 0; }
+  .brand-avatar { width: 32px; height: 32px; border-radius: 9px; }
   .nav { flex-direction: row; flex-wrap: wrap; }
   .nav-group { display: none; }
   .grid-2 { grid-template-columns: 1fr; }

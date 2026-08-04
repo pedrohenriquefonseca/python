@@ -4,22 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Finanças{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='icons.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ static_v('icons.css') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-      <a class="nw-card" href="{{ url_for('assets') }}">
-        <span class="nw-label">Patrimônio líquido</span>
-        <span class="nw-value">R$ {{ nw_total|brl }}</span>
-        <span class="nw-split">
-          <span>Bancos {{ nw_bancos|kmil }}</span>
-          <span>Bens {{ nw_bens|kmil }}</span>
-        </span>
-      </a>
-
-      <div class="brand"><i class="ti ti-wallet"></i> Finanças</div>
+      <div class="brand-card">
+        <img class="brand-avatar" src="{{ url_for('static', filename='img/lolinha-avatar.jpg') }}" alt="Lolinha">
+        <div class="brand-name">Pluto Finanças</div>
+      </div>
 
       <nav class="nav">
         <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}"><i class="ti ti-layout-dashboard"></i> Dashboard</a>

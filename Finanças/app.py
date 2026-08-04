@@ -4,12 +4,17 @@ Portal Flask + SQLite. Foco atual: importar OFX, categorizar e acompanhar
 orçamentos mensais por categoria em tempo hábil.
 """
 import calendar
+import math
+import os
 from collections import defaultdict
 from datetime import date
 
 from flask import Flask, flash, redirect, render_template, request, url_for
 
-from categorizer import categorize, load_rules, recategorize_uncategorized, rule_keyword
+from categorizer import (
+    apply_rule_everywhere, categorize, is_generic_pattern, load_rules,
+    recategorize_uncategorized, rule_keyword,
+)
 from db import get_db, init_db, tx_fingerprint
 from ofx_import import read_ofx_file
 from xls_import import read_card_xlsx_file
@@ -24,6 +29,7 @@ CATEGORY_ICONS = {
     "Assinaturas": "repeat", "Salário": "cash", "Outros": "dots",
     "Cuidados Pessoais": "sparkles", "Compras": "shopping-bag",
     "Juros e Impostos": "receipt-tax", "Transferência": "arrows-exchange",
+    "Educação": "school", "Viagens": "plane", "Investimentos": "chart-line",
 }
 ASSET_ICONS = {
     "Imóvel": "home", "Veículo": "car", "Investimento": "chart-line", "Outros": "diamond",
@@ -38,9 +44,25 @@ def asset_icon(category: str) -> str:
     return "ti ti-" + ASSET_ICONS.get(category, "diamond")
 
 
-app.jinja_env.globals.update(cat_icon=cat_icon, asset_icon=asset_icon)
+def static_v(filename: str) -> str:
+    """URL de um arquivo estático com ?v=<mtime> p/ cache-busting: quando o arquivo
+    muda, o navegador busca a versão nova em vez de servir do cache."""
+    path = os.path.join(app.static_folder, filename)
+    ver = int(os.path.getmtime(path)) if os.path.exists(path) else 0
+    return url_for("static", filename=filename) + f"?v={ver}"
+
+
+app.jinja_env.globals.update(cat_icon=cat_icon, asset_icon=asset_icon, static_v=static_v)
 
 DEFAULT_CAT_COLOR = "#b6b9c0"
+
+
+def is_outros(conn, category_id) -> bool:
+    """True se a categoria é 'Outros' — que nunca pode virar regra/automação."""
+    if not category_id:
+        return False
+    row = conn.execute("SELECT name FROM categories WHERE id = ?", (category_id,)).fetchone()
+    return bool(row) and row["name"] == "Outros"
 
 
 @app.context_processor
@@ -244,7 +266,7 @@ def dashboard():
             over_txt = None
             bar_class = "none"
         budget_cards.append({
-            "category": row["name"], "color": row["color"],
+            "category": row["name"], "category_id": row["id"], "color": row["color"],
             "spent": spent, "budget": budget, "pct": pct,
             "projected": projected, "remaining": (budget - spent) if budget else None,
             "status": status,
@@ -295,6 +317,10 @@ def dashboard():
         d["pct"] = round(frac)
         d["dash"] = round(frac, 2)
         d["offset"] = round(-acc, 2)
+        mid_angle = math.radians((acc + frac / 2) / 100 * 360 - 90)
+        d["lbl_x"] = round(21 + 15.9159 * math.cos(mid_angle), 2)
+        d["lbl_y"] = round(21 + 15.9159 * math.sin(mid_angle), 2)
+        d["show_label"] = frac >= 6
         acc += frac
 
     # Composição do patrimônio (barra horizontal empilhada): bens por tipo +
@@ -335,13 +361,10 @@ def _scaled_heights(values: list[float], min_visible: float = 4.0) -> list[float
 
 
 def build_charts(conn, month: str, n_months: int = 6) -> dict:
-    """Séries mensais (gasto, receita, orçado) dos últimos n meses até `month`."""
+    """Séries mensais (gasto, receita) dos últimos n meses até `month`."""
     months = [shift_month(month, -i) for i in range(n_months - 1, -1, -1)]
-    expense_cats = conn.execute(
-        "SELECT id FROM categories WHERE kind = 'expense'"
-    ).fetchall()
 
-    gastos, receitas, orcados = [], [], []
+    gastos, receitas = [], []
     for m in months:
         start, end = month_bounds(m)
         gasto = conn.execute(
@@ -356,21 +379,19 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
             "WHERE c.kind = 'income' AND t.ignored = 0 AND t.posted_on BETWEEN ? AND ?",
             (start, end),
         ).fetchone()["v"]
-        orcado = sum(b for b in (budget_for(conn, c["id"], m) for c in expense_cats) if b)
         gastos.append(gasto)
         receitas.append(receita)
-        orcados.append(orcado)
 
     labels = [month_short(m) for m in months]
 
-    # ---- Gráfico de linha "Fluxo mensal" (receita, gasto, orçado) ----
+    # ---- Gráfico de linha "Fluxo mensal" (receita x gasto) ----
     # Coordenadas em viewBox 480 x VBH; eixo de valor entre y=top e y=base (=0).
     # VBH alto deixa o gráfico mais "cheio" no card alto do dashboard.
     W, x0, x1, top, base, VBH = 480, 24, 456, 36, 200, 236
     grid_top, grid_bottom = 16, 212
     n = len(months)
     xs = [x0 + (x1 - x0) * i / (n - 1) for i in range(n)] if n > 1 else [x0]
-    vmax = max(receitas + gastos + orcados + [1])
+    vmax = max(receitas + gastos + [1])
 
     def y_of(v):
         return base - (v / vmax) * (base - top)
@@ -380,7 +401,6 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
 
     receita_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, receitas))
     gasto_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, gastos))
-    orcado_pts = " ".join(f"{x:.0f},{y_of(v):.1f}" for x, v in zip(xs, orcados))
 
     # Rótulo de cada ponto fica do lado OPOSTO à outra linha: a série mais alta
     # no mês recebe o rótulo acima do nó, a mais baixa abaixo. Assim, quando as
@@ -397,7 +417,7 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
     flow = {
         "vb_h": VBH, "grid_top": grid_top, "grid_bottom": grid_bottom,
         "month_y": round((grid_bottom + 14) / VBH * 100, 2),
-        "receita_pts": receita_pts, "gasto_pts": gasto_pts, "orcado_pts": orcado_pts,
+        "receita_pts": receita_pts, "gasto_pts": gasto_pts,
         "receita_nodes": [{"x": round(x), "y": round(y_of(v), 1), "ly": lbl_y(v, receita_above[i]),
                            "label": fmt_cur(v), "current": m == month}
                           for i, (x, v, m) in enumerate(zip(xs, receitas, months))],
@@ -406,8 +426,6 @@ def build_charts(conn, month: str, n_months: int = 6) -> dict:
                         for i, (x, v, m) in enumerate(zip(xs, gastos, months))],
         "month_nodes": [{"x": round(x), "label": l, "current": m == month}
                         for x, l, m in zip(xs, labels, months)],
-        "orcado_label": fmt_cur(orcados[-1]) if orcados else "R$ 0",
-        "orcado_y": round(y_of(orcados[-1]) + 13, 1) if orcados else base,
     }
 
     return {"labels": labels, "flow": flow}
@@ -443,6 +461,7 @@ def build_networth_chart(conn, month: str, n_months: int = 6) -> dict:
     # Geometria do viewBox (mesma largura do "Fluxo mensal" p/ o overlay de rótulos).
     W, x0, x1, VBH = 480, 30, 450, 176
     ytop, ybot, base_y, month_y = 44, 140, 156, 168
+    grid_top, grid_bottom = 20, 156
     n = len(disp)
     xs = [x0 + (x1 - x0) * i / (n - 1) for i in range(n)] if n > 1 else [x0]
 
@@ -482,6 +501,7 @@ def build_networth_chart(conn, month: str, n_months: int = 6) -> dict:
     return {
         "vb_h": VBH,
         "base_y": base_y,
+        "grid_top": grid_top, "grid_bottom": grid_bottom,
         "month_y": round(month_y / VBH * 100, 2),
         "line_pts": line_pts, "area_d": area_d,
         "dots": dots, "delta_nodes": delta_nodes, "month_nodes": month_nodes,
@@ -539,22 +559,95 @@ def build_composition(conn) -> dict:
 
 
 # ----------------------------------------------------------------------------- transações
+def build_tx_chart(conn, month: str, account_id, category_ids, n_months: int = 6) -> dict:
+    """Linha de "Gastos" mensais dos últimos n meses, respeitando os mesmos filtros da
+    lista (conta + categorias). Cada ponto é só o TOTAL de despesas (kind='expense') do
+    mês; entradas são ignoradas. Mesmo design do gráfico Patrimônio líquido."""
+    months = [shift_month(month, -i) for i in range(n_months - 1, -1, -1)]
+    base_sql = ("SELECT COALESCE(SUM(-t.amount), 0) AS v FROM transactions t "
+                "JOIN categories c ON c.id = t.category_id "
+                "WHERE c.kind = 'expense' AND t.ignored = 0 AND t.posted_on BETWEEN ? AND ?")
+    extra, extra_params = "", []
+    if account_id:
+        extra += " AND t.account_id = ?"
+        extra_params.append(account_id)
+    if category_ids:
+        extra += " AND t.category_id IN (%s)" % ",".join("?" * len(category_ids))
+        extra_params.extend(category_ids)
+
+    values = []
+    for m in months:
+        s, e = month_bounds(m)
+        values.append(conn.execute(base_sql + extra, [s, e, *extra_params]).fetchone()["v"])
+
+    # Mesma geometria/escala "zoom" do gráfico Patrimônio líquido (build_networth_chart),
+    # para o design ficar idêntico: área até a base, linha indigo, pontos, rótulo por ponto.
+    W, x0, x1, VBH = 480, 30, 450, 176
+    ytop, ybot, base_y, month_y = 44, 140, 156, 168
+    grid_top, grid_bottom = 20, 156
+    n = len(values)
+    xs = [x0 + (x1 - x0) * i / (n - 1) for i in range(n)] if n > 1 else [x0]
+    lo, hi = min(values), max(values)
+    span = (hi - lo) or 1
+
+    def y_of(v):
+        return ybot - (v - lo) / span * (ybot - ytop)
+
+    def fmt(v):
+        return "R$ " + f"{v:,.0f}".replace(",", ".")
+
+    ys = [round(y_of(v), 1) for v in values]
+    line_pts = " ".join(f"{x:.0f},{y}" for x, y in zip(xs, ys))
+    area_d = (f"M{xs[0]:.0f},{ys[0]} "
+              + " ".join(f"L{x:.0f},{y}" for x, y in zip(xs, ys))
+              + f" L{xs[-1]:.0f},{base_y} L{xs[0]:.0f},{base_y} Z")
+    dots, delta_nodes, month_nodes = [], [], []
+    for i, m in enumerate(months):
+        dots.append({"x": round(xs[i]), "y": ys[i], "current": m == month})
+        delta_nodes.append({
+            "x": round(xs[i]), "ly": round(max(ys[i] - 9, 12), 1),
+            "label": fmt(values[i]), "current": m == month,
+        })
+        month_nodes.append({"x": round(xs[i]), "label": month_short(m), "current": m == month})
+    cur = values[-1] if values else 0
+    return {
+        "vb_h": VBH, "base_y": base_y,
+        "grid_top": grid_top, "grid_bottom": grid_bottom,
+        "month_y": round(month_y / VBH * 100, 2),
+        "line_pts": line_pts, "area_d": area_d,
+        "dots": dots, "delta_nodes": delta_nodes, "month_nodes": month_nodes,
+        "cur_label": fmt(cur),
+    }
+
+
 @app.route("/transactions")
 def transactions():
     month = request.args.get("month", current_month())
+    account_id = request.args.get("account_id", type=int)
+    category_ids = [int(c) for c in request.args.getlist("category_id") if c.isdigit()]
+    uncat = request.args.get("uncat") == "1"
     start, end = month_bounds(month)
     conn = get_db()
-    rows = conn.execute(
-        """
+    query = """
         SELECT t.*, c.name AS category_name, c.color AS category_color,
                c.kind AS category_kind, a.name AS account_name
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.category_id
         LEFT JOIN accounts a ON a.id = t.account_id
         WHERE t.posted_on BETWEEN ? AND ?
-        ORDER BY t.posted_on DESC, t.id DESC
-        """, (start, end),
-    ).fetchall()
+    """
+    params = [start, end]
+    if account_id:
+        query += " AND t.account_id = ?"
+        params.append(account_id)
+    if category_ids:
+        query += " AND t.category_id IN (%s)" % ",".join("?" * len(category_ids))
+        params.extend(category_ids)
+    if uncat:
+        query += " AND t.category_id IS NULL AND t.ignored = 0"
+    query += " ORDER BY t.posted_on DESC, t.id DESC"
+    rows = conn.execute(query, params).fetchall()
+    tx_chart = build_tx_chart(conn, month, account_id, category_ids)
     # Dropdown lista categorias normais (kind != transfer) + as contas como destino de transferência.
     categories = conn.execute(
         "SELECT * FROM categories WHERE kind != 'transfer' ORDER BY name"
@@ -569,7 +662,8 @@ def transactions():
     conn.close()
     return render_template(
         "transactions.html", rows=rows, categories=categories, accounts=accounts_list,
-        transfer_cat=transfer_cat,
+        transfer_cat=transfer_cat, account_id=account_id, category_ids=category_ids, uncat=uncat,
+        tx_chart=tx_chart,
         month=month, month_label=month_label(month),
         prev_month=shift_month(month, -1), next_month=shift_month(month, +1),
     )
@@ -581,33 +675,22 @@ def categorize_tx(tx_id: int):
     make_rule = request.form.get("make_rule")
     conn = get_db()
 
-    # Opção "Para <conta>": marca o lançamento como transferência para aquela conta.
-    if value.startswith("transfer:"):
-        dest_id = int(value.split(":", 1)[1])
-        tx = conn.execute("SELECT account_id FROM transactions WHERE id = ?", (tx_id,)).fetchone()
-        if tx and dest_id != tx["account_id"]:
-            cat = transfer_category_id(conn)
-            conn.execute("UPDATE transactions SET category_id = ?, transfer_to = ? WHERE id = ?",
-                         (cat, dest_id, tx_id))
-            conn.commit()
-        conn.close()
-        return redirect(request.referrer or url_for("transactions"))
-
     # Categoria normal: limpa qualquer marcação de transferência.
     category_id = value or None
     conn.execute("UPDATE transactions SET category_id = ?, transfer_to = NULL WHERE id = ?",
                  (category_id, tx_id))
-    # Opcional: aprender uma regra a partir desta correção.
-    if make_rule and category_id:
+    # Opcional: aprender uma regra a partir desta correção. "Outros" nunca vira regra.
+    if make_rule and category_id and not is_outros(conn, category_id):
         tx = conn.execute("SELECT description FROM transactions WHERE id = ?", (tx_id,)).fetchone()
         if tx:
             keyword = rule_keyword(tx["description"])
-            if keyword:
+            if keyword and not is_generic_pattern(keyword):
                 conn.execute(
                     "INSERT INTO rules (pattern, category_id, priority) VALUES (?, ?, 50)",
                     (keyword, category_id),
                 )
-                flash(f"Regra criada: '{keyword}' → categoria.", "ok")
+                applied = apply_rule_everywhere(conn, keyword, int(category_id))
+                flash(f"Regra criada: '{keyword}' → categoria ({applied} lançamento(s) atualizados).", "ok")
     conn.commit()
     conn.close()
     return redirect(request.referrer or url_for("transactions"))
@@ -624,29 +707,31 @@ def transactions_save():
             continue
         tx_id = int(key.split(":", 1)[1])
 
-        # "Para <conta>": transferência de mão única (credita a conta destino).
-        if value.startswith("transfer:"):
-            dest_id = int(value.split(":", 1)[1])
-            tx = conn.execute("SELECT account_id FROM transactions WHERE id = ?", (tx_id,)).fetchone()
-            if tx and dest_id != tx["account_id"]:
-                conn.execute("UPDATE transactions SET category_id = ?, transfer_to = ? WHERE id = ?",
-                             (transfer_category_id(conn), dest_id, tx_id))
-            continue
-
         category_id = value or None
         conn.execute("UPDATE transactions SET category_id = ?, transfer_to = NULL WHERE id = ?",
                      (category_id, tx_id))
 
-        # Marcado como "regra": aprende a regra a partir desta correção.
-        if request.form.get(f"rule:{tx_id}") and category_id:
+        # Marcado como "regra": aprende a regra a partir desta correção. "Outros" nunca
+        # vira regra — é categoria de uso manual, não de automação.
+        if request.form.get(f"rule:{tx_id}") and category_id and not is_outros(conn, category_id):
             tx = conn.execute("SELECT description FROM transactions WHERE id = ?", (tx_id,)).fetchone()
             keyword = rule_keyword(tx["description"]) if tx else ""
-            if keyword and not conn.execute(
+            if keyword and not is_generic_pattern(keyword) and not conn.execute(
                 "SELECT 1 FROM rules WHERE pattern = ? AND category_id = ?", (keyword, category_id)
             ).fetchone():
                 conn.execute("INSERT INTO rules (pattern, category_id, priority) VALUES (?, ?, 50)",
                              (keyword, category_id))
                 rules_created += 1
+                # A regra nova vale para todo o histórico, inclusive lançamentos que já
+                # tinham outra categoria — eles passam a seguir a regra.
+                apply_rule_everywhere(conn, keyword, int(category_id))
+
+    # "Ignorar": cada caixa não marcada não é enviada pelo navegador, então usamos
+    # a lista de ids da página (tx_ids) para saber quais devem voltar a ignored=0.
+    tx_ids = [int(i) for i in (request.form.get("tx_ids") or "").split(",") if i]
+    for tx_id in tx_ids:
+        ignored = 1 if request.form.get(f"ignore:{tx_id}") else 0
+        conn.execute("UPDATE transactions SET ignored = ? WHERE id = ?", (ignored, tx_id))
     conn.commit()
 
     # Aplica todas as regras ao histórico inteiro (lançamentos ainda sem categoria).
@@ -654,7 +739,13 @@ def transactions_save():
     conn.close()
     flash(f"Salvo. {rules_created} regra(s) nova(s); {applied} lançamento(s) categorizado(s) "
           f"automaticamente em todo o histórico.", "ok")
-    return redirect(url_for("transactions", month=request.form.get("month") or current_month()))
+    return redirect(url_for(
+        "transactions",
+        month=request.form.get("month") or current_month(),
+        account_id=request.form.get("account_id") or None,
+        category_id=request.form.getlist("category_id") or None,
+        uncat=request.form.get("uncat") or None,
+    ))
 
 
 @app.route("/transactions/<int:tx_id>/ignore", methods=["POST"])
@@ -666,15 +757,6 @@ def ignore_tx(tx_id: int):
     conn.close()
     return redirect(request.referrer or url_for("transactions"))
 
-
-# ----------------------------------------------------------------------------- transferências
-def transfer_category_id(conn) -> int:
-    """Id da categoria 'Transferência' (kind='transfer'), criando-a se não existir."""
-    row = conn.execute("SELECT id FROM categories WHERE kind = 'transfer' ORDER BY id LIMIT 1").fetchone()
-    if row:
-        return row["id"]
-    conn.execute("INSERT INTO categories (name, color, kind) VALUES ('Transferência', '#9aa0aa', 'transfer')")
-    return conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
 
 # ----------------------------------------------------------------------------- orçamentos
@@ -723,30 +805,38 @@ def budgets():
 
 
 # ----------------------------------------------------------------------------- import OFX
+def lca_resgate_target(conn, description: str, src_account_id: int):
+    """Resgate de LCA: o crédito cai na Conta Corrente mas o dinheiro sai da
+    aplicação. Se a descrição indicar um resgate de LCA, devolve o id da conta de
+    investimento (LCA) para registrar a perna de SAÍDA — assim o patrimônio fica
+    neutro (o dinheiro só mudou de conta). Senão, None."""
+    d = (description or "").upper()
+    if "LCA" not in d or "RESGATE" not in d:
+        return None
+    row = conn.execute(
+        "SELECT id FROM accounts WHERE type = 'investment' "
+        "AND (UPPER(name) LIKE '%LCA%' OR UPPER(name) LIKE '%LETRAS DE CR%') "
+        "AND id != ? ORDER BY id LIMIT 1", (src_account_id,),
+    ).fetchone()
+    return row["id"] if row else None
+
+
 @app.route("/import", methods=["GET", "POST"])
 def import_ofx():
     conn = get_db()
     accounts = conn.execute("SELECT * FROM accounts ORDER BY name").fetchall()
     if request.method == "POST":
         account_id = int(request.form["account_id"])
-        file = request.files.get("ofx_file")
-        if not file or not file.filename:
-            flash("Selecione um arquivo.", "error")
+        files = [f for f in request.files.getlist("ofx_file") if f and f.filename]
+        if not files:
+            flash("Selecione ao menos um arquivo.", "error")
             return redirect(url_for("import_ofx"))
 
-        # Aceita OFX (extrato/cartão) e XLSX (fatura do cartão do Itaú, que não
-        # exporta OFX). O parser certo é escolhido pela extensão.
-        raw = file.read()
-        name = file.filename.lower()
-        try:
-            if name.endswith((".xlsx", ".xls")):
-                txns = read_card_xlsx_file(raw)
-            else:
-                txns = read_ofx_file(raw)
-        except Exception as exc:
-            flash(f"Não consegui ler o arquivo: {exc}", "error")
-            return redirect(url_for("import_ofx"))
         rules = load_rules(conn)
+        transfer_cat = conn.execute(
+            "SELECT id FROM categories WHERE kind = 'transfer' ORDER BY id LIMIT 1"
+        ).fetchone()
+        transfer_cat_id = transfer_cat["id"] if transfer_cat else None
 
         # Dedup robusta em camadas, por conta:
         #  1) FITID (quando o banco fornece) é autoritativo — mesma id = mesmo lançamento.
@@ -764,34 +854,70 @@ def import_ofx():
         file_fp_seen = defaultdict(int)
 
         inserted = skipped = 0
-        for t in txns:
-            fp = tx_fingerprint(t.posted_on, t.amount, t.description)
-            if t.fitid and t.fitid in existing_fitids:
-                skipped += 1
+        errors = []
+        for file in files:
+            # Aceita OFX (extrato/cartão) e XLSX (fatura do cartão do Itaú, que não
+            # exporta OFX). O parser certo é escolhido pela extensão.
+            raw = file.read()
+            name = file.filename.lower()
+            try:
+                if name.endswith((".xlsx", ".xls")):
+                    txns = read_card_xlsx_file(raw)
+                else:
+                    txns = read_ofx_file(raw)
+            except Exception as exc:
+                errors.append(f"{file.filename}: {exc}")
                 continue
-            if not t.fitid:
-                idx = file_fp_seen[fp]
-                file_fp_seen[fp] += 1
-                if idx < db_fp_counts[fp]:
+
+            for t in txns:
+                fp = tx_fingerprint(t.posted_on, t.amount, t.description)
+                if t.fitid and t.fitid in existing_fitids:
                     skipped += 1
                     continue
-            category_id = categorize(t.description, rules)
-            try:
-                conn.execute(
-                    """INSERT INTO transactions
-                       (account_id, fitid, posted_on, amount, description, raw_memo, category_id, fingerprint)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (account_id, t.fitid, t.posted_on, t.amount,
-                     t.description, t.raw_memo, category_id, fp),
-                )
-                inserted += 1
-                if t.fitid:
-                    existing_fitids.add(t.fitid)
-            except Exception:
-                # Backstop: UNIQUE(account_id, fitid) violado = já importado.
-                skipped += 1
+                if not t.fitid:
+                    idx = file_fp_seen[fp]
+                    file_fp_seen[fp] += 1
+                    if idx < db_fp_counts[fp]:
+                        skipped += 1
+                        continue
+                category_id = categorize(t.description, rules)
+                try:
+                    conn.execute(
+                        """INSERT INTO transactions
+                           (account_id, fitid, posted_on, amount, description, raw_memo, category_id, fingerprint)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (account_id, t.fitid, t.posted_on, t.amount,
+                         t.description, t.raw_memo, category_id, fp),
+                    )
+                    inserted += 1
+                    if t.fitid:
+                        existing_fitids.add(t.fitid)
+                    # Resgate de LCA: registra automaticamente a saída espelhada na
+                    # conta da aplicação, para o patrimônio não inflar (o dinheiro só
+                    # mudou da LCA para a Conta Corrente).
+                    target = (lca_resgate_target(conn, t.description, account_id)
+                              if t.amount > 0 else None)
+                    if target:
+                        mirror_fp = tx_fingerprint(t.posted_on, -t.amount, t.description)
+                        dup = conn.execute(
+                            "SELECT 1 FROM transactions WHERE account_id = ? AND fingerprint = ?",
+                            (target, mirror_fp),
+                        ).fetchone()
+                        if not dup:
+                            conn.execute(
+                                """INSERT INTO transactions
+                                   (account_id, posted_on, amount, description, category_id, fingerprint)
+                                   VALUES (?, ?, ?, ?, ?, ?)""",
+                                (target, t.posted_on, -t.amount, "Resgate → Conta Corrente",
+                                 transfer_cat_id, mirror_fp),
+                            )
+                except Exception:
+                    # Backstop: UNIQUE(account_id, fitid) violado = já importado.
+                    skipped += 1
         conn.commit()
         conn.close()
+        if errors:
+            flash(f"Não consegui ler {len(errors)} arquivo(s): " + "; ".join(errors), "error")
         flash(f"Importados {inserted} lançamentos novos. {skipped} já existiam (ignorados).", "ok")
         return redirect(url_for("dashboard"))
 

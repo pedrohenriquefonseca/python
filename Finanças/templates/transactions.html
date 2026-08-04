@@ -2,11 +2,65 @@
 {% block title %}Lançamentos — {{ month_label }}{% endblock %}
 {% block content %}
 
-<div class="page-head">
-  <h1>Lançamentos — {{ month_label }}</h1>
-  <div class="month-nav">
-    <a class="navbtn" href="{{ url_for('transactions', month=prev_month) }}"><i class="ti ti-chevron-left"></i></a>
-    <a class="navbtn" href="{{ url_for('transactions', month=next_month) }}"><i class="ti ti-chevron-right"></i></a>
+<div class="page-head tx-head">
+  <div class="tx-month-banner">{{ month_label }}</div>
+  <div class="tx-head-right">
+  <form method="get" action="{{ url_for('transactions') }}" class="tx-filters">
+    <input type="hidden" name="month" value="{{ month }}">
+    <select name="account_id" onchange="this.form.submit()">
+      <option value="">Todas as contas</option>
+      {% for a in accounts %}
+        <option value="{{ a.id }}" {{ 'selected' if a.id == account_id else '' }}>{{ a.name }}</option>
+      {% endfor %}
+    </select>
+    <div class="cat-dd" data-cat-dd>
+      <button type="button" class="cat-dd-toggle" data-cat-toggle>
+        <span>{% if category_ids %}{{ category_ids|length }} categoria{{ 's' if category_ids|length > 1 }}{% else %}Todas as categorias{% endif %}</span>
+        <i class="ti ti-chevron-down"></i>
+      </button>
+      <div class="cat-dd-panel" data-cat-panel hidden>
+        <div class="cat-dd-list">
+          {% for c in categories %}
+          <label class="cat-dd-opt"><input type="checkbox" name="category_id" value="{{ c.id }}" {{ 'checked' if c.id in category_ids else '' }}> {{ c.name }}</label>
+          {% endfor %}
+        </div>
+        <div class="cat-dd-actions">
+          {% if category_ids %}<a class="btn btn-sm" href="{{ url_for('transactions', month=month, account_id=account_id, uncat=1 if uncat else None) }}">Limpar</a>{% endif %}
+          <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
+        </div>
+      </div>
+    </div>
+    <label class="filter-check">
+      <input type="checkbox" name="uncat" value="1" {{ 'checked' if uncat else '' }} onchange="this.form.submit()">
+      não categorizados
+    </label>
+  </form>
+    <div class="month-nav">
+      <a class="navbtn" href="{{ url_for('transactions', month=prev_month, account_id=account_id, category_id=category_ids, uncat=1 if uncat else None) }}"><i class="ti ti-chevron-left"></i></a>
+      <a class="navbtn" href="{{ url_for('transactions', month=next_month, account_id=account_id, category_id=category_ids, uncat=1 if uncat else None) }}"><i class="ti ti-chevron-right"></i></a>
+    </div>
+  </div>
+</div>
+
+<div class="card widget tx-chart-card">
+  <div class="w-title">
+    <span>Gastos{% if category_ids %} · filtrado{% endif %}</span>
+    <span class="muted">{{ tx_chart.cur_label }}</span>
+  </div>
+  <div class="w-body center">
+    <div class="flow-wrap nw-wrap tx-chart">
+      <svg class="flow" viewBox="0 0 480 {{ tx_chart.vb_h }}" preserveAspectRatio="none">
+        {% for m in tx_chart.month_nodes %}<line class="grid-v" x1="{{ m.x }}" y1="{{ tx_chart.grid_top }}" x2="{{ m.x }}" y2="{{ tx_chart.grid_bottom }}"/>{% endfor %}
+        <line class="nw-base" x1="30" y1="{{ tx_chart.base_y }}" x2="450" y2="{{ tx_chart.base_y }}"/>
+        <path class="nw-area" d="{{ tx_chart.area_d }}"/>
+        <polyline class="nw-line" points="{{ tx_chart.line_pts }}"/>
+      </svg>
+      <div class="flow-labels">
+        {% for d in tx_chart.dots %}<span class="nw-dot-h {{ 'is-current' if d.current }}" style="left:{{ (d.x/480*100)|round(2) }}%; top:{{ (d.y/tx_chart.vb_h*100)|round(2) }}%"></span>{% endfor %}
+        {% for d in tx_chart.delta_nodes %}<span class="nw-delta {{ 'edge-l' if loop.first }}{{ 'edge-r' if loop.last }}" style="left:{{ (d.x/480*100)|round(2) }}%; top:{{ (d.ly/tx_chart.vb_h*100)|round(2) }}%">{{ d.label }}</span>{% endfor %}
+        {% for m in tx_chart.month_nodes %}<span class="flow-month {{ 'is-current' if m.current }}" style="left:{{ (m.x/480*100)|round(2) }}%; top:{{ tx_chart.month_y }}%">{{ m.label }}</span>{% endfor %}
+      </div>
+    </div>
   </div>
 </div>
 
@@ -14,25 +68,25 @@
    Selecionar categoria NÃO recarrega a página — só "Salvar" envia tudo de uma vez. #}
 <form id="bulkform" method="post" action="{{ url_for('transactions_save') }}">
   <input type="hidden" name="month" value="{{ month }}">
+  <input type="hidden" name="account_id" value="{{ account_id or '' }}">
+  {% for cid in category_ids %}<input type="hidden" name="category_id" value="{{ cid }}">{% endfor %}
+  <input type="hidden" name="uncat" value="{{ '1' if uncat else '' }}">
+  <input type="hidden" name="tx_ids" value="{{ rows|map(attribute='id')|join(',') }}">
 </form>
 
 <div class="card">
 <table class="data-table tx-table">
   <thead>
-    <tr><th>Data</th><th>Descrição</th><th>Conta</th><th class="right">Valor</th><th>Categoria</th><th></th></tr>
+    <tr>
+      <th>Data</th><th>Descrição</th><th>Categoria</th><th class="right">Valor</th>
+      <th class="center">Regra</th><th class="center">Ignorar</th><th>Conta</th>
+    </tr>
   </thead>
   <tbody>
-  {% set ns = namespace(year=None) %}
   {% for t in rows %}
-    {% if t.posted_on[:4] != ns.year %}
-      {% set ns.year = t.posted_on[:4] %}
-      <tr class="year-sep"><td colspan="6">{{ ns.year }}</td></tr>
-    {% endif %}
     <tr class="{{ 'uncat' if not t.category_id and t.ignored == 0 else '' }} {{ 'is-ignored' if t.ignored }}">
       <td class="nowrap">{{ t.posted_on[8:10] }}/{{ t.posted_on[5:7] }}</td>
       <td>{{ t.description }}</td>
-      <td class="muted">{{ t.account_name }}</td>
-      <td class="right {{ 'negative' if t.amount < 0 else 'positive' }}">R$ {{ t.amount|brl }}</td>
       <td>
         <div class="cat-cell">
           {% if t.transfer_to %}<span class="cat-badge" style="--c: {{ cat_color('Transferência') }}"><i class="{{ cat_icon('Transferência') }}"></i></span>
@@ -61,33 +115,28 @@
                 {% endfor %}
               </optgroup>
             {% endif %}
-            {% if t.amount < 0 %}
-            <optgroup label="Transferências">
-              {% for a in accounts if a.id != t.account_id %}
-                <option value="transfer:{{ a.id }}" {{ 'selected' if t.transfer_to == a.id else '' }}>Para {{ a.name }}</option>
-              {% endfor %}
-            </optgroup>
-            {% endif %}
           </select>
-          {% if not t.transfer_to %}
-          <label class="rule-check" title="Criar regra e aplicar a todo o histórico ao salvar">
-            <input type="checkbox" name="rule:{{ t.id }}" value="1" form="bulkform"> regra
-          </label>
-          {% endif %}
         </div>
       </td>
-      <td class="right">
-        <form method="post" action="{{ url_for('ignore_tx', tx_id=t.id) }}">
-          {% if t.ignored %}
-            <button class="iconbtn" title="Reativar lançamento"><i class="ti ti-eye"></i></button>
-          {% else %}
-            <button class="iconbtn" title="Ignorar lançamento (fora de orçamentos e gráficos)"><i class="ti ti-eye-off"></i></button>
-          {% endif %}
-        </form>
+      <td class="right {{ 'negative' if t.amount < 0 else 'positive' }}">R$ {{ t.amount|brl }}</td>
+      <td class="center">
+        {% if not t.transfer_to %}
+        <label class="rule-check" title="Criar regra e aplicar a todo o histórico ao salvar">
+          <input type="checkbox" name="rule:{{ t.id }}" value="1" form="bulkform">
+        </label>
+        {% endif %}
       </td>
+      <td class="center">
+        <label class="iconbtn ignore-toggle" title="Ignorar lançamento (fora de orçamentos e gráficos) — só efetiva ao Salvar">
+          <input type="checkbox" name="ignore:{{ t.id }}" value="1" form="bulkform" {{ 'checked' if t.ignored else '' }} hidden>
+          <i class="ti ti-eye-off"></i>
+          <i class="ti ti-eye"></i>
+        </label>
+      </td>
+      <td class="muted">{{ t.account_name }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="6" class="muted">Nenhum lançamento neste mês.</td></tr>
+    <tr><td colspan="7" class="muted">Nenhum lançamento neste mês.</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -108,6 +157,30 @@
   var saved = sessionStorage.getItem(KEY);
   if (saved !== null) { window.scrollTo(0, parseInt(saved, 10) || 0); sessionStorage.removeItem(KEY); }
   document.addEventListener('submit', function(){ sessionStorage.setItem(KEY, window.scrollY); }, true);
+
+  // Marcar/desmarcar "ignorar" só atualiza o visual da linha — a mudança só é
+  // gravada quando o formulário em lote (bulkform) é enviado pelo botão Salvar.
+  document.querySelectorAll('.ignore-toggle input').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      cb.closest('tr').classList.toggle('is-ignored', cb.checked);
+    });
+  });
+
+  // Dropdown de categorias com checkboxes: abre/fecha o painel; fecha ao clicar fora.
+  var dd = document.querySelector('[data-cat-dd]');
+  if (dd) {
+    var toggle = dd.querySelector('[data-cat-toggle]'),
+        panel = dd.querySelector('[data-cat-panel]');
+    toggle.addEventListener('click', function(e){
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      dd.classList.toggle('open', !panel.hidden);
+    });
+    panel.addEventListener('click', function(e){ e.stopPropagation(); });
+    document.addEventListener('click', function(){
+      panel.hidden = true; dd.classList.remove('open');
+    });
+  }
 })();
 </script>
 

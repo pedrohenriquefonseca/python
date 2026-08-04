@@ -24,10 +24,10 @@
     </label>
 
     <label class="dropzone" id="dropzone">
-      <input type="file" name="ofx_file" id="ofx-file" accept=".ofx,.qfx,.xlsx,.xls,text/*" required hidden>
+      <input type="file" name="ofx_file" id="ofx-file" accept=".ofx,.qfx,.xlsx,.xls,text/*" multiple required hidden>
       <i class="ti ti-arrow-bar-to-down"></i>
-      <div class="dz-title">Arraste o arquivo aqui</div>
-      <div class="dz-sub">ou clique para selecionar — .ofx, .qfx ou .xlsx (fatura do cartão)</div>
+      <div class="dz-title">Arraste os arquivos aqui</div>
+      <div class="dz-sub">ou clique para selecionar — .ofx, .qfx ou .xlsx (fatura do cartão). Pode escolher mais de um.</div>
       <div class="dz-file" id="dz-file"></div>
     </label>
 
@@ -43,8 +43,9 @@
       out = document.getElementById('dz-file');
   if (!dz) return;
   function show(){
-    out.textContent = inp.files.length ? inp.files[0].name : '';
-    dz.classList.toggle('has-file', inp.files.length > 0);
+    var n = inp.files.length;
+    out.textContent = n === 1 ? inp.files[0].name : n > 1 ? n + ' arquivos selecionados' : '';
+    dz.classList.toggle('has-file', n > 0);
   }
   inp.addEventListener('change', show);
   ['dragenter','dragover'].forEach(function(e){
