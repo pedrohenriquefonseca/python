@@ -93,6 +93,30 @@ lateralmente a luz anda dentro da base, mais material atravessa — por isso a
 cauda larga é *mais* vermelha que o núcleo, que ainda puxa laranja. O modelo dá
 uma cor própria a cada oitava em vez de tingir o halo inteiro de um vermelho só.
 
+**Mas o brilho que se vê não é só halação.** Halação estrita é vermelha
+independentemente da fonte: quem recebe a luz refletida é sempre a camada do
+vermelho. Só que em volta de um neon numa fotografia vem junto o espalhamento na
+emulsão e no vidro da lente, e esse *preserva* a cor da fonte — tubo vermelho
+brilha vermelho, reflexo do sol na água brilha amarelo-quente. Os dois são o
+mesmo transporte de luz com atenuação espectral diferente, então são um efeito
+só, separados pelo controle `redshift`: em 0 o brilho sai na cor da fonte, em 1
+ele é filtrado pelas camadas e avermelha conforme se afasta.
+
+**Medir a fonte por luminância não funciona.** Foi o erro que deixava o efeito
+inútil justamente nos assuntos que mais brilham. Uma luminância ponderada é cega
+para luz colorida saturada: um neon vermelho tem um canal no teto e dois no
+chão, e a média dele fica *abaixo* do limiar de uma parede branca. Medido, a
+parede clara neutra disparava mil vezes mais que o tubo de neon, e verde e azul
+saturados davam exatamente zero. Agora a *força* vem do canal mais forte, que é
+o que a fonte de fato satura.
+
+A *cor*, por sua vez, vem da cromaticidade da fonte em luz linear — medida antes
+do joelho, não depois. Aplicar o joelho por canal e só então tomar a razão
+parece equivalente e não é: o canal que passa raspando é esmagado pelo quadrado,
+e uma lâmpada âmbar saía com brilho vermelho puro. O borrão também roda nos três
+canais, e não num mapa escalar tingido depois — só assim duas fontes de cores
+diferentes no mesmo quadro dão brilhos diferentes.
+
 **A amplitude vem da reflexão interna total, não de Fresnel.** A conta ingênua —
 Fresnel em incidência normal numa base de poliéster (n≈1,65) — dá só ~6%, e com
 ela o halo fica invisível. Ela é a conta errada: a luz que chega à base já foi
@@ -119,17 +143,34 @@ especular que na cena era muito mais brilhante.
 
 Diferente do vazamento, **a halação não tem nada de aleatório**: é uma resposta
 às altas-luzes da própria imagem. Duas fotos dão halos diferentes porque as
-altas-luzes estão em lugares diferentes, não porque houve sorteio. Por isso o
-controle é um slider só.
+altas-luzes estão em lugares diferentes, não porque houve sorteio.
 
 ```bash
 python3 cli.py foto.jpg --effect halation --intensity 1.5 -o out/halacao.jpg
-python3 cli.py foto.jpg --effect halation --sweep 4      # comparar intensidades
+python3 cli.py foto.jpg --effect halation --sweep 10      # comparar intensidades
+python3 cli.py foto.jpg --effect halation --redshift 1    # halação de filme
 ```
 
-| slider | faixa | efeito |
-|---|---|---|
-| `intensity` | 0 – 3 | multiplica a fração de luz devolvida pela base |
+| slider | faixa | padrão | efeito |
+|---|---|---|---|
+| `intensity` | 0 – 3 | 1,0 | multiplica a fração de luz devolvida pela base |
+| `redshift` | 0 – 1 | 0,85 | 0 dá brilho na cor da fonte, 1 dá a halação vermelha de filme |
+
+**Duas oitavas, não cinco.** Uma oitava espalhada sobre 10% do quadro não vira
+brilho, vira pedestal: sobe a imagem inteira alguns pontos e o que se vê é véu.
+E como a normalização ancora no pico, quando o pedestal domina o pico *é* o
+pedestal, e tudo passa a ser escalado por ele — era daí que vinha o véu marrom
+chapado. Com duas oitavas o brilho fica onde a luz está e a sombra continua
+sombra.
+
+**A energia perdida vai para o vermelho — só para ele.** A primeira versão do
+`redshift` só atenuava verde e azul, então quanto mais vermelho, mais fraco o
+efeito. A segunda conservava energia redistribuindo nos três canais, o que é
+pior: devolvia o verde para perto de 1 e o halo saía creme, exatamente o oposto
+do efeito. A luz que deixa de sensibilizar as outras camadas é absorvida pela
+camada do vermelho, que é a que recebe o retorno da base — então o ganho é todo
+dela. Em `redshift = 1` o tom é `[2,83 · 0,14 · 0,03]`: vermelho saturado e mais
+brilhante que o halo neutro, não um vermelho apagado.
 
 **Onde a conservação de energia falha.** O borrão conserva energia, então um
 ponto de luz se espalha e some enquanto uma área clara grande atravessa quase
@@ -144,6 +185,13 @@ força fixa em relação à sua própria fonte, seja ela ponto de luz ou parede,
 variação entre fotos cai de 120x para ~1,05x. Um piso impede que uma foto sem
 alta-luz nenhuma seja amplificada até inventar halação onde não há.
 `normalize=False` devolve a conservação de energia pura.
+
+Segue daí que o alvo da âncora **não** é os 22% de retorno da base. Esses 22% são
+fração da luz *original da cena*, e essa luz não está no arquivo — o JPEG cortou
+toda alta-luz em 1,0. Reancorar é exatamente reinflar a faixa dinâmica perdida,
+então o alvo tem de ser a exposição que a fonte real teria devolvido, uma ordem
+de grandeza acima. Ancorado em 0,22 o pico do brilho dava sRGB 0,48, cinza médio,
+e o efeito sumia sobre qualquer coisa clara.
 
 ## Uso
 

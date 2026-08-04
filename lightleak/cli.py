@@ -69,18 +69,20 @@ def _mosaic(tiles: list[np.ndarray], labels: list[str] | None, cols: int, out: s
 
 def _halation(a: argparse.Namespace, img: np.ndarray) -> None:
     base = a.intensity if a.intensity is not None else HalationParams.intensity
+    shift = a.redshift if a.redshift is not None else HalationParams.redshift
     if a.sweep:
         levels = np.linspace(0.0, base * 2.0, a.sweep)
         tiles, labels = [], []
         for v in levels:
-            tiles.append(_thumb(halation.apply(img, HalationParams(intensity=float(v))), a.width))
+            p = HalationParams(intensity=float(v), redshift=shift)
+            tiles.append(_thumb(halation.apply(img, p), a.width))
             labels.append(f"intensity {v:.2f}")
-        _mosaic(tiles, labels, a.sweep, a.output or "out/halation_sweep.jpg")
+        _mosaic(tiles, labels, min(5, a.sweep), a.output or "out/halation_sweep.jpg")
         return
 
     out = a.output or "out/halation.jpg"
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-    save_rgb(halation.apply(img, HalationParams(intensity=base)), out)
+    save_rgb(halation.apply(img, HalationParams(intensity=base, redshift=shift)), out)
     print(f"→ {out}")
 
 
@@ -97,6 +99,10 @@ def main() -> None:
     ap.add_argument("--width", type=int, default=430, help="largura das miniaturas")
     ap.add_argument("--effect", default="leak", choices=("leak", "halation"))
     ap.add_argument("--sweep", type=int, default=0, help="N intensidades lado a lado")
+    ap.add_argument(
+        "--redshift", type=float, default=None,
+        help="0 = brilho na cor da fonte, 1 = halação vermelha de filme",
+    )
     for name in _SLIDERS:
         ap.add_argument(f"--{name}", type=float, default=None)
     a = ap.parse_args()
