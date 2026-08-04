@@ -1,7 +1,6 @@
 # Jogabilidade
 
-Input, recompensa/momentum e os recursos de apoio (hints, drills, mapa de calor,
-recordes). Protótipo jogável da sensação:
+Input, recompensa/momentum e backlog (recordes). Protótipo jogável da sensação:
 [`../prototypes/momentum-demo.html`](../prototypes/momentum-demo.html).
 
 ## Input por posição de vara
@@ -15,8 +14,6 @@ Vantagens:
   a velocidade vira eixo de dificuldade limpo desde cedo.
 - Correção trivial e orientada a dados: cada nota carrega `validPositions`;
   acerto = posição tocada ∈ `validPositions`.
-- Telemetria rica: além de certo/errado e tempo de reação, registra-se *qual
-  posição errada* foi tocada (ouro para os hints).
 
 ### Layout (paisagem)
 
@@ -102,32 +99,17 @@ curto de tela.
    dourado + fanfarra (full combo). É o que faz querer repetir para gabaritar.
 3. **Erro suave e instrutivo (jogo educativo, não arcade).** O erro é celebrado
    com *menos* estardalhaço que o acerto. Ao errar, o jogo mostra de leve a
-   posição correta (gancho dos hints). Punição dura demais afasta o iniciante.
-
-## Telemetria (implementar cedo)
-
-Hints, drills adaptativos e mapa de calor se apoiam na **mesma telemetria por
-nota**: acerto, tempo de reação e *qual posição errada* foi tocada. Coletar isso
-já no loop principal destrava os três de uma vez. A cor que aqui significa
-"momentum" pode ser reaproveitada no mapa de calor como escala (dourado/verde nas
-notas dominadas, vermelho nas fracas) — mesma linguagem visual.
+   posição correta. Punição dura demais afasta o iniciante.
 
 ## Backlog — depois do loop principal de pé
 
-1. **Hints** quando o jogador erra recorrentemente uma nota.
-2. **Drills adaptativos:** gerar exercícios consecutivos focados na nota errada
-   (repetição espaçada por nota).
-3. **Mapa de calor** das notas mais erradas vs mais acertadas, para o jogador ver
-   suas fraquezas (view sobre a telemetria acumulada).
-4. **Recordes estilo fliperama:** placar **por nível** e **mundial** (online).
+1. **Recordes estilo fliperama:** placar **por nível** e **mundial** (online).
    Guardar a máxima por nível, exibir o recorde global, deixar entrar no ranking
    ao bater recorde (iniciais/nome). Exige **backend compartilhado** (Firebase /
    Supabase) por causa do Android — ver [`01-design.md`](01-design.md).
-5. **Tutorial de primeira partida:** explicação curta exibida **antes da primeira
+2. **Tutorial de primeira partida:** explicação curta exibida **antes da primeira
    partida** do jogador, ensinando o conceito (notas correndo → apertar a posição
    de vara correspondente ao cruzar a linha de acerto). A pensar: formato
    (overlay interativo guiado vs. telas estáticas), se é pulável, e se reaparece
    ao destravar uma mecânica nova (pausas, armaduras, linhas suplementares).
    Mostrar uma vez e guardar flag de "já viu" no save.
-
-Itens 1–3 dependem só da telemetria comum acima.

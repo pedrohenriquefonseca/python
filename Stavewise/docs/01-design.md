@@ -18,9 +18,7 @@ mundialmente conhecidas** para ter musicalidade em vez de uma sequência mecâni
 
 ## Telas iniciais
 
-- **Continuar** — retoma a partida salva onde parou: o nível e o **estado de
-  domínio por nota** (a telemetria que alimenta hints e mapa de calor). Mostra um
-  resumo (ex.: "nível 4 · pauta completa · 68% dominado").
+- **Continuar** — retoma a partida salva onde parou (o nível atual).
 - **Novo jogo** — leva à seleção de dificuldade e começa do zero.
 
 ### Save slot único (decisão 16/jun/2026)
@@ -33,10 +31,7 @@ apaga** o progresso em andamento.
 
 ### Dificuldades sempre destravadas (decisão 16/jun/2026)
 
-Seleção **totalmente livre** dos 12 níveis, sempre — nada bloqueado. Para não
-deixar o iniciante se perder, destacar um nível **"recomendado"** calculado pelo
-desempenho (apenas orienta, não trava). Opcional: teste de nível de ~30s na
-primeira vez para posicionar o recomendado.
+Seleção **totalmente livre** dos 12 níveis, sempre — nada bloqueado.
 
 ## Identidade visual
 
