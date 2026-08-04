@@ -1,0 +1,30 @@
+{
+  "_nota": "Os 20 filtros. Todos em modo 'raw': a fonte já é campo de risco, então não há o que extrair — só esticar nível. Foi a única abordagem que sobreviveu ao teste. Extrair dano de fotografia danificada falhou em todas as tentativas: o vinco e o conteúdo estão entrelaçados e nenhuma morfologia separa os dois sem destruir a densidade, que é justamente o que faz o efeito existir.",
+  "_polaridade": "'light' quando o risco já é claro sobre fundo escuro. 'dark' quando é o contrário — craquelê escuro sobre fundo claro — e aí a inversão entrega a mesma geometria como máscara clara. Grunge_200 é o caso mais valioso: rede de craquelê limpa, sem nenhum conteúdo fotográfico atrás.",
+  "_floor": "Percentil, não fração. O fundo ocupa quase todo o quadro nessas texturas, então piso na mediana deixa o fundo entrar inteiro e o resultado vira névoa em vez de risco.",
+  "_fonte": "Texturelabs (texturas originais, gratuitas para uso comercial) mais duas do próprio usuário — as únicas duas que passaram no teste dele.",
+
+  "craquele":          { "src": "Grunge_200.jpg", "mode": "raw", "polarity": "dark",  "crop": [0.00, 0.00, 1.00, 1.00], "floor": 82 },
+  "craquele-fechado":  { "src": "Grunge_200.jpg", "mode": "raw", "polarity": "dark",  "crop": [0.30, 0.25, 0.85, 0.90], "floor": 78 },
+  "craquele-aberto":   { "src": "Grunge_200.jpg", "mode": "raw", "polarity": "dark",  "crop": [0.00, 0.40, 0.55, 1.00], "floor": 86 },
+  "trinca-unica":      { "src": "Grunge_260.jpg", "mode": "raw", "polarity": "dark",  "crop": [0.00, 0.00, 1.00, 1.00], "floor": 90 },
+
+  "riscos-finos":      { "src": "Grunge_120.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 88 },
+  "riscos-finos-canto":{ "src": "Grunge_120.jpg", "mode": "raw", "polarity": "light", "crop": [0.35, 0.20, 1.00, 1.00], "floor": 86 },
+  "riscos-secos":      { "src": "Grunge_226.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 88 },
+  "riscos-secos-denso":{ "src": "Grunge_226.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.30, 0.60, 1.00], "floor": 84 },
+  "riscos-cruzados":   { "src": "Grunge_288.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 86 },
+  "riscos-cruzados-pe":{ "src": "Grunge_288.jpg", "mode": "raw", "polarity": "light", "crop": [0.20, 0.35, 1.00, 1.00], "floor": 84 },
+  "veio-vertical":     { "src": "Grunge_122.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 90 },
+  "veio-vertical-forte":{"src": "Grunge_180.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 88 },
+  "desgaste-pesado":   { "src": "Grunge_240.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 92 },
+  "grao-riscado":      { "src": "Grunge_290.jpg", "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 93 },
+  "borda-escura":      { "src": "Film_160.jpg",   "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 90 },
+
+  "poeira":            { "src": "Grunge_160.jpg", "mode": "raw", "polarity": "dark",  "crop": [0.00, 0.00, 1.00, 1.00], "floor": 92 },
+  "manchas":           { "src": "Grunge_130.jpg", "mode": "raw", "polarity": "dark",  "crop": [0.00, 0.00, 1.00, 1.00], "floor": 93 },
+  "sujeira-rasa":      { "src": "Grunge_224.jpg", "mode": "raw", "polarity": "dark",  "crop": [0.00, 0.00, 1.00, 1.00], "floor": 94 },
+
+  "campo-riscado":     { "src": "User_22.jpg",    "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 92 },
+  "campo-fino":        { "src": "User_17.jpg",    "mode": "raw", "polarity": "light", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 94 }
+}

@@ -1,0 +1,28 @@
+{
+  "_nota": "Os 20 filtros, todos das referências em refs/. O critério é DENSIDADE: o alvo é dano cobrindo o quadro inteiro, do jeito que aparece na foto do casal com a criança e na da mulher com a teia sobre o rosto. Extração limpa demais destrói exatamente isso, então aqui se filtra o mínimo.",
+  "_modo": "'raw' para as referências que já são campo de risco sobre fundo escuro — não há o que extrair, só esticar nível. 'print' para cópia de papel amassado: top-hat mais comprimento de caminho, sem teste de crista, porque numa foto de papel o dano é a maior parte da estrutura fina e a crista custa metade da rede.",
+  "_fora": "'images (8)' e 'images (10)' são a mesma foto com marca d'água da Alamy e 'images (19)' tem a da Vecteezy repetida em ladrilho — a marca sai na máscara junto com os riscos. 'images.jpg' e 'imasdfges.jpg' são duplicatas de (16) e (12).",
+  "_floor_raw": "No modo 'raw', floor é PERCENTIL e não fração. Nessas referências o fundo ocupa quase todo o quadro, então piso na mediana deixa o fundo entrar inteiro com valor baixo e o resultado vira névoa em vez de risco.",
+
+  "teia-total":        { "src": "images (16).jpg", "mode": "print", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 0.06, "reach": 0.05 },
+  "teia-total-nucleo": { "src": "images (16).jpg", "mode": "print", "crop": [0.05, 0.25, 0.70, 1.00], "floor": 0.06, "reach": 0.05 },
+  "teia-rosto":        { "src": "images (4).jpg",  "mode": "print", "crop": [0.00, 0.00, 0.50, 1.00], "floor": 0.06, "reach": 0.05 },
+  "teia-rosto-canto":  { "src": "images (4).jpg",  "mode": "print", "crop": [0.00, 0.30, 0.30, 1.00], "floor": 0.06, "reach": 0.05 },
+  "vincos-cruzados":   { "src": "images (7).jpg",  "mode": "print", "crop": [0.00, 0.03, 0.50, 0.97], "floor": 0.06, "reach": 0.05 },
+  "vincos-cruzados-pe":{ "src": "images (7).jpg",  "mode": "print", "crop": [0.00, 0.45, 0.50, 0.97], "floor": 0.06, "reach": 0.05 },
+  "rede-em-pe":        { "src": "images (6).jpg",  "mode": "print", "crop": [0.00, 0.00, 0.49, 1.00], "floor": 0.06, "reach": 0.05 },
+  "rede-em-pe-topo":   { "src": "images (6).jpg",  "mode": "print", "crop": [0.00, 0.00, 0.49, 0.55] , "floor": 0.06, "reach": 0.05 },
+  "dobra-e-rede":      { "src": "images (3).jpg",  "mode": "print", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 0.06, "reach": 0.05 },
+  "dobra-e-rede-baixo":{ "src": "images (3).jpg",  "mode": "print", "crop": [0.00, 0.40, 1.00, 1.00], "floor": 0.06, "reach": 0.05 },
+  "vinco-em-t":        { "src": "images (2).jpg",  "mode": "print", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 0.06, "reach": 0.05 },
+  "travessa":          { "src": "images (5).jpg",  "mode": "print", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 0.06, "reach": 0.05 },
+  "quatro-quadrantes": { "src": "images (15).jpg", "mode": "print", "crop": [0.00, 0.00, 0.50, 1.00], "floor": 0.06, "reach": 0.05 },
+
+  "campo-diagonal":    { "src": "images (21).jpg", "mode": "raw", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 88 },
+  "campo-diagonal-canto": { "src": "images (21).jpg", "mode": "raw", "crop": [0.25, 0.35, 1.00, 1.00], "floor": 88 },
+  "campo-riscado":     { "src": "images (22).jpg", "mode": "raw", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 92 },
+  "campo-fino":        { "src": "images (17).jpg", "mode": "raw", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 94 },
+  "campo-poeira":      { "src": "images (20).jpg", "mode": "raw", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 94 },
+  "campo-borda":       { "src": "images (18).jpg", "mode": "raw", "crop": [0.00, 0.00, 1.00, 1.00], "floor": 92 },
+  "teia-total-alto":   { "src": "images (16).jpg", "mode": "print", "crop": [0.00, 0.00, 0.72, 0.62], "floor": 0.06, "reach": 0.05 }
+}

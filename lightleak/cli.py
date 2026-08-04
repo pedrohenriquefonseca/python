@@ -15,8 +15,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from filmfx import (
-    PALETTES, PRESETS, HalationParams, LeakParams, apply, halation,
-    preset_params, preset_recipe, roll_recipe,
+    DAMAGE, PALETTES, PRESETS, HalationParams, LeakParams, ScratchParams, apply,
+    halation, preset_params, preset_recipe, roll_recipe, scratches,
 )
 from filmfx.imaging import load_rgb, save_rgb
 
@@ -86,6 +86,39 @@ def _halation(a: argparse.Namespace, img: np.ndarray) -> None:
     print(f"→ {out}")
 
 
+def _scratches(a: argparse.Namespace, img: np.ndarray) -> None:
+    base = dict(
+        intensity=a.intensity if a.intensity is not None else ScratchParams.intensity,
+        zoom=a.zoom if a.zoom is not None else ScratchParams.zoom,
+        relief=a.relief if a.relief is not None else ScratchParams.relief,
+    )
+    if a.gallery:
+        tiles, labels = [], []
+        for i, name in enumerate(scratches.PRESETS):
+            p = ScratchParams(seed=(a.seed or 0) + i, preset=name, **base)
+            tiles.append(_thumb(scratches.apply(img, p), a.width))
+            labels.append(name)
+            print(f"{name:<22} {scratches.PRESETS[name]}")
+        _mosaic(tiles, labels, 5, a.output or "out/scratches_gallery.jpg")
+        return
+
+    if a.sheet:
+        tiles, labels = [], []
+        for i in range(a.sheet):
+            p = ScratchParams(seed=(a.seed or 0) + i, preset=a.damage or "auto", **base)
+            tiles.append(_thumb(scratches.apply(img, p), a.width))
+            labels.append(scratches.resolve(p))
+        _mosaic(tiles, labels, min(5, a.sheet), a.output or "out/scratches_sheet.jpg")
+        return
+
+    p = ScratchParams(seed=a.seed or 0, preset=a.damage or "auto", **base)
+    out = a.output or "out/scratches.jpg"
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    save_rgb(scratches.apply(img, p), out)
+    print(json.dumps(scratches.roll_recipe(p), indent=2, ensure_ascii=False))
+    print(f"→ {out}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Light leak generativo")
     ap.add_argument("input")
@@ -97,12 +130,16 @@ def main() -> None:
     ap.add_argument("--palettes", action="store_true", help="um quadro por paleta de corante")
     ap.add_argument("--palette", default=None, choices=sorted(PALETTES) + ["auto", "permutar"])
     ap.add_argument("--width", type=int, default=430, help="largura das miniaturas")
-    ap.add_argument("--effect", default="leak", choices=("leak", "halation"))
+    ap.add_argument("--effect", default="leak", choices=("leak", "halation", "scratches"))
     ap.add_argument("--sweep", type=int, default=0, help="N intensidades lado a lado")
     ap.add_argument(
         "--redshift", type=float, default=None,
         help="0 = brilho na cor da fonte, 1 = halação vermelha de filme",
     )
+    ap.add_argument("--zoom", type=float, default=None, help="aproxima a máscara de dano")
+    ap.add_argument("--relief", type=float, default=None, help="sombra da dobra")
+    ap.add_argument("--damage", default=None, choices=sorted(DAMAGE) + ["auto"],
+                    help="qual dos 20 filtros de dano")
     for name in _SLIDERS:
         ap.add_argument(f"--{name}", type=float, default=None)
     a = ap.parse_args()
@@ -111,6 +148,10 @@ def main() -> None:
 
     if a.effect == "halation":
         _halation(a, img)
+        return
+
+    if a.effect == "scratches":
+        _scratches(a, img)
         return
 
     if a.gallery:

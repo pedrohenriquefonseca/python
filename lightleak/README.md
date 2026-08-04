@@ -7,8 +7,8 @@ mesmo efeito.
 Recursos planejados:
 
 1. **Vazamento de luz (light leak)** — implementado
-2. **Halação (halation)** — implementado
-3. Poeira e arranhados — a fazer
+2. **Halação e brilho (halation/glow)** — implementado
+3. **Dano físico: vincos, riscos e poeira** — implementado
 4. Bordas de filme analógico, com e sem data — a fazer
 
 ## Como funciona o vazamento de luz
@@ -192,6 +192,101 @@ toda alta-luz em 1,0. Reancorar é exatamente reinflar a faixa dinâmica perdida
 então o alvo tem de ser a exposição que a fonte real teria devolvido, uma ordem
 de grandeza acima. Ancorado em 0,22 o pico do brilho dava sRGB 0,48, cinza médio,
 e o efeito sumia sobre qualquer coisa clara.
+
+## Como funciona o dano físico
+
+Vinte filtros de vinco, risco e poeira. Este é o único efeito do projeto que
+**não é modelo** — ele usa textura de dano real, medida, e a razão para isso é
+o resultado de ter tentado os outros dois caminhos e visto os dois falharem.
+
+**Procedimental não passa.** A primeira versão gerava a rede de vincos por
+regra: caminhada quase reta, ramificação em Y, tremor acumulado, largura
+sorteada. A geometria estava correta e o resultado era inconfundivelmente
+sintético — espessura constante demais, ângulo limpo demais, brilho uniforme
+demais ao longo do traço. Vinco de verdade tem irregularidade em toda escala ao
+mesmo tempo, e cada tentativa de imitar isso com mais um parâmetro só empurrava
+o artefato para outro lugar.
+
+**Extrair de foto danificada também não.** A segunda versão extraía a máscara de
+fotografias estragadas por morfologia: top-hat para separar por escala, teste de
+crista para separar dano de contorno de objeto, abertura por caminho para
+separar por comprimento. Cada teste funcionava isolado e o conjunto destruía o
+efeito, porque numa cópia de papel o dano *é* a maior parte da estrutura fina —
+filtrar o suficiente para não vazar barba, tricô e letreiro pintado deixava meia
+dúzia de fios onde a referência tinha uma teia fechada. Densidade é o que faz
+este efeito existir, e era exatamente o que a limpeza consumia.
+
+O código do extrator continua em `tools/extract_masks.py`, com os três modos, e
+os comentários de lá registram o que cada teste resolve e o que custa.
+
+**O que passa: textura que já é dano.** Fonte em que o risco já está sobre fundo
+liso, sem conteúdo fotográfico atrás. Aí não há o que separar — só esticar
+nível. Zero artefato de extração, densidade intacta.
+
+O piso desse esticamento é **percentil, não fração**: nessas texturas o fundo
+ocupa quase todo o quadro, então um piso na mediana deixa o fundo inteiro entrar
+com valor baixo, e o resultado não é risco, é névoa cobrindo a foto.
+
+A máscara **cobre e recorta, nunca estica**. Esticar mudaria a razão entre
+comprimento e espessura do traço, que é justamente o que faz a marca ser lida
+como vinco e não como borrão. Espelhamento e recorte pela semente dão quatro
+variações de cada máscara sem custo nenhum.
+
+**Composição subtrativa**, a primeira do projeto. Vazamento e halação somam
+exposição; dano mexe em quanto da luz atravessa:
+
+* *claro* — o vinco quebra a gelatina e ela solta; sem emulsão sobra o papel
+  baritado, `[1,00 · 0,96 · 0,87]`, mais claro que qualquer parte da imagem. O
+  ganho fica perto de 1: em 2,6 todo pixel da máscara saturava em branco e o
+  dano saía com brilho uniforme, o oposto de arranhão real;
+* *escuro* — a aba de papel que a dobra levanta faz sombra, e de um lado só.
+  Sai da própria máscara deslocada de poucos pixels. Simétrico daria contorno de
+  desenho, não dobra.
+
+```bash
+python3 cli.py foto.jpg --effect scratches --damage craquele -o out/dano.jpg
+python3 cli.py foto.jpg --effect scratches --gallery      # os 20 filtros
+python3 cli.py foto.jpg --effect scratches --sheet 10     # variações da semente
+```
+
+| slider | faixa | padrão | efeito |
+|---|---|---|---|
+| `intensity` | 0 – 2 | 1,0 | opacidade do dano |
+| `zoom` | 1 – 3 | 1,0 | aproxima a máscara: marca maior e mais esparsa |
+| `relief` | 0 – 1 | 0,6 | quanto da sombra da dobra aparece |
+
+| filtro | caráter |
+|---|---|
+| `craquele` | rede de craquelê cobrindo o quadro inteiro |
+| `craquele-fechado` | craquelê de células pequenas |
+| `craquele-aberto` | craquelê de células grandes |
+| `trinca-unica` | uma trinca só, atravessando |
+| `riscos-finos` | riscos finos e rasos por todo o quadro |
+| `riscos-finos-canto` | os mesmos, concentrados de um lado |
+| `riscos-secos` | riscos secos e curtos, alta frequência |
+| `riscos-secos-denso` | os riscos secos onde eles se acumulam |
+| `riscos-cruzados` | riscos longos se cruzando em vários ângulos |
+| `riscos-cruzados-pe` | os cruzados na metade de baixo |
+| `veio-vertical` | veios verticais de arrasto |
+| `veio-vertical-forte` | veios verticais marcados, quase escovado |
+| `desgaste-pesado` | emulsão saindo em placa |
+| `grao-riscado` | grão grosso com riscos misturados |
+| `borda-escura` | dano na moldura, centro poupado |
+| `poeira` | poeira e pontos espalhados |
+| `manchas` | manchas irregulares de sujeira |
+| `sujeira-rasa` | sujeira rasa e uniforme |
+| `campo-riscado` | campo de riscos em todas as direções |
+| `campo-fino` | riscos finíssimos cobrindo tudo |
+
+### Regenerar as máscaras
+
+```bash
+python3 tools/extract_masks.py refs_tex -o masks --manifest refs_tex/crops.json
+```
+
+As texturas de origem vêm do [Texturelabs](https://texturelabs.org), gratuitas
+para uso comercial. Ficaram de fora as imagens de banco com marca d'água
+repetida em ladrilho — a marca sai na máscara junto com o risco.
 
 ## Uso
 

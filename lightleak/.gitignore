@@ -4,3 +4,9 @@ venv/
 .venv/
 out/
 .DS_Store
+
+# 82 MB de scans de negativo de vidro do Wikimedia, baixados para a tentativa de
+# extrair dano de fotografia danificada. A abordagem foi abandonada — ver a nota
+# em README, "O que não funcionou". Ficam em disco para não perder a procedência,
+# fora do repositório porque nada mais os usa.
+refs_hi/
