@@ -347,9 +347,54 @@ tbody tr:hover td{background:#f8fafc;}
   font-size:20px;cursor:pointer;color:#888;line-height:1;padding:4px;transition:color .2s;
 }
 .gui-modal-close:hover{color:#b5371f;}
-.modal-img-wrap{margin-bottom:32px;}
-.modal-img-wrap:last-child{margin-bottom:0;}
-.modal-img-wrap img{display:block;max-width:100%;margin-bottom:10px;}
+/* Visualizador de imagens (pan + zoom) */
+.viewer-overlay{
+  position:fixed;inset:0;z-index:1200;background:#1c1c1c;
+  display:flex;flex-direction:column;opacity:0;pointer-events:none;
+  transition:opacity .22s ease;
+  font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+.viewer-overlay.visible{opacity:1;pointer-events:all;}
+.viewer-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:14px;
+  padding:0 14px;height:46px;background:#141414;
+  border-bottom:1px solid #2e2e2e;user-select:none;
+}
+.viewer-title{
+  font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#e6e6e6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.viewer-count{font-size:10px;letter-spacing:1.6px;color:#7d7d7d;white-space:nowrap;}
+.viewer-spacer{flex:1;}
+.viewer-group{display:flex;align-items:center;gap:6px;}
+.btn-viewer{
+  background:none;border:1.5px solid #3d3d3d;padding:6px 12px;
+  font-size:9px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;
+  color:#9a9a9a;cursor:pointer;font-family:inherit;transition:all .18s;white-space:nowrap;
+}
+.btn-viewer:hover:not(:disabled){border-color:#b5371f;color:#e8907d;}
+.btn-viewer:disabled{opacity:.32;cursor:default;}
+.btn-viewer.icon{padding:6px 10px;font-size:11px;letter-spacing:0;}
+.viewer-zoom{
+  font-size:10px;letter-spacing:1px;color:#7d7d7d;
+  min-width:52px;text-align:center;font-variant-numeric:tabular-nums;
+}
+.viewer-stage{
+  flex:1;position:relative;overflow:hidden;
+  cursor:grab;background:#1c1c1c;touch-action:none;
+}
+.viewer-stage.dragging{cursor:grabbing;}
+.viewer-stage img{
+  position:absolute;top:0;left:0;transform-origin:0 0;
+  max-width:none;max-height:none;
+  image-rendering:auto;-webkit-user-drag:none;user-select:none;pointer-events:none;
+}
+.viewer-hint{
+  position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
+  background:rgba(0,0,0,.62);color:#b0b0b0;padding:6px 14px;
+  font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;
+  pointer-events:none;transition:opacity .4s ease;
+}
 .btn-modal-dl{
   background:none;border:1.5px solid #d0d0d0;padding:6px 16px;
   font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;
@@ -758,6 +803,35 @@ tbody tr:hover td{background:#f8fafc;}
       <div id="gui-modal-body"></div>
     </div>
   </div>
+  <div class="viewer-overlay" id="viewer">
+    <div class="viewer-bar">
+      <span class="viewer-title" id="viewer-title"></span>
+      <span class="viewer-count" id="viewer-count"></span>
+      <div class="viewer-group" id="viewer-nav">
+        <button type="button" class="btn-viewer icon" id="viewer-prev" aria-label="Anterior">‹</button>
+        <button type="button" class="btn-viewer icon" id="viewer-next" aria-label="Próximo">›</button>
+      </div>
+      <span class="viewer-spacer"></span>
+      <div class="viewer-group">
+        <button type="button" class="btn-viewer icon" id="viewer-zoom-out" aria-label="Reduzir">−</button>
+        <span class="viewer-zoom" id="viewer-zoom">100%</span>
+        <button type="button" class="btn-viewer icon" id="viewer-zoom-in" aria-label="Ampliar">+</button>
+        <button type="button" class="btn-viewer" id="viewer-fit">Ajustar</button>
+        <button type="button" class="btn-viewer" id="viewer-1x">100%</button>
+      </div>
+      <div class="viewer-group">
+        <button type="button" class="btn-viewer" id="viewer-full">Tela cheia</button>
+        <button type="button" class="btn-viewer" id="viewer-dl">Salvar</button>
+        <button type="button" class="btn-viewer" id="viewer-dl-all">Salvar todas</button>
+        <button type="button" class="btn-viewer icon" id="viewer-close" aria-label="Fechar">✕</button>
+      </div>
+    </div>
+    <div class="viewer-stage" id="viewer-stage">
+      <img id="viewer-img" alt="">
+      <div class="viewer-hint" id="viewer-hint">Arraste para mover · rodinha para zoom</div>
+    </div>
+  </div>
+
   <div class="gui-modal-overlay gui-modal-grupos" id="gui-modal-grupos">
     <div class="gui-modal-content" style="max-width:460px;padding:40px 44px 36px;align-self:center;">
       <p class="modal-grupos-title">Novos colaboradores encontrados</p>
@@ -2059,24 +2133,171 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharGuiMod
 
 function fecharGuiModal() { guiModal.classList.remove('visible'); }
 
-function mostrarModal(imagens, nomes) {
-  guiModalBody.innerHTML = '';
-  imagens.forEach((src, i) => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'modal-img-wrap';
-    const img = document.createElement('img');
-    img.src = `data:image/png;base64,${src}`;
-    const btn = document.createElement('button');
-    btn.className = 'btn-modal-dl'; btn.textContent = 'Baixar imagem';
-    btn.addEventListener('click', () => {
-      const a = document.createElement('a');
-      a.href = img.src; a.download = nomes[i] || `cronograma_${i+1}.png`; a.click();
-    });
-    wrapper.appendChild(img); wrapper.appendChild(btn);
-    guiModalBody.appendChild(wrapper);
+/* Visualizador de imagens — pan (padrão) + zoom pela rodinha, várias imagens em sequência */
+const Viewer = (() => {
+  const overlay  = document.getElementById('viewer');
+  const stage    = document.getElementById('viewer-stage');
+  const img      = document.getElementById('viewer-img');
+  const elTitle  = document.getElementById('viewer-title');
+  const elCount  = document.getElementById('viewer-count');
+  const elZoom   = document.getElementById('viewer-zoom');
+  const elNav    = document.getElementById('viewer-nav');
+  const elPrev   = document.getElementById('viewer-prev');
+  const elNext   = document.getElementById('viewer-next');
+  const elDlAll  = document.getElementById('viewer-dl-all');
+  const elHint   = document.getElementById('viewer-hint');
+
+  const ESCALA_MIN = 0.02, ESCALA_MAX = 16;
+
+  let itens = [], idx = 0;
+  let escala = 1, tx = 0, ty = 0, escalaAjuste = 1;
+  let natW = 0, natH = 0;
+  let semAjusteManual = true;          // enquanto true, redimensionar a janela re-ajusta
+  let hintTimer = null;
+
+  function aplicar() {
+    img.style.transform = `translate(${tx}px, ${ty}px) scale(${escala})`;
+    elZoom.textContent  = `${Math.round(escala * 100)}%`;
+  }
+
+  /* Ajusta a imagem inteira ao palco e centraliza */
+  function ajustar() {
+    const r = stage.getBoundingClientRect();
+    if (!natW || !natH || !r.width || !r.height) return;
+    escalaAjuste = Math.min(r.width / natW, r.height / natH);
+    escala = escalaAjuste;
+    tx = (r.width  - natW * escala) / 2;
+    ty = (r.height - natH * escala) / 2;
+    semAjusteManual = true;
+    aplicar();
+  }
+
+  /* Zoom mantendo fixo o ponto (cx, cy) — coordenadas relativas ao palco */
+  function zoomPara(nova, cx, cy) {
+    const limiteMin = Math.min(escalaAjuste * 0.4, ESCALA_MIN * 10, 1);
+    nova = Math.min(Math.max(nova, Math.max(limiteMin, ESCALA_MIN)), ESCALA_MAX);
+    if (nova === escala) return;
+    const k = nova / escala;
+    tx = cx - (cx - tx) * k;
+    ty = cy - (cy - ty) * k;
+    escala = nova;
+    semAjusteManual = false;
+    aplicar();
+  }
+
+  function centroPalco() {
+    const r = stage.getBoundingClientRect();
+    return [r.width / 2, r.height / 2];
+  }
+
+  function zoomBotao(fator) { const [cx, cy] = centroPalco(); zoomPara(escala * fator, cx, cy); }
+
+  function mostrar(i) {
+    idx = (i + itens.length) % itens.length;
+    const item = itens[idx];
+    elTitle.textContent = item.nome.replace(/\.png$/i, '');
+    elCount.textContent = itens.length > 1 ? `${idx + 1} / ${itens.length}` : '';
+    elNav.style.display   = itens.length > 1 ? '' : 'none';
+    elDlAll.style.display = itens.length > 1 ? '' : 'none';
+    img.onload = () => { natW = img.naturalWidth; natH = img.naturalHeight; ajustar(); };
+    img.src = item.src;
+  }
+
+  function baixar(item) {
+    const a = document.createElement('a');
+    a.href = item.src; a.download = item.nome; a.click();
+  }
+
+  function abrir(imagens, nomes) {
+    itens = imagens.map((b64, i) => ({
+      src : `data:image/png;base64,${b64}`,
+      nome: nomes[i] || `cronograma_${i + 1}.png`,
+    }));
+    if (!itens.length) return;
+    overlay.classList.add('visible');
+    mostrar(0);
+    elHint.style.opacity = '1';
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => { elHint.style.opacity = '0'; }, 3000);
+  }
+
+  function fechar() {
+    overlay.classList.remove('visible');
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    img.removeAttribute('src');
+    itens = [];
+  }
+
+  const aberto = () => overlay.classList.contains('visible');
+
+  /* Pan — modo padrão e sempre ativo */
+  let arrastando = false, x0 = 0, y0 = 0;
+  stage.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    arrastando = true; x0 = e.clientX; y0 = e.clientY;
+    stage.classList.add('dragging');
+    stage.setPointerCapture(e.pointerId);
   });
-  guiModal.classList.add('visible');
-}
+  stage.addEventListener('pointermove', e => {
+    if (!arrastando) return;
+    tx += e.clientX - x0; ty += e.clientY - y0;
+    x0 = e.clientX; y0 = e.clientY;
+    aplicar();
+  });
+  const soltar = e => {
+    if (!arrastando) return;
+    arrastando = false; stage.classList.remove('dragging');
+    try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  stage.addEventListener('pointerup', soltar);
+  stage.addEventListener('pointercancel', soltar);
+
+  /* Zoom pela rodinha, ancorado no cursor */
+  stage.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    const r = stage.getBoundingClientRect();
+    zoomPara(escala * Math.exp(-delta * 0.0018), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+
+  /* Duplo clique alterna entre ajustar e 100% */
+  stage.addEventListener('dblclick', e => {
+    const r = stage.getBoundingClientRect();
+    if (Math.abs(escala - escalaAjuste) < 0.001) zoomPara(1, e.clientX - r.left, e.clientY - r.top);
+    else ajustar();
+  });
+
+  /* Barra */
+  elPrev.addEventListener('click', () => mostrar(idx - 1));
+  elNext.addEventListener('click', () => mostrar(idx + 1));
+  document.getElementById('viewer-zoom-in').addEventListener('click',  () => zoomBotao(1.25));
+  document.getElementById('viewer-zoom-out').addEventListener('click', () => zoomBotao(1 / 1.25));
+  document.getElementById('viewer-fit').addEventListener('click', ajustar);
+  document.getElementById('viewer-1x').addEventListener('click', () => { const [cx, cy] = centroPalco(); zoomPara(1, cx, cy); });
+  document.getElementById('viewer-dl').addEventListener('click', () => baixar(itens[idx]));
+  elDlAll.addEventListener('click', () => itens.forEach((it, i) => setTimeout(() => baixar(it), i * 250)));
+  document.getElementById('viewer-close').addEventListener('click', fechar);
+  document.getElementById('viewer-full').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else overlay.requestFullscreen().catch(() => {});
+  });
+
+  /* Teclado */
+  document.addEventListener('keydown', e => {
+    if (!aberto()) return;
+    if (e.key === 'Escape')     { e.stopPropagation(); fechar(); }
+    else if (e.key === 'ArrowLeft'  && itens.length > 1) mostrar(idx - 1);
+    else if (e.key === 'ArrowRight' && itens.length > 1) mostrar(idx + 1);
+    else if (e.key === '+' || e.key === '=') zoomBotao(1.25);
+    else if (e.key === '-' || e.key === '_') zoomBotao(1 / 1.25);
+    else if (e.key === '0') ajustar();
+  }, true);
+
+  /* Reajusta ao mudar o tamanho do palco, desde que o usuário não tenha dado zoom */
+  new ResizeObserver(() => { if (aberto() && semAjusteManual) ajustar(); }).observe(stage);
+
+  return { abrir, fechar };
+})();
 
 function mostrarRelatorios(relatorios) {
   guiModalBody.innerHTML = '';
@@ -2234,7 +2455,7 @@ document.getElementById('form-cronograma').addEventListener('submit', async e =>
       else if (tipo === 'equipe' && j.fornecedores) { todasImgs.push(j.fornecedores); todosNomes.push(`${prefixo}.png`); }
     } catch(err) { erros.push(`${labels[tipo]}: ${err.message}`); }
   }
-  todasImgs.forEach((b64, i) => { const a = document.createElement('a'); a.href = `data:image/png;base64,${b64}`; a.download = todosNomes[i]; a.click(); });
+  if (todasImgs.length) Viewer.abrir(todasImgs, todosNomes);
   guiSetLoading('cronograma', false);
   if (erros.length) guiShowStatus('cronograma', `Erros: ${erros.join(' | ')}`, true);
   else if (todasImgs.length) guiShowStatus('cronograma', todasImgs.length === 1 ? 'Gráfico gerado!' : `${todasImgs.length} gráficos gerados!`);

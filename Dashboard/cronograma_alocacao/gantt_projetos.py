@@ -174,8 +174,8 @@ def organizar_projetos_por_linha(clientes_projetos):
                 'Linha_global': linha_global + linha_relativa
             })
         
-        # Avançar linha global para o próximo cliente
-        linha_global += len(linhas_ocupadas) + 1  # +1 para espaçamento entre clientes
+        # Avançar linha global para o próximo cliente (sem linha vazia entre eles)
+        linha_global += len(linhas_ocupadas)
     
     return pd.DataFrame(projetos_organizados)
 
@@ -241,6 +241,9 @@ def plotar_gantt_projetos(df_projetos, cores_dict, titulo, arquivo_saida):
         plt.text(inicio + duracao / 50, y_pos, row['Projeto'], 
                 va='center', ha='left', fontsize=8, color='black')
     
+    # Colar o eixo Y nas barras extremas (sem margem automática sobrando)
+    plt.ylim(-0.5, df_projetos['Linha_global'].max() + 0.5)
+
     # Linha vertical "Hoje"
     plt.axvline(x=hoje, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
     plt.text(hoje, plt.ylim()[1], 'Hoje', color='red', va='bottom', 
