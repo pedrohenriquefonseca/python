@@ -10,12 +10,13 @@ Descobertas-chave:
 Autenticação: MSAL device flow (OAuth2 + AllSites.Read), suporta MFA.
 """
 
+import json
 import logging
 import os
 import re
 import threading
 from urllib.parse import urlencode
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import msal
 import requests
@@ -31,6 +32,12 @@ TENANT_ID  = "c4cae996-6b0f-4e97-86b8-3f59107fe51c"
 AUTHORITY  = f"https://login.microsoftonline.com/{TENANT_ID}"
 SCOPES     = ["https://horizontesarq.sharepoint.com/AllSites.Read"]
 CACHE_FILE = os.path.join(os.path.dirname(__file__), ".token_cache.json")
+
+# Cache em disco das tabelas de pesquisa (Cliente/Cidade/Coordenador/...).
+# Esses valores mudam raramente — sem o cache, cada processo baixava todas as
+# tabelas com todas as entradas antes de qualquer coisa útil.
+LOOKUP_CACHE_FILE = os.path.join(os.path.dirname(__file__), "data", "lookup_cache.json")
+LOOKUP_CACHE_TTL  = timedelta(days=7)
 
 # ── Mapeamento de Custom Fields (Project entity) ──────────────────────────────
 # IDs descobertos via /CustomFields endpoint
@@ -50,6 +57,7 @@ _pending_flow: dict | None = None
 _pending_app: msal.PublicClientApplication | None = None
 _flow_lock = threading.Lock()
 _lookup_cache: dict[str, str] = {}  # entry_id (sem hifens) → FullValue
+_lookup_refetched = False           # já forçou recarga do servidor neste processo?
 
 
 # ── Cache de token ────────────────────────────────────────────────────────────
@@ -218,6 +226,60 @@ def _parse_date(raw) -> str | None:
         return str(raw)[:10]
 
 
+def _parse_datetime(raw) -> str | None:
+    """Igual a _parse_date, mas preserva a hora (ISO, sem timezone).
+
+    Usado no LastPublishedDate: é o carimbo de cada versão do cronograma, e
+    duas publicações no mesmo dia precisam ser distinguíveis.
+    """
+    if raw in _EMPTY_DATES or not raw:
+        return None
+    if str(raw).startswith("0001-01-01"):
+        return None
+    m = _DATE_RE.search(str(raw))
+    if m:
+        ms = int(m.group(1))
+        return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        return str(raw)[:19] or None
+
+
+# Tipos de vínculo do Project Server. Nos cronogramas da Horizontes 100% dos
+# links observados são FS, mas os outros três existem no modelo.
+TIPO_VINCULO = {0: "FF", 1: "FS", 2: "SF", 3: "SS"}
+
+
+def _parse_lag(raw) -> float:
+    """LinkLag vem em décimos de minuto; converte para dias úteis (480 min/dia)."""
+    try:
+        return round(int(raw) / 10 / 480, 2)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def _extract_preds(t: dict) -> list[dict]:
+    """Vínculos em que esta tarefa é a sucessora, ordenados para diff estável."""
+    brutos = (t.get("Predecessors") or {})
+    if not isinstance(brutos, dict):
+        return []
+    saida = []
+    for L in brutos.get("results", []):
+        pid = L.get("PredecessorTaskId")
+        if not pid:
+            continue
+        saida.append({
+            "id":   str(pid),
+            "tipo": TIPO_VINCULO.get(L.get("DependencyType"), str(L.get("DependencyType"))),
+            "lag":  _parse_lag(L.get("LinkLag")),
+        })
+    # Ordem canônica: sem isso, o servidor devolvendo a mesma rede em outra
+    # ordem viraria uma "mudança" no versionamento.
+    return sorted(saida, key=lambda x: x["id"])
+
+
 def _parse_duration_ms(raw_ms) -> int | None:
     """Converte DurationMilliseconds em dias úteis (480 min/dia)."""
     try:
@@ -260,30 +322,85 @@ def _pct_previsto(start: str | None, end: str | None, ref_date: datetime | None 
 
 # ── Lookup table cache ───────────────────────────────────────────────────────
 
+def _load_lookup_disk() -> dict[str, str] | None:
+    """Lê o cache de lookup do disco, se existir e ainda estiver na validade."""
+    try:
+        with open(LOOKUP_CACHE_FILE, "r", encoding="utf-8") as f:
+            blob = json.load(f)
+        saved = datetime.fromisoformat(blob["saved_at"])
+        if datetime.now() - saved > LOOKUP_CACHE_TTL:
+            return None
+        return blob.get("entries") or None
+    except Exception:
+        return None
+
+
+def _save_lookup_disk(entries: dict[str, str]) -> None:
+    try:
+        os.makedirs(os.path.dirname(LOOKUP_CACHE_FILE), exist_ok=True)
+        tmp = LOOKUP_CACHE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"saved_at": datetime.now().isoformat(timespec="seconds"),
+                       "entries": entries}, f, ensure_ascii=False)
+        os.replace(tmp, LOOKUP_CACHE_FILE)
+    except Exception as exc:
+        logger.warning("Não foi possível gravar o cache de lookup: %s", exc)
+
+
+def _fetch_lookup_entries() -> dict[str, str]:
+    """Baixa todas as tabelas de pesquisa do servidor."""
+    logger.info("Baixando tabelas de pesquisa do PWA...")
+    entries: dict[str, str] = {}
+    lts = _get_all(f"{PS_BASE}/LookupTables", {"$select": "Id,Name", "$expand": "Entries"})
+    for lt in lts:
+        for e in lt.get("Entries", {}).get("results", []):
+            entries[e["Id"].replace("-", "")] = e.get("FullValue", "")
+    logger.info("  %d entries baixadas.", len(entries))
+    return entries
+
+
 def _build_lookup_cache() -> dict[str, str]:
-    """Constrói cache global de entry_id (sem hifens) → FullValue."""
+    """Cache global de entry_id (sem hifens) → FullValue.
+
+    Ordem: memória → disco (dentro da validade) → servidor.
+    """
     global _lookup_cache
     if _lookup_cache:
         return _lookup_cache
 
-    logger.info("Construindo cache de lookup entries...")
-    lts = _get_all(f"{PS_BASE}/LookupTables", {"$select": "Id,Name", "$expand": "Entries"})
-    for lt in lts:
-        for e in lt.get("Entries", {}).get("results", []):
-            eid_clean = e["Id"].replace("-", "")
-            _lookup_cache[eid_clean] = e.get("FullValue", "")
+    do_disco = _load_lookup_disk()
+    if do_disco:
+        _lookup_cache = do_disco
+        logger.info("Cache de lookup lido do disco (%d entries).", len(_lookup_cache))
+        return _lookup_cache
 
-    logger.info("  %d entries em cache.", len(_lookup_cache))
+    _lookup_cache = _fetch_lookup_entries()
+    _save_lookup_disk(_lookup_cache)
     return _lookup_cache
 
 
 def _resolve_lookup_entry(entry_internal: str) -> str:
     """Converte 'Entry_xxxxx' (32 chars) em FullValue legível."""
+    global _lookup_cache, _lookup_refetched
+    if not entry_internal.startswith("Entry_"):
+        return entry_internal
+
+    eid   = entry_internal[6:]
     cache = _build_lookup_cache()
-    if entry_internal.startswith("Entry_"):
-        eid = entry_internal[6:]
-        return cache.get(eid, entry_internal)
-    return entry_internal
+    if eid in cache:
+        return cache[eid]
+
+    # Entry desconhecida: o cache em disco pode estar velho (entrada nova na
+    # tabela de pesquisa). Recarrega do servidor uma única vez por processo.
+    if not _lookup_refetched:
+        _lookup_refetched = True
+        logger.info("Entry %s fora do cache — recarregando do servidor.", eid[:8])
+        try:
+            _lookup_cache = _fetch_lookup_entries()
+            _save_lookup_disk(_lookup_cache)
+        except Exception as exc:
+            logger.warning("Falha ao recarregar tabelas de pesquisa: %s", exc)
+    return _lookup_cache.get(eid, entry_internal)
 
 
 # ── Extração de custom field value (lookup ou scalar) ────────────────────────
@@ -424,13 +541,18 @@ def fetch_projects() -> list[dict]:
             status = "late"
 
         last_pub_raw = p.get("LastPublishedDate") or ""
-        last_pub = _parse_date(last_pub_raw) if last_pub_raw else None
+        last_pub     = _parse_date(last_pub_raw)     if last_pub_raw else None
+        last_pub_dt  = _parse_datetime(last_pub_raw) if last_pub_raw else None
 
         projects.append({
             # Campos canônicos (pt-BR)
             "id":           p.get("Id"),
             "name":         p.get("Name", ""),
             "ultimaPublicacao": last_pub,
+            # Carimbo completo da publicação (com hora): é o que identifica a
+            # versão do cronograma e o que decide se as tarefas precisam ser
+            # recoletadas. `ultimaPublicacao` (só data) segue para a tela.
+            "publicadoEm":  last_pub_dt,
             "cliente":      cliente,
             "numero":       numero,
             "coordenador":  coordenador,
@@ -459,6 +581,61 @@ def fetch_projects() -> list[dict]:
 
 # ── fetch_tasks ───────────────────────────────────────────────────────────────
 
+# Campos realmente consumidos abaixo. Sem $select o servidor devolve a entidade
+# inteira de cada tarefa e de cada atribuição — o grosso do tempo do fetcher.
+_TASK_FIELDS = (
+    "Id,Name,Start,Finish,BaselineStart,BaselineFinish,"
+    "OutlineLevel,PercentComplete,IsCritical,IsMilestone,DurationMilliseconds"
+)
+_LINK_FIELDS = "PredecessorTaskId,SuccessorTaskId,DependencyType,LinkLag"
+_PST_FIELDS = (
+    "Id,Name,Start,Finish,BaselineStart,BaselineFinish,PercentComplete,IsCritical"
+)
+
+_EXPAND_TASKS = ("Tasks,Tasks/Assignments,Tasks/Assignments/Resource,"
+                 "Tasks/Predecessors,ProjectSummaryTask")
+
+# Vira False se o servidor recusar os caminhos aninhados do $select — aí o
+# fetcher segue no formato antigo (mais lento, porém funcional).
+_select_tarefas_ok = True
+
+
+def _tasks_url(project_id: str, com_select: bool) -> str:
+    url = (
+        f"{PS_BASE}/Projects"
+        f"?$filter=Id eq guid'{project_id}'"
+        f"&$expand={_EXPAND_TASKS}"
+    )
+    if com_select:
+        campos = ",".join(
+            ["Id"]
+            + [f"Tasks/{c}" for c in _TASK_FIELDS.split(",")]
+            + ["Tasks/Assignments/Resource/Name"]
+            + [f"Tasks/Predecessors/{c}" for c in _LINK_FIELDS.split(",")]
+            + [f"ProjectSummaryTask/{c}" for c in _PST_FIELDS.split(",")]
+        )
+        url += f"&$select={campos}"
+    return url
+
+
+def _get_tasks_payload(project_id: str) -> dict:
+    """Busca o payload de tarefas, degradando para a consulta sem $select."""
+    global _select_tarefas_ok
+    if _select_tarefas_ok:
+        try:
+            return _get(_tasks_url(project_id, com_select=True))
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status not in (400, 404, 500):
+                raise
+            _select_tarefas_ok = False
+            logger.warning(
+                "Servidor recusou o $select nas tarefas (HTTP %s) — "
+                "seguindo sem ele pelo resto do processo.", status,
+            )
+    return _get(_tasks_url(project_id, com_select=False))
+
+
 def fetch_tasks(project_id: str) -> list[dict]:
     """
     Retorna tarefas do projeto com APENAS as 9 dimensões pedidas:
@@ -467,12 +644,7 @@ def fetch_tasks(project_id: str) -> list[dict]:
     """
     logger.info("Buscando tarefas do projeto %s...", project_id)
 
-    url = (
-        f"{PS_BASE}/Projects"
-        f"?$filter=Id eq guid'{project_id}'"
-        f"&$expand=Tasks,Tasks/Assignments,Tasks/Assignments/Resource,ProjectSummaryTask"
-    )
-    r = _get(url)
+    r = _get_tasks_payload(project_id)
     items = r.get("d", {}).get("results", [])
     if not items:
         return []
@@ -507,6 +679,10 @@ def fetch_tasks(project_id: str) -> list[dict]:
             "pct":          p_pct,
             "days":         p_days,
             "critical":     bool(pst.get("IsCritical", False)),
+            # A tarefa-resumo do projeto não participa da rede de dependências
+            # e nunca é marco.
+            "preds":        [],
+            "marco":        False,
             "duracao":      p_days,
             "diasCorridos": p_days,
             "inicio":       p_start,
@@ -567,6 +743,11 @@ def fetch_tasks(project_id: str) -> list[dict]:
             "pct":          pct_conc,
             "days":         days,
             "critical":     bool(t.get("IsCritical", False)),
+            # Marco = duração zero. Vem dos milissegundos crus porque `duracao`
+            # é arredondada em dias e engoliria uma tarefa de poucas horas.
+            "marco":        int(t.get("DurationMilliseconds") or 0) == 0,
+            # Rede de dependências, usada pelo comparador
+            "preds":        _extract_preds(t),
             # Aliases pt-BR para compatibilidade
             "duracao":      _parse_duration_ms(t.get("DurationMilliseconds") or 0) or 0,
             "diasCorridos": days,

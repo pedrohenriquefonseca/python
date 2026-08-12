@@ -319,9 +319,17 @@ C:\Apps Python\Repos\Python\Dashboard\
 ├── app.py               — Flask: rotas /api/projects, /api/tasks/<id>, /api/auth/*
 ├── index.html           — Frontend (Chart.js + Leaflet)
 ├── fetcher.py           — Job batch que roda 3x/dia e gera data/*.json
+├── historico.py         — Versionamento diferencial (base + deltas, 15 versões)
+├── comparador/
+│   ├── comparador.py    — Motor: pareamento, variações, relatório em Markdown
+│   ├── rede.py          — Causalidade pela rede de dependências
+│   └── pdf_cronograma.py— Leitura de cronograma impresso em PDF pelo Project
 ├── data/
 │   ├── projects.json    — Snapshot de todos os projetos
 │   ├── tasks_<pid>.json — Snapshot das tarefas por projeto
+│   ├── history_<pid>.json— Versões do cronograma (1 base completa + deltas)
+│   ├── fetch_state.json — Publicação já coletada com sucesso, por projeto
+│   ├── lookup_cache.json— Cache das tabelas de pesquisa (validade de 7 dias)
 │   └── last_update.json — Timestamp do último fetch + status
 ├── config.py            — Flags estáticas (ainda quase vazio)
 ├── requirements.txt     — msal, requests, flask, flask_cors
@@ -352,6 +360,33 @@ Esquema:
    │ - escreve data/*.json        │
    │ - escreve last_update.json   │
    └──────────┬───────────────────┘
+
+COLETA INCREMENTAL
+------------------
+A lista de projetos é sempre atualizada (é barata e traz o LastPublishedDate de
+todos). As tarefas — o grosso do tempo — só são buscadas nos projetos
+republicados desde a última coleta bem-sucedida.
+
+  - O carimbo da comparação é `publicadoEm` (LastPublishedDate COM hora, para
+    distinguir duas publicações no mesmo dia). `ultimaPublicacao`, só data,
+    continua sendo o campo exibido na tela.
+  - data/fetch_state.json guarda a publicação EFETIVAMENTE coletada de cada
+    projeto. É separado do projects.json de propósito: aquele é sobrescrito a
+    cada run mesmo quando a coleta das tarefas falha; o estado só avança quando
+    o tasks_<pid>.json foi gravado, então falha é retentada no run seguinte.
+  - Projeto sem carimbo de publicação é sempre coletado (na dúvida, coleta).
+  - `python fetcher.py --full` força a recoleta de todos.
+
+Duas outras economias no mesmo caminho:
+
+  - fetch_tasks usa $select com os 11 campos realmente consumidos. Sem ele o
+    servidor devolvia a entidade inteira de cada tarefa e de cada atribuição.
+    Se o servidor recusar os caminhos aninhados (HTTP 400/404/500), o cliente
+    registra um WARNING e segue sem $select pelo resto do processo.
+  - As tabelas de pesquisa (Cliente/Cidade/Coordenador) vão para
+    data/lookup_cache.json com validade de 7 dias, em vez de serem baixadas a
+    cada processo. Entry desconhecida força uma recarga, uma vez por processo.
+
               ↓
    ┌──────────────────────────────┐
    │ data/projects.json           │
@@ -605,3 +640,108 @@ Em fetch_projects():
 ================================================================================
   FIM
 ================================================================================
+
+
+================================================================================
+  16. VERSIONAMENTO E COMPARADOR DE CRONOGRAMAS
+================================================================================
+
+VERSIONAMENTO (historico.py)
+----------------------------
+data/history_<pid>.json guarda ate 15 versoes no formato "1 base completa +
+deltas". Versao nova so nasce quando um campo versionado muda: republicar sem
+alterar nada nao escreve.
+
+  - Carimbo = `publicadoEm` (LastPublishedDate COM hora), nao o instante da
+    coleta. Assim o atraso entre publicar e rodar o fetcher nao desloca a versao
+    no tempo, e a busca por data acerta.
+  - Ao entrar a 16a versao, o delta mais antigo e aplicado sobre a base antes de
+    sair. Sem isso, descartar o delta antigo apagaria o estado das tarefas que
+    nao mudam ha muito tempo.
+  - Hierarquia por `parentId`, nao por posicao: uma insercao no meio nao
+    reescreve o indice de todas as tarefas seguintes. Perde-se a ordem exata da
+    WBS, que o comparador nao usa.
+  - API: registrar(), versoes(), reconstruir(), versao_em(), como_lista().
+
+COMPARADOR (comparador/)
+------------------------
+As duas versoes vem do historico e do snapshot atual do PWA. Os dois lados tem
+GUID de tarefa, entao o pareamento e por id — estavel entre publicacoes e imune
+a nomes repetidos ("Analise" e "R01" se repetem dezenas de vezes).
+
+  comparador.secao_desde_versao(pid, data_ant, tarefas_atuais, data_atu)
+
+devolve (markdown, versao usada), ou None quando a data pedida esta fora da
+janela retida — responder com a versao mais antiga disponivel seria apresentar
+um cronograma que nao e o daquele dia.
+
+POR QUE NAO HA CALCULO DE CAMINHO CRITICO
+-----------------------------------------
+Medido nos 17 cronogramas: as tarefas-folha criticas cobrem 3% a 17% do prazo na
+maioria dos casos (Vila Gilda 8%, Brasilandia 3%); a UBS Santa Rita nao tem
+nenhuma; e andar do termino para tras pelos vinculos percorre a cadeia inteira
+em apenas 7 dos 17 projetos.
+
+O motivo e que esses cronogramas sao ancorados por data contratual: o marco
+final e fixo, entao quase tudo antes dele tem folga. Atribuir dias "ao longo da
+cadeia critica" produziria numeros que parecem precisos e nao sao.
+
+O QUE FUNCIONA: A CADEIA DE VINCULOS
+------------------------------------
+A cobertura de vinculos e alta (89-100% das folhas tem predecessora) e a
+aderencia tambem (86-100% dos FS coerentes com as datas). rede.py caminha do
+termino do projeto para tras, seguindo em cada passo a predecessora cujo
+deslocamento explica o da sucessora (empurrador()), e coleta quem AUMENTOU A
+DURACAO no caminho.
+
+Ofensor e quem aumentou a duracao dentro dessa cadeia. Tarefa que so foi
+deslocada por inteiro herdou o atraso, nao o produziu. Marco (duracao zero)
+nunca e ofensor: empurrador() pula por cima dele para apontar a causa real.
+
+Tolerancia: datas sao de calendario e vinculos sao em dias uteis, entao o
+casamento de deslocamentos usa folga de 3 dias (rede.TOL_DIAS).
+
+A SECAO DO REPORT SEMANAL
+-------------------------
+Entra logo depois do resumo, via Report._montar_relatorio_md(secao_comparativo).
+
+    ## O que mudou entre 07/08/26 e 12/08/26?
+    - A Previsao de Conclusao mudou de ... para ..., gerando um atraso de N ...
+    - A Duracao total do projeto mudou de ... para ..., gerando um aumento ...
+
+    **Principais Ofensores (Tarefas de Caminho Critico)**
+    - <bisavo - avo - pai - nome>: Aumento de duracao de +N dias corridos
+      (Responsavel: X, termino dd/mm/aa -> dd/mm/aa)
+
+    **Maiores Variacoes (Tarefas com slack positivo)**
+    - <bisavo - avo - pai - nome>: Variacao de +N dias corridos
+      (Responsavel: X, dd/mm/aa -> dd/mm/aa)
+
+As duas listas sao MUTUAMENTE EXCLUSIVAS, e isso e essencial: a segunda traz as
+maiores variacoes ENTRE AS TAREFAS FORA da cadeia — variaram sem mover o prazo,
+logo tinham folga. Sem a exclusao, uma tarefa da cadeia critica apareceria
+rotulada como tendo slack positivo, que e falso.
+
+Nao usamos o campo TotalSlack do servidor: volta zerado ate em tarefas com
+IsCritical=False. "Slack positivo" aqui significa, de forma verificavel, "fora
+da cadeia que move o termino".
+
+As duas listas costumam discordar, e a discordancia e o ponto: no Vila Gilda a
+maior variacao do cronograma (+14 d) nao e ofensora, enquanto tarefas de +8, +2
+e +1 dia movem o prazo.
+
+MARCOS FORA DA ANALISE
+----------------------
+Tarefa de duracao zero (`marco`, de DurationMilliseconds == 0) nao entra nas
+listas: nao tem duracao para esticar nem recurso a quem atribuir. Conferido
+contra o IsMilestone do servidor: 94 de 94 coincidem em 1.018 tarefas. Deduzir
+por start == end teria errado — existe tarefa de 1 dia com inicio e termino no
+mesmo dia que nao e marco.
+
+GRAFIA
+------
+Rotulo = bisavo - avo - pai - nome, a convencao do report_semanal/Report.py. A
+busca dos ancestrais e relativa (os tres mais proximos), nao por nivel fixo:
+mesmo resultado nas tarefas de nivel 4 (a maioria) e correto nas mais rasas,
+onde o nivel fixo pegaria um ramo alheio. A linha de nivel 0 (o projeto) nunca
+entra como ancestral. Recurso aparece como "Responsavel: <nome>".

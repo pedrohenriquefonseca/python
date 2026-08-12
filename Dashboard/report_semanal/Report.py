@@ -247,7 +247,7 @@ def gerar_relatorio(nome_projeto):
         traceback.print_exc()
 
 
-def _montar_relatorio_md(df, nome_projeto):
+def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
     """Núcleo compartilhado: recebe um DataFrame já com as colunas canônicas e
     as colunas de data no formato de exibição '%d/%m/%y', e devolve
     (conteudo_md, nome_arquivo). Usado tanto pelo fluxo de Excel quanto pelo
@@ -272,6 +272,9 @@ def _montar_relatorio_md(df, nome_projeto):
         '📌 RESUMO:\n',
         f'- Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).\n',
         f'- Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).\n',
+        # Bloco "O que mudou entre X e Y?", logo depois do resumo. Sem ele o
+        # relatório sai exatamente como antes.
+        (f'\n{secao_comparativo}\n' if secao_comparativo else ''),
         montar_secao_markdown('📅 PRÓXIMAS EMISSÕES DE PROJETO:', filtro_horizontes, df, hoje, 'emissoes'),
         montar_secao_markdown('🔎 TAREFAS A CARGO DO CLIENTE:', filtro_cliente, df, hoje, 'analise'),
     ]
@@ -304,7 +307,7 @@ def _iso_para_br(valor):
         return None
 
 
-def gerar_relatorio_web_json(tarefas, nome_projeto):
+def gerar_relatorio_web_json(tarefas, nome_projeto, secao_comparativo=None):
     """Gera o relatório semanal a partir da lista de tarefas do JSON do PWA
     (mesmo formato de data/tasks_<id>.json usado pelos dashboards), sem precisar
     do Excel exportado. Retorna (conteudo_md, nome_arquivo) — saída idêntica à
@@ -329,7 +332,7 @@ def gerar_relatorio_web_json(tarefas, nome_projeto):
     df = pd.DataFrame(linhas)
     if df.empty:
         raise ValueError('Projeto sem tarefas disponíveis no snapshot do PWA.')
-    return _montar_relatorio_md(df, nome_projeto)
+    return _montar_relatorio_md(df, nome_projeto, secao_comparativo)
 
 
 if __name__ == '__main__':
