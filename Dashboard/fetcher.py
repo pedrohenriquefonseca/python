@@ -26,7 +26,6 @@ from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import historico
 import pwa_client
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
@@ -117,10 +116,10 @@ def _precisa_coletar(p: dict, state: dict, forcar: bool) -> tuple[bool, str]:
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 
-def _fetch_tasks_safe(p: dict) -> tuple[str, int, str | None, str | None]:
+def _fetch_tasks_safe(p: dict) -> tuple[str, int, str | None]:
     """Wrapper de fetch_tasks com retry — projetos grandes às vezes dão timeout.
 
-    Devolve (pid, nº de tarefas, erro, versão registrada no histórico).
+    Devolve (pid, nº de tarefas, erro).
     """
     pid, name = p["id"], p["name"]
     last_exc = None
@@ -128,19 +127,13 @@ def _fetch_tasks_safe(p: dict) -> tuple[str, int, str | None, str | None]:
         try:
             tasks = pwa_client.fetch_tasks(pid)
             _write_json(DATA_DIR / f"tasks_{pid}.json", tasks)
-            # O histórico é acessório: se falhar, a coleta não pode cair junto.
-            versao = None
-            try:
-                versao = historico.registrar(pid, p, tasks)
-            except Exception as exc:
-                log.warning("Falha ao versionar '%s': %s", name, exc)
-            return pid, len(tasks), None, versao
+            return pid, len(tasks), None
         except Exception as exc:
             last_exc = exc
             log.warning("Tentativa %d/3 falhou em '%s' (%s): %s",
                         attempt, name, pid[:8], exc)
             time.sleep(2 * attempt)  # backoff
-    return pid, 0, str(last_exc), None
+    return pid, 0, str(last_exc)
 
 
 def main(forcar: bool = False) -> int:
@@ -149,13 +142,10 @@ def main(forcar: bool = False) -> int:
     log.info("Fetcher iniciado — %s%s", datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
              "  [--full]" if forcar else "")
 
-    # O histórico grava sempre ao lado dos snapshots: quem redireciona a saída
-    # do fetcher redireciona os dois, sem precisar saber que existem dois módulos.
-    historico.DATA_DIR = DATA_DIR
-
     # 1) Verifica autenticação
     if not pwa_client.is_authenticated():
-        log.error("Sem token MSAL válido — rode 'python reauth.py' manualmente.")
+        log.error("Sem token MSAL válido — rode: python -c "
+                  "\"import pwa_client; pwa_client.start_device_flow()\"")
         _save_status(False, started, error="no_token", projects=0, tasks=0)
         return 1
 
@@ -189,17 +179,15 @@ def main(forcar: bool = False) -> int:
     ordem = sorted(a_coletar,
                    key=lambda p: (state.get(p["id"]) or {}).get("tarefas", 10 ** 6),
                    reverse=True)
-    versionados = 0
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_fetch_tasks_safe, p): p for p in ordem}
         for fut in as_completed(futures):
-            pid, n_tasks, err, versao = fut.result()
+            pid, n_tasks, err = fut.result()
             p = futures[fut]
             if err:
                 errors.append({"pid": pid, "error": err})
                 continue
             total_tasks += n_tasks
-            versionados += 1 if versao else 0
             # Só aqui o estado avança: falha volta a ser tentada no próximo run.
             state[pid] = {
                 "publicadoEm": p.get("publicadoEm"),
@@ -207,14 +195,15 @@ def main(forcar: bool = False) -> int:
                 "tarefas":     n_tasks,
             }
 
-    log.info("Tarefas: %d no total (%d projeto(s) recoletado(s), %d nova(s) versão(ões))",
-             total_tasks, len(a_coletar) - len(errors), versionados)
+    log.info("Tarefas: %d no total (%d projeto(s) recoletado(s))",
+             total_tasks, len(a_coletar) - len(errors))
     if errors:
         log.warning("Falhas: %d projetos", len(errors))
 
     # 5) Limpa arquivos de projetos que não existem mais
     valid_ids = {p["id"] for p in projects}
-    for padrao, rotulo in (("tasks_*.json", "tarefas"), ("history_*.json", "histórico")):
+    for padrao, rotulo in (("tasks_*.json", "tarefas"),
+                           ("report_base_*.json", "base do report")):
         prefixo = padrao.split("*")[0]
         for f in DATA_DIR.glob(padrao):
             pid = f.stem.replace(prefixo, "")
@@ -233,7 +222,6 @@ def main(forcar: bool = False) -> int:
         tasks=total_tasks,
         coletados=len(a_coletar) - len(errors),
         reaproveitados=len(reaproveitados),
-        versionados=versionados,
         errors=errors,
     )
     log.info("Fetcher concluído em %.1fs.", time.time() - started)

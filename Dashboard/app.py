@@ -36,8 +36,14 @@ _HERE_DIR = Path(__file__).parent
 sys.path.insert(0, str(_HERE_DIR / 'report_semanal'))
 sys.path.insert(0, str(_HERE_DIR / 'cronograma_alocacao'))
 sys.path.insert(0, str(_HERE_DIR / 'ferias'))
+# A pasta comparador/ precisa vir ANTES da raiz do projeto: ela se chama igual ao
+# módulo que contém (comparador/comparador.py). Sem essa precedência o
+# `import comparador` acharia primeiro a pasta, como namespace package vazio.
+sys.path.insert(0, str(_HERE_DIR / 'comparador'))
 
 from Report import gerar_relatorio_web_json
+import comparador
+import report_base
 from gantt_projetos import gerar_para_web_json as _gerar_projetos_web_json
 from gantt_clientes import (
     gerar_para_web_json as _gerar_equipe_web_json,
@@ -58,6 +64,8 @@ log = logging.getLogger(__name__)
 
 HERE     = Path(__file__).parent
 DATA_DIR = HERE / "data"
+
+report_base.DATA_DIR = DATA_DIR
 
 app = Flask(__name__, static_folder=str(HERE))
 CORS(app)
@@ -222,11 +230,36 @@ def refresh():
 
 # ── Ferramentas (GUI integrado) ───────────────────────────────────────────────
 
+def _secao_comparativa(project_id: str, tarefas: list):
+    """Seção "O que mudou desde X?" do report. Devolve (markdown, info).
+
+    A base é o cronograma de quando o último report saiu. Não existe escolha de
+    data: ou há base gravada, ou este é o primeiro report do projeto e a seção
+    não sai.
+    """
+    base = report_base.carregar(project_id)
+    if base is None:
+        return None, {"aviso": "Primeiro report deste projeto — o comparativo "
+                               "aparece a partir do próximo."}
+    try:
+        return comparador.secao_desde_base(base, tarefas), \
+               {"desde": report_base.data(base)}
+    except Exception as exc:
+        # Comparativo é acessório: se ele falhar, o report sai sem a seção em
+        # vez de o usuário ficar sem relatório nenhum.
+        log.warning("Comparativo indisponível para %s: %s", project_id[:8], exc)
+        return None, {"aviso": f"Comparativo indisponível: {exc}"}
+
+
 @app.route("/api/report-json", methods=["POST"])
 def api_report_json():
     """Report Semanal 2.0 — gera o relatório direto do snapshot JSON do PWA,
     sem upload de Excel. Recebe {project_id, nome_projeto} e lê o
-    data/tasks_<project_id>.json já usado pelos dashboards."""
+    data/tasks_<project_id>.json já usado pelos dashboards.
+
+    Gerar um report tem efeito colateral: o cronograma de agora vira a base do
+    próximo. É o que faz os reports ladrilharem a linha do tempo, cada um
+    começando onde o anterior parou."""
     try:
         data       = request.get_json(silent=True) or {}
         project_id = (data.get("project_id") or "").strip()
@@ -236,12 +269,19 @@ def api_report_json():
         tarefas = _read_json(DATA_DIR / f"tasks_{project_id}.json", None)
         if tarefas is None:
             return jsonify({"error": "Tarefas não disponíveis para esse projeto no snapshot."}), 404
+
+        projetos = _read_json(DATA_DIR / "projects.json", []) or []
+        match    = next((p for p in projetos if str(p.get("id")) == project_id), None)
         if not nome:
-            projetos = _read_json(DATA_DIR / "projects.json", []) or []
-            match = next((p for p in projetos if str(p.get("id")) == project_id), None)
             nome = (match or {}).get("name", "") or "Projeto"
-        conteudo, nome_arq = gerar_relatorio_web_json(tarefas, nome)
-        return jsonify({"success": True, "content": conteudo, "filename": nome_arq})
+
+        secao, info = _secao_comparativa(project_id, tarefas)
+        conteudo, nome_arq = gerar_relatorio_web_json(tarefas, nome, secao)
+        # Só depois de o relatório existir: base gravada num report que falhou
+        # ao ser montado engoliria o período seguinte.
+        report_base.gravar(project_id, tarefas, (match or {}).get("publicadoEm"))
+        return jsonify({"success": True, "content": conteudo, "filename": nome_arq,
+                        "comparativo": info})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 

@@ -2349,7 +2349,11 @@ document.getElementById('form-report').addEventListener('submit', async e => {
     const j = await res.json();
     if (!res.ok || j.error) throw new Error(j.error);
     mostrarRelatorios([{ nome, content: j.content, filename: j.filename }]);
-    guiShowStatus('report', 'Relatório gerado!');
+    // O aviso fica visível (sem auto-limpar): o relatório saiu, mas sem a seção
+    // do comparativo, e isso precisa ser notado.
+    const aviso = (j.comparativo || {}).aviso;
+    if (aviso) guiShowStatus('report', aviso, true);
+    else guiShowStatus('report', 'Relatório gerado!');
   } catch(err) {
     guiShowStatus('report', `Erro: ${err.message}`, true);
   } finally { guiSetLoading('report', false); }

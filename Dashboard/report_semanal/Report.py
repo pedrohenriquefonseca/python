@@ -283,20 +283,6 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
     return conteudo_md, nome_arquivo
 
 
-def gerar_relatorio_web(arquivo_bytes, nome_projeto):
-    """Versão para o portal web. Recebe bytes do arquivo Excel, retorna (conteudo_md, nome_arquivo)."""
-    import io as _io
-    df = pd.read_excel(_io.BytesIO(arquivo_bytes))
-    if df.empty:
-        raise ValueError('O arquivo Excel está vazio')
-    df = validar_colunas_necessarias(df)
-    col_datas = ['Início', 'Término', 'Início_da_Linha_de_Base', 'Término_da_linha_de_base']
-    for col in col_datas:
-        if col in df.columns:
-            df[col] = formatar_data(df[col])
-    return _montar_relatorio_md(df, nome_projeto)
-
-
 def _iso_para_br(valor):
     """Converte data ISO 'YYYY-MM-DD' (formato do JSON do PWA) para '%d/%m/%y'."""
     if not valor:

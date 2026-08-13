@@ -319,22 +319,27 @@ C:\Apps Python\Repos\Python\Dashboard\
 ├── app.py               — Flask: rotas /api/projects, /api/tasks/<id>, /api/auth/*
 ├── index.html           — Frontend (Chart.js + Leaflet)
 ├── fetcher.py           — Job batch que roda 3x/dia e gera data/*.json
-├── historico.py         — Versionamento diferencial (base + deltas, 15 versões)
+├── report_base.py       — O cronograma como estava no último report gerado
+├── export_campos.py     — Dump dos custom fields do PWA para planilha
 ├── comparador/
 │   ├── comparador.py    — Motor: pareamento, variações, relatório em Markdown
-│   ├── rede.py          — Causalidade pela rede de dependências
-│   └── pdf_cronograma.py— Leitura de cronograma impresso em PDF pelo Project
+│   └── rede.py          — Causalidade pela rede de dependências
+├── report_semanal/
+│   └── Report.py        — Monta o report semanal em Markdown
+├── cronograma_alocacao/ — Gantts de projetos, equipe interna e fornecedores
+├── desembolso/          — Curva de desembolso
+├── ferias/              — Controle de férias
 ├── data/
 │   ├── projects.json    — Snapshot de todos os projetos
 │   ├── tasks_<pid>.json — Snapshot das tarefas por projeto
-│   ├── history_<pid>.json— Versões do cronograma (1 base completa + deltas)
+│   ├── report_base_<pid>.json — Cronograma do último report (id, start, end)
 │   ├── fetch_state.json — Publicação já coletada com sucesso, por projeto
 │   ├── lookup_cache.json— Cache das tabelas de pesquisa (validade de 7 dias)
 │   └── last_update.json — Timestamp do último fetch + status
 ├── config.py            — Flags estáticas (ainda quase vazio)
 ├── requirements.txt     — msal, requests, flask, flask_cors
 ├── .token_cache.json    — Cache MSAL (NÃO COMMITAR)
-├── .gitignore
+├── .gitignore           — data/ inteira fica de fora do git
 ├── setup_scheduler.ps1  — Script para criar a tarefa no Windows Task Scheduler
 └── PROJETO.txt          — Este arquivo
 
@@ -411,7 +416,8 @@ A partir daí, roda sozinho. O token MSAL é renovado a cada execução
 QUANDO PARAR DE FUNCIONAR (raro):
   Sintoma: data/last_update.json mostra erro de auth.
   Causa:   token expirou (90 dias sem atividade) ou senha mudou.
-  Fix:     rodar python reauth.py → fazer device flow de novo.
+  Fix:     python -c "import pwa_client; pwa_client.start_device_flow()"
+           (nao existe reauth.py — o device flow mora no pwa_client)
 
 
 ================================================================================
@@ -643,37 +649,81 @@ Em fetch_projects():
 
 
 ================================================================================
-  16. VERSIONAMENTO E COMPARADOR DE CRONOGRAMAS
+  16. BASE DO REPORT E COMPARADOR DE CRONOGRAMAS
 ================================================================================
 
-VERSIONAMENTO (historico.py)
-----------------------------
-data/history_<pid>.json guarda ate 15 versoes no formato "1 base completa +
-deltas". Versao nova so nasce quando um campo versionado muda: republicar sem
-alterar nada nao escreve.
+A REGRA QUE DEFINE TUDO
+-----------------------
+O comparativo tem exatamente DOIS lados: o cronograma de agora e o cronograma de
+quando o ultimo report foi gerado. Nao existe terceira data. Publicacao de
+cronograma que nao virou report nao e comparada com nada e nao e guardada.
 
-  - Carimbo = `publicadoEm` (LastPublishedDate COM hora), nao o instante da
-    coleta. Assim o atraso entre publicar e rodar o fetcher nao desloca a versao
-    no tempo, e a busca por data acerta.
-  - Ao entrar a 16a versao, o delta mais antigo e aplicado sobre a base antes de
-    sair. Sem isso, descartar o delta antigo apagaria o estado das tarefas que
-    nao mudam ha muito tempo.
-  - Hierarquia por `parentId`, nao por posicao: uma insercao no meio nao
-    reescreve o indice de todas as tarefas seguintes. Perde-se a ordem exata da
-    WBS, que o comparador nao usa.
-  - API: registrar(), versoes(), reconstruir(), versao_em(), como_lista().
+Disso decorre que nao ha historico a manter: ha UM estado por projeto,
+substituido a cada report gerado.
+
+  * Houve um historico.py com 15 versoes em "base completa + deltas", retencao
+    com dobra do delta antigo na base, reconstrucao por data (versao_em) e
+    hierarquia por parentId para nao reescrever indices. Tudo aquilo existia
+    para responder "como era o cronograma numa data qualquer" — pergunta que o
+    report nao faz. Foi apagado junto com os data/history_*.json.
+
+BASE DO REPORT (report_base.py)
+-------------------------------
+data/report_base_<pid>.json, gravado por app.py ao fim de cada geracao de
+report. Guarda TRES campos por tarefa: id, start, end.
+
+  - Sao os unicos que o lado antigo da comparacao e lido para dar: o pareamento
+    e por id e a variacao e de datas. Nome, recurso, nivel e hierarquia saem
+    sempre do cronograma ATUAL, que e quem escreve o rotulo de cada linha.
+  - A ordem da lista importa: o primeiro item e a tarefa-resumo do projeto
+    (nivel 0), de onde saem o termino e a duracao totais.
+  - `publicadoEm` (LastPublishedDate COM hora) carimba a base e vira a data do
+    titulo da secao. `geradoEm` e o instante da geracao, usado so como fallback.
+  - API inteira: carregar(), gravar(), data(). Tres funcoes.
+
+  GRAVAR E DEPOIS DE MONTAR O RELATORIO, nunca antes: base gravada num report
+  que falhou ao ser montado engoliria o periodo seguinte.
+
+  Gerar o report duas vezes seguidas faz o segundo comparar o cronograma consigo
+  mesmo e dizer que nada mudou. E consequencia direta da regra, e esta acordado:
+  sai um report por dia.
+
+  SEMEADURA (feita uma vez, em 13/08/26): as 16 bases nasceram da versao mais
+  antiga retida nos history_*.json antes de eles serem apagados, para que o
+  primeiro report do sistema novo ja tivesse periodo para comparar. Projeto novo
+  que apareca daqui em diante nao tem base: o primeiro report dele sai sem a
+  secao, com aviso, e grava a base para o proximo.
 
 COMPARADOR (comparador/)
 ------------------------
-As duas versoes vem do historico e do snapshot atual do PWA. Os dois lados tem
-GUID de tarefa, entao o pareamento e por id — estavel entre publicacoes e imune
-a nomes repetidos ("Analise" e "R01" se repetem dezenas de vezes).
+Os dois lados sao data/report_base_<pid>.json e data/tasks_<pid>.json. Ambos tem
+GUID de tarefa, entao o pareamento e por id.
 
-  comparador.secao_desde_versao(pid, data_ant, tarefas_atuais, data_atu)
+  comparador.secao_desde_base(base, tarefas_atuais) -> markdown
 
-devolve (markdown, versao usada), ou None quando a data pedida esta fora da
-janela retida — responder com a versao mais antiga disponivel seria apresentar
-um cronograma que nao e o daquele dia.
+Renomear tarefa NAO quebra a comparacao. Conferido com as "Analise" do Vila
+Gilda (48) e da Brasilandia (52) renomeadas para "Analise 1..N" so no lado
+atual: 0 removidas, 0 inseridas, e a secao sai com os nomes novos. O pareamento
+e por GUID; o nome so e lido para escrever o rotulo, e vem sempre do cronograma
+ATUAL. Importa porque as Analises estao sendo renomeadas aos poucos.
+
+COMO O COMPARATIVO CHEGA NA TELA
+--------------------------------
+    index.html (form-report)
+      -> POST /api/report-json {project_id, nome_projeto}
+           app._secao_comparativa()      -> report_base.carregar()
+                                         -> comparador.secao_desde_base()
+           Report.gerar_relatorio_web_json(tarefas, nome, secao)
+           report_base.gravar()          <- o cronograma de agora vira a base
+                                            do proximo report
+      <- {content, filename, comparativo:{desde | aviso}}
+
+  Nao ha seletor de data na tela nem parametro de data na rota: nao existe o que
+  escolher, ha uma base so. Houve um seletor "Comparar com" e um GET
+  /api/versoes/<pid> enquanto o modelo era de historico; sairam junto com ele.
+
+  Comparativo e acessorio: se ele falhar, o report sai sem a secao e o aviso vai
+  em `comparativo.aviso` — nunca deixa o usuario sem relatorio.
 
 POR QUE NAO HA CALCULO DE CAMINHO CRITICO
 -----------------------------------------
@@ -709,31 +759,40 @@ Entra logo depois do resumo, via Report._montar_relatorio_md(secao_comparativo).
     - A Previsao de Conclusao mudou de ... para ..., gerando um atraso de N ...
     - A Duracao total do projeto mudou de ... para ..., gerando um aumento ...
 
-    **Principais Ofensores (Tarefas de Caminho Critico)**
-    - <bisavo - avo - pai - nome>: Aumento de duracao de +N dias corridos
-      (Responsavel: X, termino dd/mm/aa -> dd/mm/aa)
+    **Principais Ofensores**
+    - <bisavo - avo - pai - nome>: Aumento na duracao de +N dias corridos
+      (Responsavel: X, Termino atual: dd/mm/aa).
 
-    **Maiores Variacoes (Tarefas com slack positivo)**
-    - <bisavo - avo - pai - nome>: Variacao de +N dias corridos
-      (Responsavel: X, dd/mm/aa -> dd/mm/aa)
+Ate 3 tarefas, da que mais esticou para a que menos esticou.
 
-As duas listas sao MUTUAMENTE EXCLUSIVAS, e isso e essencial: a segunda traz as
-maiores variacoes ENTRE AS TAREFAS FORA da cadeia — variaram sem mover o prazo,
-logo tinham folga. Sem a exclusao, uma tarefa da cadeia critica apareceria
-rotulada como tendo slack positivo, que e falso.
+O numero da linha e o AUMENTO DE DURACAO, nao a variacao do termino: parte do
+deslocamento e herdada da predecessora, e so o que a tarefa acrescentou de
+duracao e responsabilidade dela. Por isso a linha traz o termino ATUAL sozinho,
+sem o par "de -> para": o par sugeria que a diferenca entre as duas datas e o
+numero da linha, e nao e — ali cabe o deslocamento inteiro, heranca inclusa. No
+Vila Gilda a segunda linha mostra o caso: termino de 25/09 para 05/10 (10 dias
+de deslocamento) com aumento de duracao de apenas +2.
 
-Nao usamos o campo TotalSlack do servidor: volta zerado ate em tarefas com
-IsCritical=False. "Slack positivo" aqui significa, de forma verificavel, "fora
-da cadeia que move o termino".
+LISTA RETIRADA: MAIORES VARIACOES
+---------------------------------
+Havia uma segunda lista, "Maiores Variacoes (Tarefas com slack positivo)", com
+as tarefas de maior variacao FORA da cadeia — variaram sem mover o prazo, logo
+tinham folga. As duas listas eram mutuamente exclusivas, o que tornava o rotulo
+"slack positivo" verdadeiro sem depender do TotalSlack do servidor (que volta
+zerado ate em tarefas com IsCritical=False).
 
-As duas listas costumam discordar, e a discordancia e o ponto: no Vila Gilda a
-maior variacao do cronograma (+14 d) nao e ofensora, enquanto tarefas de +8, +2
-e +1 dia movem o prazo.
+Saiu do report: respondia a uma pergunta que o report semanal nao faz. Quem le
+quer saber o que move a entrega, e a lista competia por atencao com a que
+responde isso.
+
+Ficou dentro do modulo o que a sustentava: `comparar()` ainda calcula a variacao
+de cada folha pareada, porque a rede precisa desses deltas para achar o
+empurrador. O que saiu foi a ordenacao por variacao e a lista no markdown.
 
 MARCOS FORA DA ANALISE
 ----------------------
-Tarefa de duracao zero (`marco`, de DurationMilliseconds == 0) nao entra nas
-listas: nao tem duracao para esticar nem recurso a quem atribuir. Conferido
+Tarefa de duracao zero (`marco`, de DurationMilliseconds == 0) nao entra na
+lista: nao tem duracao para esticar nem recurso a quem atribuir. Conferido
 contra o IsMilestone do servidor: 94 de 94 coincidem em 1.018 tarefas. Deduzir
 por start == end teria errado — existe tarefa de 1 dia com inicio e termino no
 mesmo dia que nao e marco.

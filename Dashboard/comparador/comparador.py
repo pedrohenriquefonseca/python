@@ -1,39 +1,38 @@
 """
 comparador.py — Compara duas versões de um cronograma e explica o que mudou.
 
-Produz a seção "O que mudou entre X e Y?" do report semanal, que entra logo
-depois do resumo e responde:
+Produz a seção "O que mudou desde X?" do report semanal, que entra logo depois
+do resumo e responde:
 
   - o término e a duração do projeto mudaram quanto?
   - quem causou o atraso (Principais Ofensores)?
-  - o que mais variou sem afetar o prazo (Maiores Variações)?
 
-Três decisões de método valem registro:
+Duas decisões de método valem registro:
 
 Culpa não é o mesmo que variação. Uma tarefa pode ter o término deslocado 10
 dias tendo produzido apenas 2 — os outros 8 herdou da predecessora. Ofensor é
 quem AUMENTOU A DURAÇÃO dentro da cadeia que chega ao término do projeto; quem
 só foi deslocado por inteiro não entra.
 
-As duas listas são mutuamente exclusivas, e é isso que torna o rótulo "slack
-positivo" verdadeiro: Maiores Variações traz as maiores variações ENTRE AS
-TAREFAS FORA da cadeia — variaram sem mover o prazo, logo tinham folga. As duas
-listas costumam discordar, e a discordância é o ponto: no Vila Gilda a maior
-variação do cronograma (+14 d) não é ofensora, enquanto tarefas de +8, +2 e +1
-dia movem o prazo.
-
-Marcos (duração zero) ficam fora das listas: não têm duração para esticar nem
+Marcos (duração zero) ficam fora da lista: não têm duração para esticar nem
 recurso a quem atribuir. Seguem visíveis para rede.py, que precisa deles como
 conduíte da propagação.
 
-As duas versões vêm do histórico (data/history_<pid>.json) e do snapshot atual
-do PWA — os dois lados têm GUID de tarefa, então o pareamento é por id.
+Houve também uma lista de "Maiores Variações", com as tarefas que mais variaram
+FORA da cadeia — variação grande sem efeito no prazo, logo com folga. Foi
+retirada: respondia a uma pergunta que o report não faz e competia por atenção
+com a lista que aponta o que move a entrega.
+
+Os dois lados são o cronograma do último report (data/report_base_<pid>.json) e
+o snapshot atual do PWA (data/tasks_<pid>.json). Ambos têm GUID de tarefa, então
+o pareamento é por id — estável entre publicações e imune a renomeação, o que
+importa porque "Análise" e "R01" se repetem dezenas de vezes no mesmo cronograma
+e vêm sendo renomeadas para "Análise 1, 2, 3...".
 """
 from __future__ import annotations
 
 from datetime import date
 
-TOPO_LISTA     = 3   # tarefas em Maiores Variações
 TOPO_OFENSORES = 3   # tarefas em Principais Ofensores
 
 
@@ -99,10 +98,19 @@ def de_snapshot(tarefas: list[dict]) -> list[dict]:
     } for t in tarefas])
 
 
-def de_historico(estado: dict) -> list[dict]:
-    """Estado reconstruído pelo módulo historico."""
-    import historico
-    return de_snapshot(historico.como_lista(estado))
+def de_base(tarefas: list[dict]) -> list[dict]:
+    """data/report_base_<pid>.json — o cronograma do último report.
+
+    Só id e datas. Sem caminho hierárquico e sem marcação de folha: os dois são
+    lidos apenas do cronograma ATUAL, que é quem escreve o rótulo das linhas e
+    decide o que é folha. Calculá-los aqui seria percorrer a lista inteira para
+    produzir campos que ninguém consulta.
+    """
+    return [{
+        "id":      str(t.get("id")) if t.get("id") else None,
+        "inicio":  t.get("start"),
+        "termino": t.get("end"),
+    } for t in tarefas]
 
 
 # ── Datas e números ───────────────────────────────────────────────────────────
@@ -188,25 +196,22 @@ def comparar(anterior: list[dict], atual: list[dict],
     raiz_b = atual[0] if atual else {}
     saldo  = _dias(raiz_a.get("termino"), raiz_b.get("termino"))
 
-    # Marcos saem das listas, mas continuam nos deltas: a rede precisa deles.
-    uteis   = [v for v in variacoes if not v["marco"]]
-    atrasos = sorted([v for v in uteis if (v["dfim"] or 0) > 0], key=lambda v: -v["dfim"])
-
     causa = None
     if brutos_atu:
         import rede
+        # Marcos entram nos deltas mesmo ficando fora da lista final: a rede
+        # precisa deles como conduíte da propagação.
         deltas = {v["atu"]["id"]: v for v in variacoes if v["atu"]["id"]}
         causa  = rede.causa_do_prazo(saldo, raiz_b.get("termino"), deltas,
                                      rede.indexar(brutos_atu),
                                      ids_folha=rede.folhas(brutos_atu))
         # A rede trabalha com os dicts brutos, que só têm o nome solto; o
-        # relatório precisa da grafia hierárquica e do término anterior.
+        # relatório precisa da grafia hierárquica e do término atual.
         for g in causa["cadeia"]:
             v = deltas.get(g["id"])
             if v:
-                g["rotulo"]      = rotulo(v["atu"])
-                g["termino_ant"] = v["ant"].get("termino")
-                g["termino"]     = v["atu"].get("termino")
+                g["rotulo"]  = rotulo(v["atu"])
+                g["termino"] = v["atu"].get("termino")
 
     return {
         "projeto": {
@@ -216,26 +221,32 @@ def comparar(anterior: list[dict], atual: list[dict],
             "duracao_atu": _dias(raiz_b.get("inicio"), raiz_b.get("termino")),
         },
         "reconciliacao": {"removidas": p["removidas"], "inseridas": p["inseridas"]},
-        "atrasos": atrasos,
         "causa":   causa,
     }
 
 
 # ── Seção do report semanal ───────────────────────────────────────────────────
 
-def secao_semanal(r: dict, data_ant: str, data_atu: str) -> str:
-    """Bloco pronto para entrar no report semanal, logo depois do resumo."""
+def secao_semanal(r: dict, data_ant: str) -> str:
+    """Bloco pronto para entrar no report semanal, logo depois do resumo.
+
+    `data_ant` é a data do cronograma com que se compara — o do último report.
+    Ela vai no título porque o período não é fixo: se o report anterior saiu há
+    dois dias, a seção cobre dois dias, e quem lê precisa saber disso sem ter de
+    perguntar. Pela mesma razão nenhuma frase do corpo diz "semana": o número
+    seria verdadeiro e o período, falso.
+    """
     pj    = r["projeto"]
     causa = r.get("causa")
     saldo = pj["saldo"] or 0
-    L: list[str] = [f"## O que mudou entre {data_ant} e {data_atu}?", ""]
+    L: list[str] = [f"## O que mudou desde {data_ant}?", ""]
 
     if saldo > 0:
-        efeito = "gerando um atraso de %s em relação à semana anterior" % dias_txt(saldo)
+        efeito = "gerando um atraso de %s" % dias_txt(saldo)
     elif saldo < 0:
-        efeito = "gerando um adiantamento de %s em relação à semana anterior" % dias_txt(saldo)
+        efeito = "gerando um adiantamento de %s" % dias_txt(saldo)
     else:
-        efeito = "sem alteração de prazo em relação à semana anterior"
+        efeito = "sem alteração de prazo"
     L.append("- A Previsão de Conclusão mudou de %s para %s, %s."
              % (br(pj["termino_ant"]), br(pj["termino_atu"]), efeito))
 
@@ -255,16 +266,17 @@ def secao_semanal(r: dict, data_ant: str, data_atu: str) -> str:
 
     # ── Ofensores ────────────────────────────────────────────────────────────
     ger = (causa or {}).get("geradores") or []
-    L += ["", "**Principais Ofensores (Tarefas de Caminho Crítico)**", ""]
+    L += ["", "**Principais Ofensores**", ""]
     if ger:
         for g in ger[:TOPO_OFENSORES]:
             # O número é o AUMENTO DE DURAÇÃO, não a variação do término: parte
             # do deslocamento é herdada, e só o que a tarefa acrescentou de
-            # duração é responsabilidade dela.
-            L.append("- %s: Aumento de duração de %s (%s, término %s → %s)"
+            # duração é responsabilidade dela. A data é a de agora, sem o "de →
+            # para": o par sugeria que a diferença entre as duas é o número da
+            # linha, e não é — ali cabe o deslocamento inteiro, herança inclusa.
+            L.append("- %s: Aumento na duração de %s (%s, Término atual: %s)."
                      % (g.get("rotulo") or g["nome"], dias_sinal(g["ddur"]),
-                        responsavel(g["recurso"]), br(g.get("termino_ant")),
-                        br(g.get("termino"))))
+                        responsavel(g["recurso"]), br(g.get("termino"))))
     elif causa is None:
         L.append("- Sem a rede de dependências não é possível apontar os ofensores.")
     elif saldo:
@@ -272,19 +284,6 @@ def secao_semanal(r: dict, data_ant: str, data_atu: str) -> str:
                  "o desvio veio de replanejamento, não de atraso de tarefa.")
     else:
         L.append("- Não existem tarefas que cumpram os critérios desta seção")
-
-    # ── Maiores variações, fora da cadeia ────────────────────────────────────
-    na_cadeia = {c["id"] for c in (causa or {}).get("cadeia") or []}
-    fora = [v for v in r["atrasos"] if v["atu"]["id"] not in na_cadeia]
-    L += ["", "**Maiores Variações (Tarefas com slack positivo)**", ""]
-    if not fora:
-        L.append("- Não existem tarefas que cumpram os critérios desta seção")
-    else:
-        for v in fora[:TOPO_LISTA]:
-            t = v["atu"]
-            L.append("- %s: Variação de %s (%s, %s → %s)"
-                     % (rotulo(t), dias_sinal(v["dfim"]), responsavel(t["recurso"]),
-                        br(v["ant"]["termino"]), br(t["termino"])))
 
     rec = r["reconciliacao"]
     if rec["removidas"] or rec["inseridas"]:
@@ -296,21 +295,12 @@ def secao_semanal(r: dict, data_ant: str, data_atu: str) -> str:
 
 # ── Construtor de alto nível ──────────────────────────────────────────────────
 
-def secao_desde_versao(pid: str, data_ant: str, tarefas_atuais: list[dict],
-                       data_atu: str) -> tuple[str, dict] | None:
-    """Seção comparando a versão vigente em `data_ant` com o snapshot atual.
+def secao_desde_base(base: dict, tarefas_atuais: list[dict]) -> str:
+    """Seção comparando o cronograma do último report com o de agora.
 
-    Devolve (markdown, versão usada) ou None quando aquela data está fora da
-    janela de versões retidas — responder com a versão mais antiga disponível
-    seria apresentar um cronograma que não é o daquele dia.
+    `base` é o que report_base.carregar() devolve.
     """
-    import historico
-    v = historico.versao_em(pid, data_ant)
-    if not v:
-        return None
-    estado = historico.reconstruir(pid, v["versao"])
-    if not estado:
-        return None
-    r = comparar(de_historico(estado), de_snapshot(tarefas_atuais),
+    import report_base
+    r = comparar(de_base(base["tarefas"]), de_snapshot(tarefas_atuais),
                  brutos_atu=tarefas_atuais)
-    return secao_semanal(r, br(v["versao"][:10]), data_atu), v
+    return secao_semanal(r, br(report_base.data(base)[:10]))
