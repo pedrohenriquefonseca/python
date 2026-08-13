@@ -1,4 +1,31 @@
-# Fontes das referências de dano
+# Fontes das referências
+
+## Molduras de filme
+
+As doze máscaras em `borders/` saem de 18 referências reunidas em `refs/`. A
+procedência aqui é bem pior que a do dano, e convém dizer com todas as letras.
+
+**Doze das dezoito são preview de banco de imagem** — Adobe Stock, Shutterstock,
+Dreamstime — e nelas a marca d'água é ladrilhada *por cima do rebate*, não só do
+centro. Em arte chapada a marca sai por abertura morfológica (`despeckle` no
+manifesto), porque o traço é fino e o letreiro não é; em textura fotográfica não
+sai, e é justamente ali que a referência valia. As sobras de marca escritas fora
+da moldura são descartadas por outro caminho: o extrator guarda só o maior
+componente conexo, então texto solto no papel branco não entra.
+
+**Nenhuma passa de 1043 px.** A máscara precisa servir foto de 12 MP, o que
+significa ampliar de 3× a 6×. É por isso que existe o modo `sharp`, que
+relimiariza a alfa depois de ampliar — funciona porque a arte é geométrica.
+Referência fotográfica não tem essa saída e fica no limite do que dá.
+
+Se o projeto for distribuído, este conjunto **não** pode ir junto como está: as
+molduras derivadas de preview de banco são obra derivada de material licenciado.
+O caminho é refazê-las de fonte livre — negativo escaneado próprio ou acervo em
+domínio público — ou desenhar a geometria pela norma ISO 1007, que é pública. O
+manifesto em `refs/borders.json` deixa a troca barata: muda a origem, roda o
+extrator de novo, o resto do código não sabe a diferença.
+
+## Fontes das referências de dano
 
 As máscaras em `masks/` são extraídas de fotografias reais. As de alta resolução
 vêm do Wikimedia Commons, escolhidas por três motivos: são scans em 3000–8000 px,

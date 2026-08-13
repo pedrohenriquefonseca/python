@@ -1,4 +1,5 @@
-from . import halation, scratches
+from . import border, halation, scratches
+from .border import BorderParams
 from .halation import HalationParams
 from .lightleak import (
     DYES, PALETTES, LeakParams, Recipe, apply, draw_dye, dye_response,
@@ -13,4 +14,5 @@ __all__ = [
     "PRESETS", "preset_params", "preset_recipe",
     "halation", "HalationParams",
     "scratches", "ScratchParams", "DAMAGE",
+    "border", "BorderParams",
 ]

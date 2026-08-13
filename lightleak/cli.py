@@ -15,8 +15,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from filmfx import (
-    DAMAGE, PALETTES, PRESETS, HalationParams, LeakParams, ScratchParams, apply,
-    halation, preset_params, preset_recipe, roll_recipe, scratches,
+    DAMAGE, PALETTES, PRESETS, BorderParams, HalationParams, LeakParams,
+    ScratchParams, apply, border, halation, preset_params, preset_recipe,
+    roll_recipe, scratches,
 )
 from filmfx.imaging import load_rgb, save_rgb
 
@@ -119,6 +120,30 @@ def _scratches(a: argparse.Namespace, img: np.ndarray) -> None:
     print(f"→ {out}")
 
 
+def _border(a: argparse.Namespace, img: np.ndarray) -> None:
+    fit = a.fit or BorderParams.fit
+    if a.gallery:
+        tiles, labels = [], []
+        for name in border.names():
+            p = BorderParams(seed=a.seed or 0, preset=name, fit=fit, window=a.window)
+            tiles.append(_thumb(border.apply(img, p), a.width))
+            labels.append(name)
+            print(f"{name:<18} {border.frames()[name]['note']}")
+        # As molduras têm proporções muito diferentes entre si; sem uma tela de
+        # altura comum o mosaico embaralharia as linhas.
+        th = max(t.shape[0] for t in tiles)
+        tiles = [np.pad(t, ((0, th - t.shape[0]), (0, 0), (0, 0))) for t in tiles]
+        _mosaic(tiles, labels, 4, a.output or "out/borders_gallery.jpg")
+        return
+
+    p = BorderParams(seed=a.seed or 0, preset=a.frame or "auto", fit=fit, window=a.window)
+    out = a.output or "out/border.jpg"
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    save_rgb(border.apply(img, p), out)
+    print(json.dumps(border.roll_recipe(p), indent=2, ensure_ascii=False))
+    print(f"→ {out}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Light leak generativo")
     ap.add_argument("input")
@@ -130,7 +155,13 @@ def main() -> None:
     ap.add_argument("--palettes", action="store_true", help="um quadro por paleta de corante")
     ap.add_argument("--palette", default=None, choices=sorted(PALETTES) + ["auto", "permutar"])
     ap.add_argument("--width", type=int, default=430, help="largura das miniaturas")
-    ap.add_argument("--effect", default="leak", choices=("leak", "halation", "scratches"))
+    ap.add_argument("--effect", default="leak",
+                    choices=("leak", "halation", "scratches", "border"))
+    ap.add_argument("--frame", default=None, help="qual moldura de filme")
+    ap.add_argument("--fit", default=None, choices=("expandir", "caber"),
+                    help="expandir cresce a tela; caber mantém o tamanho da entrada")
+    ap.add_argument("--window", type=int, default=-1,
+                    help="qual janela nas tiras de vários quadros")
     ap.add_argument("--sweep", type=int, default=0, help="N intensidades lado a lado")
     ap.add_argument(
         "--redshift", type=float, default=None,
@@ -152,6 +183,10 @@ def main() -> None:
 
     if a.effect == "scratches":
         _scratches(a, img)
+        return
+
+    if a.effect == "border":
+        _border(a, img)
         return
 
     if a.gallery:

@@ -9,7 +9,7 @@ Recursos planejados:
 1. **Vazamento de luz (light leak)** — implementado
 2. **Halação e brilho (halation/glow)** — implementado
 3. **Dano físico: vincos, riscos e poeira** — implementado
-4. Bordas de filme analógico, com e sem data — a fazer
+4. **Bordas de filme analógico** — 12 molduras; data de databack a fazer
 
 ## Como funciona o vazamento de luz
 
@@ -287,6 +287,117 @@ python3 tools/extract_masks.py refs_tex -o masks --manifest refs_tex/crops.json
 As texturas de origem vêm do [Texturelabs](https://texturelabs.org), gratuitas
 para uso comercial. Ficaram de fora as imagens de banco com marca d'água
 repetida em ladrilho — a marca sai na máscara junto com o risco.
+
+## Como funciona a borda de filme
+
+Doze molduras: o quadro deixa de ser retângulo solto e vira janela numa tira.
+Como o dano físico, e ao contrário do vazamento e da halação, este efeito **não
+é modelo** — é moldura medida.
+
+A razão é a mesma dos vincos, mas aqui ela é mais direta. A geometria do 135 é
+norma publicada (ISO 1007: fita de 35 mm, janela de 24×36, perfuração de
+2,79×1,98 a cada 4,74 mm, oito furos por quadro), e desenhá-la por parâmetro dá
+exatamente o que se espera de um desenho: furo idêntico ao furo vizinho, rebate
+de espessura constante, letreiro alinhado ao pixel. O que denuncia moldura
+sintética não é a forma estar errada — é ela estar *certa demais*. A máscara traz
+de graça o rebate de densidade desigual, o letreiro gasto e cortado, o canto do
+furo vivido, a franja de flare do scanner em volta dele e a fronteira entre
+imagem e rebate que não é reta, porque a janela da câmera tem rebarba.
+
+**Cor não decide cobertura.** É o achado que estruturou o extrator. A perfuração
+é branca e o fundo fora da tira também é branco: separados por cor, os furos
+ficariam transparentes e a foto apareceria através deles. O que distingue os dois
+não é o tom, é a **topologia** — o furo está dentro da tira, o fundo está fora.
+Então a extração roda por componentes conexos: a tinta é a distância até a cor de
+fundo, o componente de fundo é o que encosta na moldura da imagem, a silhueta é a
+tira com os buracos tapados, e os buracos se separam por área — os grandes são
+janela de imagem, os pequenos são perfuração e continuam opacos.
+
+Disso cai também a segunda coisa que o efeito precisa saber e que nenhuma máscara
+escalar carregaria: **onde a janela fica**. Por isso o formato é PNG RGBA — RGB é
+a cor da moldura, A é a cobertura — mais um `borders/frames.json` com o retângulo
+de cada janela.
+
+**Composição por alfa, em luz linear.** É a terceira forma do projeto: vazamento
+e halação somam exposição, dano mexe na transmissão, e moldura simplesmente
+**ocupa** o pixel. Um pixel meio coberto pela beirada da tira recebe a média das
+duas radiâncias, e média de radiância se faz em linear — em sRGB a beirada sairia
+escura demais.
+
+**Numa tira, a foto entra nos quatro quadros.** Preencher um e deixar três
+buracos pretos não é tira de filme, é tira de filme com defeito: o olho lê os
+vazios como erro antes de ler a moldura. Repetida, a tira lê como prova de
+contato, que é o que ela é.
+
+**Duas fontes exigiram tratamento oposto na ampliação.** As referências são
+pequenas (≤1043 px) e a máscara precisa servir a foto de 12 MP. Em arte chapada
+— tira vetorial — a alfa ampliada vira degradê, e borda de tira de filme não é
+degradê: ali a alfa é **relimiarizada** depois de ampliar, e o contorno duro
+volta, porque a forma é geométrica e nada se perde nisso. Em scan de filme de
+verdade a irregularidade *é* o conteúdo, e relimiarizar a destruiria: vai Lanczos
+puro. Confundir os dois casos estraga um dos dois, sempre.
+
+```bash
+python3 cli.py foto.jpg --effect border --frame portra-scan -o out/borda.jpg
+python3 cli.py foto.jpg --effect border --gallery       # as 12 molduras
+python3 cli.py foto.jpg --effect border --fit caber     # sem crescer a tela
+```
+
+| slider | faixa | padrão | efeito |
+|---|---|---|---|
+| `frame` | 12 molduras | `auto` | qual moldura; `auto` deixa a semente escolher |
+| `fit` | `expandir` / `caber` | `expandir` | cresce a tela ou encolhe a moldura |
+| `window` | 0..n, −1 | −1 | qual quadro nas tiras; −1 usa todos |
+
+Em `expandir` a janela passa a valer o tamanho da foto, então a foto não é
+reduzida e a tela é que cresce — é o único efeito do projeto que muda o tamanho
+da saída. Em `caber` a moldura inteira encolhe até caber no tamanho da entrada, e
+a saída nunca passa dele; não é *igual* à entrada, porque a moldura tem a
+proporção do formato de filme e forçar as duas a bater esticaria uma das duas.
+
+O crescimento tem teto de 4× a área da entrada, e ele existe por causa das
+tiras: dar resolução cheia a cada uma das quatro janelas multiplica a área por
+seis, e uma foto de 16 MP saía com 198 MP, estourando o decodificador antes de
+terminar. Moldura de quadro único cresce menos de duas vezes e nunca encosta no
+teto.
+
+A foto entra na janela **cobrindo e cortando, nunca esticando**: a janela tem a
+proporção do formato de filme e a foto tem a da câmera de quem usa, e o assunto é
+o único elemento aqui que ninguém aceita ver deformado.
+
+| moldura | caráter |
+|---|---|
+| `negativo-135` | quadro 135 completo, furos nas duas bordas, números laranja |
+| `tira-135` | quatro quadros em sequência, panorâmico |
+| `tira-135-longa` | quatro quadros com letreiro e numeração completos |
+| `tira-135-fina` | tira compacta de quatro quadros, rebate estreito |
+| `portra-scan` | quadro Portra 160 de scan real, código DX e rebate irregular |
+| `portra-grunge` | Portra 400 com respingo laranja e rebate sujo |
+| `slide-fino` | moldura escura e fina, marcações discretas de um lado |
+| `medio-6x6` | quadrado de médio formato, sem furos |
+| `medio-retrato` | retrato, janela creme de canto arredondado |
+| `fuji-nph400` | retrato preto denso, letreiro branco |
+| `copia-papel` | margem creme de cópia de papel envelhecida |
+| `rebate-numeros` | rebate escuro denso, números amarelos nos quatro lados |
+
+### Regenerar as máscaras
+
+```bash
+python3 tools/extract_borders.py refs -o borders --manifest refs/borders.json
+```
+
+O manifesto guarda, por moldura, o recorte e os limiares. Duas entradas trazem
+`window` à mão: são referências que já têm foto dentro, onde a janela não é
+fundo, é paisagem, e nenhum teste de cor a encontraria. São também as melhores
+referências do conjunto, justamente porque a moldura é filme de verdade.
+
+Ficaram de fora quatro referências com "FRAME MOCKUP" impresso na própria moldura
+— o texto sairia na máscara — e uma montagem de slide fotografada com iluminação
+desigual, em que o papelão e o fundo se distinguem por 0,03 de luminância. Sobre
+o xadrez cinza que os bancos usam para *desenhar* transparência num JPEG houve um
+teste dedicado, e ele não sobrevive à compressão: num arquivo de 339 px os dois
+níveis viram um contínuo que encosta no creme do papel envelhecido. Referência
+assim se resolve recortando no quadro da moldura, que é o que `copia-papel` faz.
 
 ## Uso
 

@@ -1,0 +1,87 @@
+{
+  "_nota": "Uma entrada por máscara de moldura. 'crop' e 'window' são frações do quadro. 'window' só é preciso quando a referência já tem foto dentro — sem ele a janela é achada por topologia.",
+
+  "negativo-135": {
+    "src": "images (25).jpg",
+    "note": "quadro 135 completo, furos nas duas bordas, números laranja",
+    "crop": [0.0, 0.0, 1.0, 0.70],
+    "mode": "sharp"
+  },
+  "tira-135": {
+    "src": "240_F_512157384_5DgNVF4ZmNS5Vt62hmg9Uyq6DOJCE3ME.jpg",
+    "note": "quatro quadros em sequência, panorâmico",
+    "mode": "sharp",
+    "despeckle": 1,
+    "window_min": 0.02
+  },
+  "tira-135-longa": {
+    "src": "1000_F_598901894_DGHAfB1TIk3cTbB6IbdKAZQbjpNJfJLx.webp",
+    "note": "quatro quadros com letreiro e números de quadro completos",
+    "bg": "alpha",
+    "mode": "sharp",
+    "despeckle": 2,
+    "window_min": 0.02
+  },
+  "portra-grunge": {
+    "src": "1000_F_508973116_MyDlLUT1ORaOybTD8W5tTDKjZrD0BEZj.jpg",
+    "note": "Portra 400 com respingo laranja e rebate sujo",
+    "mode": "photo",
+    "despeckle": 2
+  },
+  "portra-scan": {
+    "src": "images (29).jpg",
+    "note": "quadro Portra 160 de scan real, código DX e rebate irregular",
+    "crop": [0.050, 0.176, 0.980, 0.826],
+    "window": [0.037, 0.146, 0.928, 0.834],
+    "mode": "photo"
+  },
+  "tira-135-fina": {
+    "src": "images (25).jpg",
+    "note": "tira compacta de quatro quadros, rebate estreito",
+    "crop": [0.0, 0.71, 1.0, 0.95],
+    "mode": "sharp",
+    "window_min": 0.03
+  },
+  "slide-fino": {
+    "src": "images (27).jpg",
+    "note": "moldura escura e fina, marcações discretas de um lado",
+    "rect_window": false,
+    "mode": "photo"
+  },
+  "medio-6x6": {
+    "src": "images (31).jpg",
+    "note": "quadrado de médio formato, sem furos, marcações E100",
+    "mode": "photo"
+  },
+  "medio-retrato": {
+    "src": "images (30).jpg",
+    "note": "retrato, janela creme de canto arredondado, marcas de código",
+    "bg_rgb": [0.965, 0.949, 0.902],
+    "tol": 0.07,
+    "rect_window": false,
+    "mode": "photo"
+  },
+  "fuji-nph400": {
+    "src": "1000_F_603476333_36kwTDTkdI4ZxhhkJD5a7H9MEFGTzIy5.webp",
+    "note": "retrato preto denso, letreiro branco Fuji",
+    "bg": "alpha",
+    "mode": "sharp",
+    "despeckle": 2
+  },
+  "copia-papel": {
+    "src": "images (24).jpg",
+    "note": "margem creme de cópia de papel envelhecida, quinas gastas",
+    "crop": [0.140, 0.150, 0.866, 0.776],
+    "window": [0.026, 0.034, 0.974, 0.958],
+    "mode": "photo"
+  },
+  "rebate-numeros": {
+    "src": "1000_F_1985834686_dEIhD4FVq5UgzaMbhWPHJLaYSDXlZiOB.jpg",
+    "note": "rebate escuro denso com números amarelos nos quatro lados",
+    "bg_rgb": [0.910, 0.937, 0.906],
+    "tol": 0.14,
+    "ink": 0.50,
+    "mode": "photo",
+    "despeckle": 2
+  }
+}

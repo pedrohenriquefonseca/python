@@ -1,0 +1,236 @@
+{
+  "negativo-135": {
+    "note": "quadro 135 completo, furos nas duas bordas, números laranja",
+    "size": [
+      3000,
+      2235
+    ],
+    "windows": [
+      [
+        0.12249,
+        0.14825,
+        0.88755,
+        0.83288
+      ]
+    ]
+  },
+  "tira-135": {
+    "note": "quatro quadros em sequência, panorâmico",
+    "size": [
+      3000,
+      690
+    ],
+    "windows": [
+      [
+        0.00384,
+        0.14167,
+        0.2464,
+        0.85
+      ],
+      [
+        0.25312,
+        0.14167,
+        0.49664,
+        0.85
+      ],
+      [
+        0.50336,
+        0.14167,
+        0.74593,
+        0.85
+      ],
+      [
+        0.7536,
+        0.14167,
+        0.99616,
+        0.85
+      ]
+    ]
+  },
+  "tira-135-longa": {
+    "note": "quatro quadros com letreiro e números de quadro completos",
+    "size": [
+      3000,
+      688
+    ],
+    "windows": [
+      [
+        0.00609,
+        0.15487,
+        0.24746,
+        0.86283
+      ],
+      [
+        0.25456,
+        0.15044,
+        0.49594,
+        0.86283
+      ],
+      [
+        0.50304,
+        0.15044,
+        0.74442,
+        0.85841
+      ],
+      [
+        0.75254,
+        0.15044,
+        0.99391,
+        0.85841
+      ]
+    ]
+  },
+  "portra-grunge": {
+    "note": "Portra 400 com respingo laranja e rebate sujo",
+    "size": [
+      3000,
+      2503
+    ],
+    "windows": [
+      [
+        0.02023,
+        0.13788,
+        0.95196,
+        0.88485
+      ]
+    ]
+  },
+  "portra-scan": {
+    "note": "quadro Portra 160 de scan real, código DX e rebate irregular",
+    "size": [
+      3000,
+      2621
+    ],
+    "windows": [
+      [
+        0.02957,
+        0.13846,
+        0.9328,
+        0.84
+      ]
+    ]
+  },
+  "tira-135-fina": {
+    "note": "tira compacta de quatro quadros, rebate estreito",
+    "size": [
+      3000,
+      765
+    ],
+    "windows": [
+      [
+        0.00402,
+        0.15748,
+        0.24699,
+        0.80315
+      ],
+      [
+        0.25301,
+        0.15748,
+        0.49598,
+        0.80315
+      ],
+      [
+        0.50402,
+        0.15748,
+        0.74699,
+        0.80315
+      ],
+      [
+        0.75502,
+        0.15748,
+        0.99799,
+        0.80315
+      ]
+    ]
+  },
+  "slide-fino": {
+    "note": "moldura escura e fina, marcações discretas de um lado",
+    "size": [
+      3000,
+      2220
+    ],
+    "windows": [
+      [
+        0.01663,
+        0.02809,
+        0.97921,
+        0.98034
+      ]
+    ]
+  },
+  "medio-6x6": {
+    "note": "quadrado de médio formato, sem furos, marcações E100",
+    "size": [
+      3000,
+      2917
+    ],
+    "windows": [
+      [
+        0.06925,
+        0.03704,
+        0.96399,
+        0.96011
+      ]
+    ]
+  },
+  "medio-retrato": {
+    "note": "retrato, janela creme de canto arredondado, marcas de código",
+    "size": [
+      1993,
+      3000
+    ],
+    "windows": [
+      [
+        0.08647,
+        0.03829,
+        0.91353,
+        0.95729
+      ]
+    ]
+  },
+  "fuji-nph400": {
+    "note": "retrato preto denso, letreiro branco Fuji",
+    "size": [
+      2338,
+      3000
+    ],
+    "windows": [
+      [
+        0.05459,
+        0.03288,
+        0.94045,
+        0.96518
+      ]
+    ]
+  },
+  "copia-papel": {
+    "note": "margem creme de cópia de papel envelhecida, quinas gastas",
+    "size": [
+      3000,
+      2134
+    ],
+    "windows": [
+      [
+        0.01626,
+        0.01714,
+        0.97967,
+        0.96571
+      ]
+    ]
+  },
+  "rebate-numeros": {
+    "note": "rebate escuro denso com números amarelos nos quatro lados",
+    "size": [
+      3000,
+      1680
+    ],
+    "windows": [
+      [
+        0.052,
+        0.02321,
+        0.963,
+        0.97857
+      ]
+    ]
+  }
+}
