@@ -239,7 +239,9 @@ def secao_semanal(r: dict, data_ant: str) -> str:
     pj    = r["projeto"]
     causa = r.get("causa")
     saldo = pj["saldo"] or 0
-    L: list[str] = [f"## O que mudou desde {data_ant}?", ""]
+    # Cabeçalhos no mesmo padrão das demais seções do report: emoji + caixa alta,
+    # sem sintaxe de markdown — o report é lido como texto puro, não renderizado.
+    L: list[str] = [f"🤔 O QUE MUDOU DESDE O ULTIMO REPORT({data_ant})?"]
 
     if saldo > 0:
         efeito = "gerando um atraso de %s" % dias_txt(saldo)
@@ -266,7 +268,7 @@ def secao_semanal(r: dict, data_ant: str) -> str:
 
     # ── Ofensores ────────────────────────────────────────────────────────────
     ger = (causa or {}).get("geradores") or []
-    L += ["", "**Principais Ofensores**", ""]
+    L += ["", "🚨PRINCIPAIS OFENSORES"]
     if ger:
         for g in ger[:TOPO_OFENSORES]:
             # O número é o AUMENTO DE DURAÇÃO, não a variação do término: parte

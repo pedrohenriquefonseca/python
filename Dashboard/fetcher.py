@@ -14,6 +14,7 @@ Saída:
   data/tasks_<pid>.json  — tarefas de cada projeto
   data/fetch_state.json  — publicação já coletada com sucesso, por projeto
   data/last_update.json  — timestamp + status do último run
+  data/fetch_progress.json — andamento do run em curso (lido pela barra do dashboard)
   data/fetcher.log       — log rotativo (até 1MB)
 """
 import json
@@ -29,10 +30,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pwa_client
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
-HERE       = Path(__file__).parent
-DATA_DIR   = HERE / "data"
-LOG_FILE   = DATA_DIR / "fetcher.log"
-STATE_FILE = DATA_DIR / "fetch_state.json"
+HERE          = Path(__file__).parent
+DATA_DIR      = HERE / "data"
+LOG_FILE      = DATA_DIR / "fetcher.log"
+STATE_FILE    = DATA_DIR / "fetch_state.json"
+PROGRESS_FILE = DATA_DIR / "fetch_progress.json"
 DATA_DIR.mkdir(exist_ok=True)
 
 handler_file = logging.handlers.RotatingFileHandler(
@@ -68,6 +70,34 @@ def _save_status(ok: bool, started: float, **extra) -> None:
         **extra,
     }
     _write_json(DATA_DIR / "last_update.json", status)
+
+
+# ── Andamento (barra de progresso do dashboard) ───────────────────────────────
+
+def _save_progress(run_id: str, fase: str, rotulo: str,
+                   feito: int = 0, total: int = 0, ativo: bool = True) -> None:
+    """Grava data/fetch_progress.json com o andamento do run em curso.
+
+    `total = 0` significa fase sem denominador conhecido (autenticação, lista de
+    projetos, limpeza): o dashboard mostra a barra indeterminada. `run_id` é o
+    carimbo de início — é ele que distingue este run de um arquivo esquecido de
+    uma coleta anterior.
+
+    Andamento é acessório: se a escrita falhar, a coleta continua. Perder a barra
+    é irrelevante perto de perder o snapshot.
+    """
+    try:
+        _write_json(PROGRESS_FILE, {
+            "run_id":        run_id,
+            "fase":          fase,
+            "rotulo":        rotulo,
+            "feito":         feito,
+            "total":         total,
+            "ativo":         ativo,
+            "atualizado_em": datetime.now().isoformat(timespec="seconds"),
+        })
+    except Exception as exc:
+        log.debug("Falha ao gravar andamento (%s): %s", fase, exc)
 
 
 # ── Estado da coleta incremental ──────────────────────────────────────────────
@@ -136,20 +166,28 @@ def _fetch_tasks_safe(p: dict) -> tuple[str, int, str | None]:
     return pid, 0, str(last_exc)
 
 
-def main(forcar: bool = False) -> int:
+def main(forcar: bool = False, run_id: str | None = None) -> int:
     started = time.time()
+    # Quando o run nasce do botão do dashboard, o Flask já gravou um andamento
+    # inicial e passa o mesmo identificador aqui — é ele que amarra os dois
+    # arquivos ao mesmo run e faz o browser ignorar sobras de coletas antigas.
+    run_id  = run_id or datetime.fromtimestamp(started).isoformat(timespec="seconds")
     log.info("=" * 60)
     log.info("Fetcher iniciado — %s%s", datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
              "  [--full]" if forcar else "")
 
     # 1) Verifica autenticação
+    _save_progress(run_id, "autenticando", "Verificando autenticação…")
     if not pwa_client.is_authenticated():
         log.error("Sem token MSAL válido — rode: python -c "
                   "\"import pwa_client; pwa_client.start_device_flow()\"")
         _save_status(False, started, error="no_token", projects=0, tasks=0)
+        _save_progress(run_id, "erro", "Sem token válido — refaça o login no PWA",
+                       ativo=False)
         return 1
 
     # 2) Busca projetos (sempre — é barato e traz o LastPublishedDate de todos)
+    _save_progress(run_id, "projetos", "Buscando lista de projetos…")
     try:
         projects = pwa_client.fetch_projects()
         _write_json(DATA_DIR / "projects.json", projects)
@@ -157,6 +195,7 @@ def main(forcar: bool = False) -> int:
     except Exception as exc:
         log.exception("Erro ao buscar projetos:")
         _save_status(False, started, error=str(exc), projects=0, tasks=0)
+        _save_progress(run_id, "erro", f"Falha ao buscar projetos: {exc}", ativo=False)
         return 2
 
     # 3) Decide quem precisa de recoleta das tarefas
@@ -179,11 +218,26 @@ def main(forcar: bool = False) -> int:
     ordem = sorted(a_coletar,
                    key=lambda p: (state.get(p["id"]) or {}).get("tarefas", 10 ** 6),
                    reverse=True)
+
+    # A barra do dashboard mede esta fase: é aqui que o tempo do run vai. O
+    # denominador são os projetos a coletar — os reaproveitados entram só como
+    # nota no rótulo, para o número não parecer pequeno demais.
+    sufixo = f" · {len(reaproveitados)} reaproveitado(s)" if reaproveitados else ""
+
+    def _rotulo_tarefas(feito: int) -> str:
+        return f"Tarefas: {feito} de {len(a_coletar)} projeto(s){sufixo}"
+
+    concluidos = 0
+    _save_progress(run_id, "tarefas", _rotulo_tarefas(0), 0, len(a_coletar))
+
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(_fetch_tasks_safe, p): p for p in ordem}
         for fut in as_completed(futures):
             pid, n_tasks, err = fut.result()
             p = futures[fut]
+            concluidos += 1
+            _save_progress(run_id, "tarefas", _rotulo_tarefas(concluidos),
+                           concluidos, len(a_coletar))
             if err:
                 errors.append({"pid": pid, "error": err})
                 continue
@@ -201,6 +255,8 @@ def main(forcar: bool = False) -> int:
         log.warning("Falhas: %d projetos", len(errors))
 
     # 5) Limpa arquivos de projetos que não existem mais
+    _save_progress(run_id, "limpeza", "Organizando snapshot…",
+                   len(a_coletar), len(a_coletar))
     valid_ids = {p["id"] for p in projects}
     for padrao, rotulo in (("tasks_*.json", "tarefas"),
                            ("report_base_*.json", "base do report")):
@@ -224,9 +280,22 @@ def main(forcar: bool = False) -> int:
         reaproveitados=len(reaproveitados),
         errors=errors,
     )
-    log.info("Fetcher concluído em %.1fs.", time.time() - started)
+    duracao = time.time() - started
+    falhas  = f" · {len(errors)} falha(s)" if errors else ""
+    _save_progress(
+        run_id, "concluido",
+        f"Concluído em {duracao:.0f}s · {len(projects)} proj · "
+        f"{total_tasks} tarefas{falhas}",
+        len(a_coletar), len(a_coletar), ativo=False,
+    )
+    log.info("Fetcher concluído em %.1fs.", duracao)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(forcar="--full" in sys.argv))
+    _rid = None
+    if "--run-id" in sys.argv:
+        _i = sys.argv.index("--run-id")
+        if _i + 1 < len(sys.argv):
+            _rid = sys.argv[_i + 1]
+    sys.exit(main(forcar="--full" in sys.argv, run_id=_rid))

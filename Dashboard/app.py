@@ -175,6 +175,23 @@ def status():
     }))
 
 
+@app.route("/api/progress")
+def progress():
+    """Andamento do fetcher em curso (alimenta a barra do botão Atualizar).
+
+    Quem escreve é o fetcher; aqui só se repassa o arquivo. Sem arquivo, devolve
+    um andamento vazio — é o estado normal entre coletas.
+    """
+    return jsonify(_read_json(DATA_DIR / "fetch_progress.json", {
+        "run_id": None,
+        "fase":   "ocioso",
+        "rotulo": "",
+        "feito":  0,
+        "total":  0,
+        "ativo":  False,
+    }))
+
+
 @app.route("/api/keepalive")
 def keepalive():
     """SSE persistente — queda da conexão indica fechamento do browser."""
@@ -215,14 +232,40 @@ def keepalive():
 
 @app.route("/api/refresh", methods=["POST"])
 def refresh():
-    """Dispara o fetcher manualmente em background. Útil para forçar refresh."""
+    """Dispara o fetcher manualmente em background. Útil para forçar refresh.
+
+    O andamento inicial é gravado aqui, antes do Popen: o processo leva alguns
+    segundos para subir e escrever o primeiro progresso, e sem isso a barra
+    ficaria parada na sobra do run anterior. O run_id devolvido é o que o browser
+    usa para reconhecer o andamento deste run — e ignorar o de qualquer outro.
+    """
+    from datetime import datetime
+
+    run_id = datetime.now().isoformat(timespec="seconds")
+    try:
+        progresso = DATA_DIR / "fetch_progress.json"
+        tmp = progresso.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps({
+            "run_id":        run_id,
+            "fase":          "iniciando",
+            "rotulo":        "Iniciando coleta…",
+            "feito":         0,
+            "total":         0,
+            "ativo":         True,
+            "atualizado_em": run_id,
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(progresso)
+    except Exception as exc:
+        # Andamento é acessório — a coleta vale mais que a barra.
+        log.warning("Não foi possível gravar o andamento inicial: %s", exc)
+
     try:
         subprocess.Popen(
-            [sys.executable, str(HERE / "fetcher.py")],
+            [sys.executable, str(HERE / "fetcher.py"), "--run-id", run_id],
             cwd=str(HERE),
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
-        return jsonify({"started": True})
+        return jsonify({"started": True, "run_id": run_id})
     except Exception as exc:
         log.error("Erro ao iniciar fetcher: %s", exc)
         return jsonify({"error": str(exc)}), 500

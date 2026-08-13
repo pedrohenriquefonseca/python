@@ -79,6 +79,24 @@ a{color:inherit;text-decoration:none;}
 .btn-primary{background:var(--primary);color:#fff;}
 .btn-primary:hover{background:var(--primary-d);}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+/* Barra de progresso do refresh — faixa fina sob o botão, largura do botão */
+/* Largura fixa: o rótulo troca a cada segundo ("⏳ 42%" → "⏳ 43%") e sem isso
+   o botão — e a barra sob ele — mudariam de tamanho a cada tick. */
+.refresh-wrap{display:flex;flex-direction:column;gap:4px;min-width:140px;}
+.refresh-wrap .btn{width:100%;font-variant-numeric:tabular-nums;}
+.refresh-bar{height:3px;border-radius:2px;background:var(--border);
+  overflow:hidden;opacity:0;transition:opacity .25s;}
+.refresh-bar.on{opacity:1;}
+.refresh-bar-fill{height:100%;width:0;border-radius:2px;
+  background:var(--primary);transition:width .3s ease;}
+.refresh-bar-fill.done{background:var(--green);}
+.refresh-bar-fill.fail{background:var(--red);}
+/* Fase sem denominador conhecido: faixa curta indo e voltando */
+.refresh-bar-fill.indeterminate{width:35%;transition:none;
+  animation:refresh-slide 1.15s ease-in-out infinite;}
+@keyframes refresh-slide{
+  0%{margin-left:-35%;} 100%{margin-left:100%;}
+}
 
 /* FILTER BAR */
 .filter-bar{background:var(--white);border-bottom:1px solid var(--border);
@@ -553,7 +571,13 @@ tbody tr:hover td{background:#f8fafc;}
         <span id="status-text">Conectando…</span>
       </div>
       <span style="font-size:.72rem;color:var(--muted);" id="last-update"></span>
-      <button class="btn btn-primary" id="refresh-btn" onclick="triggerRefresh()" disabled>↻ Atualizar</button>
+      <div class="refresh-wrap">
+        <button class="btn btn-primary" id="refresh-btn" onclick="triggerRefresh()" disabled>↻ Atualizar</button>
+        <div class="refresh-bar" id="refresh-bar" role="progressbar"
+             aria-label="Progresso da atualização do banco de dados" aria-hidden="true">
+          <div class="refresh-bar-fill" id="refresh-bar-fill"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1045,6 +1069,9 @@ function fmtTimestamp(iso) {
 }
 
 async function loadStatus() {
+  // Enquanto o refresh roda, quem manda no texto é o poll de andamento — senão
+  // o tick de 60 s apagaria o progresso no meio da coleta.
+  if (REFRESH_RUNNING) return;
   try {
     const r = await fetch(API + '/api/status');
     const s = await r.json();
@@ -1064,36 +1091,128 @@ async function loadStatus() {
   } catch (e) { /* ignora */ }
 }
 
+/* ── Refresh com barra de progresso ──────────────────────────────────────────
+   O fetcher publica o andamento em /api/progress a cada avanço; aqui só se
+   desenha. A coleta das tarefas é a única fase com denominador conhecido — nas
+   outras a faixa fica indeterminada. */
+let REFRESH_RUNNING = false;
+const REFRESH_STALL_MS = 180000;   // sem novo andamento por 3 min = travou
+
+function setRefreshBar(mode, pct) {
+  const bar  = document.getElementById('refresh-bar');
+  const fill = document.getElementById('refresh-bar-fill');
+  fill.classList.remove('indeterminate', 'done', 'fail');
+  if (mode === 'off') {
+    bar.classList.remove('on');
+    bar.setAttribute('aria-hidden', 'true');
+    bar.removeAttribute('aria-valuenow');
+    fill.style.width = '0';
+    return;
+  }
+  bar.classList.add('on');
+  bar.setAttribute('aria-hidden', 'false');
+  if (mode === 'indeterminate') {
+    fill.style.width = '';           // devolve a largura ao CSS da animação
+    fill.classList.add('indeterminate');
+    bar.removeAttribute('aria-valuenow');
+    return;
+  }
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  fill.style.width = v + '%';
+  bar.setAttribute('aria-valuenow', v);
+  if (mode === 'done') fill.classList.add('done');
+  if (mode === 'fail') fill.classList.add('fail');
+}
+
+function endRefresh(ok, mensagem) {
+  const btn = document.getElementById('refresh-btn');
+  const lu  = document.getElementById('last-update');
+  btn.disabled    = false;
+  btn.textContent = '↻ Atualizar';
+  setRefreshBar(ok ? 'done' : 'fail', 100);
+  lu.textContent  = mensagem;
+  lu.style.color  = ok ? 'var(--green)' : 'var(--red)';
+  if (ok) loadProjects();
+  // Segura o resultado por um instante antes de devolver o topbar ao normal.
+  setTimeout(() => {
+    setRefreshBar('off');
+    REFRESH_RUNNING = false;
+    loadStatus();
+  }, 2500);
+}
+
 async function triggerRefresh() {
   const btn = document.getElementById('refresh-btn');
-  btn.disabled = true;
+  const lu  = document.getElementById('last-update');
+  btn.disabled    = true;
   btn.textContent = '⏳ Atualizando…';
+  REFRESH_RUNNING = true;
+  setRefreshBar('indeterminate');
+  lu.textContent = 'Iniciando coleta…';
+  lu.style.color = 'var(--muted)';
+  hideError();
+
+  let runId = null;
   try {
-    await fetch(API + '/api/refresh', { method: 'POST' });
-    // Aguarda o fetcher rodar (~90s) e recarrega
-    const poll = setInterval(async () => {
-      const r = await fetch(API + '/api/status');
-      const s = await r.json();
-      const finishedRecently = s.finished_at &&
-        (new Date() - new Date(s.finished_at)) < 5 * 60 * 1000;
-      if (finishedRecently) {
-        clearInterval(poll);
-        btn.disabled = false;
-        btn.textContent = '↻ Atualizar';
-        loadProjects();
-        loadStatus();
-      }
-    }, 3000);
-    setTimeout(() => {
-      clearInterval(poll);
-      btn.disabled = false;
-      btn.textContent = '↻ Atualizar';
-    }, 180000);
+    const r = await fetch(API + '/api/refresh', { method: 'POST' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    runId = j.run_id || null;
   } catch (e) {
-    btn.disabled = false;
-    btn.textContent = '↻ Atualizar';
     showError('Falha ao acionar refresh: ' + e.message);
+    endRefresh(false, 'Não foi possível iniciar a coleta');
+    return;
   }
+
+  let ultimoAvanco = Date.now();
+  let assinatura   = '';
+  const poll = setInterval(async () => {
+    let p;
+    try {
+      const r = await fetch(API + '/api/progress');
+      p = await r.json();
+    } catch (e) { return; }          // hipo de rede: tenta de novo no próximo tick
+
+    // Andamento de outro run (sobra de uma coleta anterior) não conta.
+    if (runId && p.run_id !== runId) {
+      if (Date.now() - ultimoAvanco > REFRESH_STALL_MS) {
+        clearInterval(poll);
+        endRefresh(false, 'A coleta não deu sinal — confira data/fetcher.log');
+      }
+      return;
+    }
+
+    const nova = `${p.fase}|${p.feito}|${p.total}|${p.atualizado_em || ''}`;
+    if (nova !== assinatura) { assinatura = nova; ultimoAvanco = Date.now(); }
+
+    if (p.fase === 'concluido') {
+      clearInterval(poll);
+      endRefresh(true, p.rotulo || 'Coleta concluída');
+      return;
+    }
+    if (p.fase === 'erro') {
+      clearInterval(poll);
+      showError(p.rotulo || 'A coleta falhou.');
+      endRefresh(false, p.rotulo || 'A coleta falhou');
+      return;
+    }
+
+    if (p.total > 0) {
+      const pct = (p.feito / p.total) * 100;
+      setRefreshBar('determinate', pct);
+      btn.textContent = '⏳ ' + Math.round(pct) + '%';
+    } else {
+      setRefreshBar('indeterminate');
+      btn.textContent = '⏳ Atualizando…';
+    }
+    lu.textContent = p.rotulo || 'Coletando…';
+    lu.style.color = 'var(--muted)';
+
+    if (Date.now() - ultimoAvanco > REFRESH_STALL_MS) {
+      clearInterval(poll);
+      endRefresh(false, 'A coleta parou de responder — confira data/fetcher.log');
+    }
+  }, 1000);
 }
 
 async function loadProjects() {

@@ -335,7 +335,8 @@ C:\Apps Python\Repos\Python\Dashboard\
 │   ├── report_base_<pid>.json — Cronograma do último report (id, start, end)
 │   ├── fetch_state.json — Publicação já coletada com sucesso, por projeto
 │   ├── lookup_cache.json— Cache das tabelas de pesquisa (validade de 7 dias)
-│   └── last_update.json — Timestamp do último fetch + status
+│   ├── last_update.json — Timestamp do último fetch + status
+│   └── fetch_progress.json — Andamento do run em curso (barra do botão Atualizar)
 ├── config.py            — Flags estáticas (ainda quase vazio)
 ├── requirements.txt     — msal, requests, flask, flask_cors
 ├── .token_cache.json    — Cache MSAL (NÃO COMMITAR)
@@ -364,7 +365,27 @@ Esquema:
    │ - chama PWA API              │
    │ - escreve data/*.json        │
    │ - escreve last_update.json   │
+   │ - escreve fetch_progress.json│
    └──────────┬───────────────────┘
+
+BARRA DE PROGRESSO DO BOTÃO "ATUALIZAR"
+---------------------------------------
+O fetcher publica o andamento em data/fetch_progress.json a cada avanço, e o
+dashboard desenha uma faixa de 3 px sob o botão.
+
+  {run_id, fase, rotulo, feito, total, ativo, atualizado_em}
+
+  - fase: iniciando → autenticando → projetos → tarefas → limpeza → concluido
+          (ou erro). Só a fase `tarefas` tem denominador: o número de projetos
+          a coletar. Nas outras, total = 0 e a barra fica indeterminada.
+  - O denominador são os projetos A COLETAR, não todos: os reaproveitados do
+    snapshot entram como nota no rótulo. Barra sobre o trabalho que existe.
+  - run_id: POST /api/refresh gera o identificador, grava o andamento inicial
+    (o processo demora a subir) e passa `--run-id` ao fetcher. O browser só
+    aceita andamento com esse id — sobra de coleta anterior é ignorada.
+  - GET /api/progress devolve o arquivo. O browser pesquisa a cada 1 s e desiste
+    se nada mudar por 3 min (fetcher travado ou morto).
+  - Andamento é acessório: falha ao gravá-lo nunca interrompe a coleta.
 
 COLETA INCREMENTAL
 ------------------
@@ -751,17 +772,38 @@ nunca e ofensor: empurrador() pula por cima dele para apontar a causa real.
 Tolerancia: datas sao de calendario e vinculos sao em dias uteis, entao o
 casamento de deslocamentos usa folga de 3 dias (rede.TOL_DIAS).
 
+O BLOCO 📌 RESUMO
+-----------------
+Quatro linhas, montadas por Report._bloco_resumo() — funcao unica porque o
+resumo sai por dois caminhos (upload de Excel e JSON do PWA) e duplicado eles
+divergiriam na primeira mudanca de texto.
+
+    - Conclusao do Projeto conforme Linha de Base: 15/07/25
+    - Tendencia de conclusao do projeto: 18/08/26, com desvio de 399 dias corridos.
+    - Duracao da Linha de Base = 336 dias corridos.
+    - Duracao atual estimada: 736 dias corridos, com aumento de 119,0% em relacao
+      a Linha de Base.
+
+O percentual e (duracao_atual - duracao_base) / duracao_base, uma casa decimal e
+virgula decimal. Sem linha de base (DD = 0) a ultima linha sai sem o comparativo,
+em vez de dividir por zero. Duracao atual leva +1 (o dia de inicio conta); a da
+linha de base nao — assimetria antiga, mantida para os numeros nao mudarem.
+
 A SECAO DO REPORT SEMANAL
 -------------------------
 Entra logo depois do resumo, via Report._montar_relatorio_md(secao_comparativo).
 
-    ## O que mudou entre 07/08/26 e 12/08/26?
+    🤔 O QUE MUDOU DESDE O ULTIMO REPORT(07/08/26)?
     - A Previsao de Conclusao mudou de ... para ..., gerando um atraso de N ...
     - A Duracao total do projeto mudou de ... para ..., gerando um aumento ...
 
-    **Principais Ofensores**
+    🚨PRINCIPAIS OFENSORES
     - <bisavo - avo - pai - nome>: Aumento na duracao de +N dias corridos
       (Responsavel: X, Termino atual: dd/mm/aa).
+
+Cabecalho e emoji + caixa alta, como as demais secoes: o report e lido como
+texto puro (colado em e-mail/WhatsApp), nao renderizado como markdown — "##" e
+"**" apareciam crus. Sem linha em branco entre o cabecalho e o primeiro item.
 
 Ate 3 tarefas, da que mais esticou para a que menos esticou.
 

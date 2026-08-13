@@ -114,7 +114,9 @@ def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
     #Monta uma seção em Markdown com as tarefas especificadas.
     secao_md = f'\n{titulo}'
     if tarefas_df.empty:
-        secao_md += '- Não existem tarefas que cumpram os critérios desta seção\n'
+        # O \n é daqui, não do título: no caminho com tarefas quem quebra a linha
+        # é o cabeçalho do grupo, que também separa um grupo do outro.
+        secao_md += '\n- Não existem tarefas que cumpram os critérios desta seção\n'
         return secao_md
 
     grupos = {}
@@ -159,6 +161,43 @@ def validar_colunas_necessarias(df):
         raise ValueError(f"Planilha incompatível. Colunas ausentes: {', '.join(colunas_faltantes)}")
     
     return df
+
+def _pct_br(valor):
+    """Percentual no padrão brasileiro, uma casa decimal: 119.047 → '119,0%'."""
+    return f'{valor:.1f}'.replace('.', ',') + '%'
+
+
+def _bloco_resumo(AA, BB, CC, DD, EE):
+    """Linhas do bloco 📌 RESUMO, sem o cabeçalho.
+
+    Existe uma função só porque o resumo é montado em dois fluxos (upload de
+    Excel e leitura do JSON do PWA) — duplicado, ele divergiria na primeira
+    alteração de texto.
+
+      AA término atual   BB desvio vs. linha de base   CC término da linha de base
+      DD duração da linha de base                      EE duração atual
+    """
+    dur_atual = EE + 1          # +1 como sempre foi: o dia de início conta
+    linhas = [
+        f'- Conclusão do Projeto conforme Linha de Base: {CC}',
+        f'- Tendência de conclusão do projeto: {AA}, com desvio de {BB} dias corridos.',
+        f'- Duração da Linha de Base = {DD} dias corridos.',
+    ]
+    # Projeto sem linha de base cai com DD = 0. Nesse caso a duração atual sai
+    # sozinha, em vez de uma divisão por zero.
+    if DD:
+        variacao = (dur_atual - DD) / DD * 100
+        if variacao > 0:
+            comparativo = f', com aumento de {_pct_br(variacao)} em relação à Linha de Base'
+        elif variacao < 0:
+            comparativo = f', com redução de {_pct_br(abs(variacao))} em relação à Linha de Base'
+        else:
+            comparativo = ', igual à Linha de Base'
+    else:
+        comparativo = ''
+    linhas.append(f'- Duração atual estimada: {dur_atual} dias corridos{comparativo}.')
+    return linhas
+
 
 #Gera o relatório semanal diretamente em arquivo Markdown (.md).
 def gerar_relatorio(nome_projeto):
@@ -210,12 +249,8 @@ def gerar_relatorio(nome_projeto):
         partes.append(f'REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n')
         partes.append('📌 RESUMO:\n')
 
-        resumo_textos = [
-            f'Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).',
-            f'Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).'
-        ]
-        for texto in resumo_textos:
-            partes.append(f'- {texto}\n')
+        for texto in _bloco_resumo(AA, BB, CC, DD, EE):
+            partes.append(f'{texto}\n')
 
         partes.append(
             montar_secao_markdown(
@@ -268,10 +303,9 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
     filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
     filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
     partes = [
-        f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}\n\n',
+        f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}\n',
         '📌 RESUMO:\n',
-        f'- Previsão de Conclusão: {AA}, com desvio de {BB} dias corridos em relação à Linha de Base ({CC}).\n',
-        f'- Duração atual estimada: {EE+1} dias corridos (Linha de Base = {DD} dias corridos).\n',
+        *[f'{linha}\n' for linha in _bloco_resumo(AA, BB, CC, DD, EE)],
         # Bloco "O que mudou entre X e Y?", logo depois do resumo. Sem ele o
         # relatório sai exatamente como antes.
         (f'\n{secao_comparativo}\n' if secao_comparativo else ''),
