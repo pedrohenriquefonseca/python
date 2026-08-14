@@ -326,6 +326,8 @@ C:\Apps Python\Repos\Python\Dashboard\
 │   └── rede.py          — Causalidade pela rede de dependências
 ├── report_semanal/
 │   └── Report.py        — Monta o report semanal em Markdown
+├── saude/
+│   └── saude.py         — Analise de saude estrutural dos cronogramas (KPIs + score)
 ├── cronograma_alocacao/ — Gantts de projetos, equipe interna e fornecedores
 ├── desembolso/          — Curva de desembolso
 ├── ferias/              — Controle de férias
@@ -846,3 +848,73 @@ busca dos ancestrais e relativa (os tres mais proximos), nao por nivel fixo:
 mesmo resultado nas tarefas de nivel 4 (a maioria) e correto nas mais rasas,
 onde o nivel fixo pegaria um ramo alheio. A linha de nivel 0 (o projeto) nunca
 entra como ancestral. Recurso aparece como "Responsavel: <nome>".
+
+
+================================================================================
+  17. ANALISE DE SAUDE DOS CRONOGRAMAS
+================================================================================
+
+Mede a qualidade ESTRUTURAL da rede de dependencias — o que faz, ou impede, a
+analise de ofensores do report semanal funcionar. Todo KPI aqui nasceu de um
+defeito observado: o Pirajucara perdeu 5 dos 6 dias de atraso porque a caminhada
+morreu numa tarefa-resumo.
+
+Motor: saude/saude.py. Rotas: GET /api/saude/<id> (completo) e GET /api/saude
+(todos os projetos, com as notas por indicador; o mestre consolidado fica fora).
+
+DUAS TELAS
+----------
+  view-saude      Painel geral, e o que abre no menu. Medidor da media da
+                  empresa, termometro da distribuicao por faixa, 6 cards de
+                  destaque (3 melhores / 3 piores) com observacao lida do
+                  proprio dado, radar comparando os dois grupos por indicador,
+                  barra de concentracao dos defeitos e mapa de calor
+                  projetos x indicadores. Tudo clicavel.
+  view-saudeproj  Analise de um projeto: seletor, medidor, diagnostico em texto
+                  e os 6 cards de KPI com o porque e a acao corretiva.
+                  Nao tem item de menu — NAV_ALIAS mantem "Saude" aceso.
+
+O radar deixa de fora indicador sem nota em nenhum projeto: eixo em zero seria
+lido como nota zero, e nao como ausencia de dado.
+
+O SCORE E UMA TAXA, NAO UMA CONTAGEM
+------------------------------------
+nota = 100 * (1 - taxa/limite), com taxa = tarefas com o defeito / tarefas-folha.
+Sem isso o Sede 2 (2.286 folhas) seria sempre pior que o Jardim Coreano (19), o
+que diria mais sobre o tamanho do projeto do que sobre a qualidade dele. O score
+final e a media das notas ponderada pelos pesos.
+
+  KPI                              peso  limite   o que conta
+  Dependencias ligadas a resumo      30    10%    pred e resumo, ou resumo com pred
+  Tarefas sem sucessora              20    25%    tarefa que nao empurra ninguem
+  Tarefas sem predecessora           15    25%    tarefa sem nada antes
+  Tarefas nivel 4 sem recurso        10    10%    nivel 4, fora marcos, sem recurso
+  Marcos com duracao                 10     5%    IsMilestone com duracao > 0
+  Trabalho fora do nivel 4           15    30%    tarefa de trabalho em nivel != 4
+
+Faixas: 90 Excelente · 75 Bom · 60 Regular · 40 Ruim · abaixo disso Critico.
+
+DESCONTOS DELIBERADOS
+---------------------
+  - A primeira tarefa nao precisa de predecessora; quem termina junto com o
+    projeto nao precisa de sucessora. Ambas saem da conta.
+KPIS RETIRADOS
+--------------
+Media a sucessora que comeca antes do fim da predecessora. Saiu em 14/08/26: das
+223 ocorrencias da base, 223 tinham a sucessora ja iniciada (pct > 0) — ou seja,
+eram sobreposicao real de obra, com a data virando fato, e nao erro de logica.
+O indicador dava nota cheia para todo mundo e nao media nada. No lugar entrou
+"tarefas sem linha de base", que discrimina de 0% (Sede 2) a 100% (Rota Roxa) e
+tem efeito direto: o bloco RESUMO do report sai de blStart/blEnd.
+
+"Tarefas sem linha de base" tambem saiu, no mesmo dia, por decisao do usuario.
+Os 15 pontos dele voltaram para marcos (5) e nivel 4 (5), que eu tinha cortado
+para abrir espaco ao KPI de recurso, e os 5 restantes foram para dependencias em
+resumo, que e o que de fato trava a analise.
+
+MARCO: DUAS COISAS DIFERENTES
+-----------------------------
+`marco` = duracao zero (derivado). `isMilestone` = o flag do Project, a INTENCAO
+de ser marco. O defeito e a divergencia: marcado como marco, mas com duracao.
+O flag entrou no snapshot em 14/08/26 (pwa_client.py); em snapshot anterior o
+KPI sai como indisponivel e os pesos sao renormalizados, em vez de mentir 100.

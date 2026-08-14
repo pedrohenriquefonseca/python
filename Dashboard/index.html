@@ -131,6 +131,112 @@ select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
 .kpi.c-blue .kpi-val{color:var(--primary);} .kpi.c-green .kpi-val{color:var(--green);}
 .kpi.c-yellow .kpi-val{color:var(--yellow);} .kpi.c-red .kpi-val{color:var(--red);}
 
+/* SAÚDE DOS CRONOGRAMAS */
+.sd-verde{color:var(--green);}    .sd-bg-verde{background:var(--green);}
+.sd-amarelo{color:var(--yellow);} .sd-bg-amarelo{background:var(--yellow);}
+.sd-laranja{color:var(--amber);}  .sd-bg-laranja{background:var(--amber);}
+.sd-vermelho{color:var(--red);}   .sd-bg-vermelho{background:var(--red);}
+.sd-hero{display:grid;grid-template-columns:220px 1fr;gap:26px;align-items:center;}
+.sd-gauge{position:relative;height:150px;}
+.sd-gauge-val{position:absolute;left:0;right:0;bottom:6px;text-align:center;}
+.sd-gauge-num{font-size:2.5rem;font-weight:800;line-height:1;}
+.sd-gauge-faixa{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
+.sd-hero-txt p{font-size:.82rem;color:var(--text);line-height:1.65;margin-bottom:8px;}
+.sd-hero-txt strong{font-weight:700;}
+.sd-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.sd-chip{font-size:.7rem;padding:4px 10px;border-radius:999px;
+  background:#f1f5f9;border:1px solid var(--border);color:var(--muted);}
+.sd-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.sd-kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:15px 17px;display:flex;flex-direction:column;gap:7px;}
+.sd-kpi.off{opacity:.62;}
+.sd-kpi-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+.sd-kpi-nome{font-size:.78rem;font-weight:700;line-height:1.25;}
+.sd-kpi-nota{font-size:1.35rem;font-weight:800;line-height:1;white-space:nowrap;}
+.sd-bar{height:5px;border-radius:3px;background:#eef2f7;overflow:hidden;}
+.sd-bar-fill{height:100%;border-radius:3px;}
+.sd-kpi-qtd{font-size:.72rem;color:var(--muted);}
+.sd-kpi-qtd b{color:var(--text);font-weight:700;}
+.sd-kpi-txt{font-size:.7rem;color:var(--muted);line-height:1.5;}
+.sd-kpi-acao{font-size:.7rem;line-height:1.5;color:var(--text);
+  border-left:2px solid var(--border);padding-left:8px;border-radius:0;}
+/* Painel geral */
+.sd-panel-top{display:grid;grid-template-columns:250px 1fr;gap:18px;}
+.sd-media-card{display:flex;flex-direction:column;justify-content:center;gap:6px;}
+.sd-media-lbl{text-align:center;font-size:.65rem;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--muted);}
+.sd-termo{display:flex;height:26px;border-radius:6px;overflow:hidden;margin-bottom:9px;}
+.sd-termo-seg{display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:800;color:#fff;transition:width .4s;}
+.sd-termo-leg{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:11px;}
+.sd-termo-item{display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--muted);}
+.sd-termo-dot{width:9px;height:9px;border-radius:2px;}
+.sd-panel-txt{font-size:.8rem;line-height:1.65;color:var(--text);}
+.sd-panel-txt strong{font-weight:700;}
+/* As duas colunas se esticam para a mesma altura (padrão do grid) e, dentro de
+   cada uma, as 3 linhas dividem o espaço em partes iguais — assim os 6 cards
+   ficam do mesmo tamanho, independentemente do tamanho do texto de cada um. */
+.sd-destaques{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;}
+.sd-destaque-col{display:flex;flex-direction:column;gap:10px;min-height:0;}
+.sd-destaque-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+  font-size:.82rem;font-weight:800;min-height:22px;}
+.sd-destaque-sub{font-size:.68rem;font-weight:400;color:var(--muted);}
+.sd-cards{flex:1;display:grid;grid-template-rows:repeat(3,1fr);gap:10px;}
+.sd-dcard{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);
+  padding:13px 16px;display:grid;grid-template-columns:104px 1fr;gap:16px;
+  align-items:center;cursor:pointer;transition:border-color .15s,transform .15s;}
+.sd-dcard-medidor{position:relative;height:54px;}
+.sd-dcard-num{position:absolute;left:0;right:0;bottom:0;text-align:center;
+  font-size:1.15rem;font-weight:800;line-height:1;}
+.sd-dcard-prosa{font-size:.73rem;line-height:1.6;color:var(--muted);}
+.sd-dcard-prosa b{color:var(--text);font-weight:700;}
+.sd-dcard:hover{transform:translateY(-1px);}
+.sd-dcard.top{border-left:3px solid var(--green);}
+.sd-dcard.bottom{border-left:3px solid var(--red);}
+.sd-dcard:hover.top{border-color:var(--green);}
+.sd-dcard:hover.bottom{border-color:var(--red);}
+.sd-dcard-score{font-size:1.5rem;font-weight:800;line-height:1;text-align:center;}
+.sd-dcard-pos{font-size:.6rem;color:var(--muted);text-align:center;margin-top:3px;
+  text-transform:uppercase;letter-spacing:.06em;}
+.sd-dcard-nome{font-size:.82rem;font-weight:700;margin-bottom:4px;}
+.sd-dcard-obs{font-size:.71rem;color:var(--muted);line-height:1.5;}
+.sd-dcard-obs b{color:var(--text);font-weight:700;}
+.sd-dcard-stats{font-size:.71rem;color:var(--text);margin-bottom:5px;}
+.sd-dcard-lista{display:flex;flex-direction:column;gap:2px;margin:5px 0 6px;}
+.sd-dcard-linha{display:grid;grid-template-columns:1fr auto auto;gap:8px;
+  align-items:baseline;font-size:.7rem;color:var(--muted);}
+.sd-dcard-linha b{color:var(--text);font-weight:600;}
+.sd-dcard-qtd{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.sd-dcard-nota{font-weight:800;font-variant-numeric:tabular-nums;
+  min-width:26px;text-align:right;}
+.sd-dcard-zerado{font-size:.68rem;color:var(--green);line-height:1.45;margin-bottom:5px;}
+.sd-dcard-efeito{font-size:.7rem;line-height:1.5;color:var(--text);
+  border-left:2px solid var(--border);padding-left:8px;border-radius:0;}
+.sd-aviso{background:var(--yellow-lt);border:1px solid #fde68a;border-radius:var(--radius);
+  padding:12px 16px;font-size:.78rem;line-height:1.55;color:#854d0e;}
+.sd-aviso b{font-weight:700;}
+.sd-heat-wrap{overflow-x:auto;}
+.sd-heat{display:grid;gap:3px;min-width:640px;}
+.sd-heat-lbl{font-size:.62rem;color:var(--muted);line-height:1.2;
+  display:flex;align-items:flex-end;justify-content:center;text-align:center;padding-bottom:4px;}
+.sd-heat-proj{font-size:.72rem;font-weight:600;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;display:flex;align-items:center;cursor:pointer;}
+.sd-heat-proj:hover{color:var(--primary);text-decoration:underline;}
+.sd-heat-cell{height:26px;border-radius:4px;display:flex;align-items:center;
+  justify-content:center;font-size:.63rem;font-weight:700;color:#fff;cursor:pointer;}
+.sd-heat-cell.vazio{background:#eef2f7;color:var(--muted);}
+.sd-heat-score{display:flex;align-items:center;justify-content:flex-end;
+  font-size:.76rem;font-weight:800;}
+.sd-heat-leg{display:flex;align-items:center;gap:7px;font-size:.65rem;color:var(--muted);}
+.sd-heat-ramp{width:76px;height:9px;border-radius:5px;
+  background:linear-gradient(90deg,#dc2626,#d97706,#ca8a04,#16a34a);}
+.sd-voltar{background:none;border:1px solid var(--border);border-radius:6px;
+  padding:5px 12px;font-size:.72rem;font-weight:600;color:var(--muted);
+  cursor:pointer;font-family:inherit;}
+.sd-voltar:hover{border-color:var(--primary);color:var(--primary);}
+
+.sd-empty{padding:40px;text-align:center;color:var(--muted);font-size:.85rem;}
+
 /* CARDS */
 .card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;}
 .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
@@ -537,6 +643,9 @@ tbody tr:hover td{background:#f8fafc;}
     <div class="nav-item" onclick="showView('cidades')" id="nav-cidades">
       <span class="nav-icon">◫</span><span class="nav-label">Por Cidade</span>
     </div>
+    <div class="nav-item" onclick="showView('saude')" id="nav-saude">
+      <span class="nav-icon">🩺</span><span class="nav-label">Saúde dos Cronogramas</span>
+    </div>
     <div class="nav-section" style="margin-top:8px;">Sistema</div>
     <div class="nav-item" id="nav-report"     onclick="showView('report')"><span class="nav-icon">📋</span><span class="nav-label">Report Semanal</span></div>
     <div class="nav-item" id="nav-desembolso" onclick="showView('desembolso')"><span class="nav-icon">📈</span><span class="nav-label">Curva de Desembolso</span></div>
@@ -698,6 +807,123 @@ tbody tr:hover td{background:#f8fafc;}
         <div id="map-container"></div>
         <div class="map-legend" id="map-legend"></div>
       </div>
+    </div>
+
+    <!-- SAÚDE — PAINEL GERAL (todos os projetos) -->
+    <div class="view" id="view-saude">
+      <div class="sd-aviso" id="saude-aviso" style="display:none;"></div>
+      <div class="sd-panel-top">
+        <div class="card sd-media-card">
+          <div class="sd-gauge">
+            <canvas id="chart-saude-media"></canvas>
+            <div class="sd-gauge-val">
+              <div class="sd-gauge-num" id="saude-media-num">—</div>
+              <div class="sd-gauge-faixa" id="saude-media-faixa"></div>
+            </div>
+          </div>
+          <div class="sd-media-lbl">Média da empresa</div>
+        </div>
+        <div class="card sd-dist-card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Como a carteira se distribui</div>
+              <div class="card-sub" id="saude-dist-sub"></div>
+            </div>
+          </div>
+          <div class="sd-termo" id="saude-termo"></div>
+          <div class="sd-termo-leg" id="saude-termo-leg"></div>
+          <p class="sd-panel-txt" id="saude-panel-txt"></p>
+        </div>
+      </div>
+
+      <div class="sd-destaques">
+        <div class="sd-destaque-col">
+          <div class="sd-destaque-head sd-verde">
+            <span>🏆 Melhores da carteira</span>
+            <span class="sd-destaque-sub">rede íntegra — o report acha o ofensor</span>
+          </div>
+          <div class="sd-cards" id="saude-melhores"></div>
+        </div>
+        <div class="sd-destaque-col">
+          <div class="sd-destaque-head sd-vermelho">
+            <span>⚠ Requerem mais atenção</span>
+            <span class="sd-destaque-sub">o atraso fica sem dono no report</span>
+          </div>
+          <div class="sd-cards" id="saude-piores"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">O que separa os melhores dos piores</div>
+              <div class="card-sub">Nota média dos 3 primeiros contra os 3 últimos, por indicador</div>
+            </div>
+          </div>
+          <div class="chart-wrap-tall"><canvas id="chart-saude-radar"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Onde os defeitos se concentram</div>
+              <div class="card-sub">Total de tarefas apontadas na carteira, por indicador</div>
+            </div>
+          </div>
+          <div class="chart-wrap-tall"><canvas id="chart-saude-concentracao"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Mapa de calor</div>
+            <div class="card-sub" id="saude-heat-sub">Cada linha é um projeto · clique para abrir a análise</div>
+          </div>
+          <div class="sd-heat-leg">
+            <span>pior</span>
+            <span class="sd-heat-ramp"></span>
+            <span>melhor</span>
+          </div>
+        </div>
+        <div class="sd-heat-wrap"><div class="sd-heat" id="saude-heat"></div></div>
+      </div>
+    </div>
+
+    <!-- SAÚDE — PROJETO INDIVIDUAL -->
+    <div class="view" id="view-saudeproj">
+      <div class="card" style="padding:13px 20px;">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <button type="button" class="sd-voltar" onclick="showView('saude')">‹ Todos os projetos</button>
+          <span style="font-size:.75rem;font-weight:600;color:var(--muted);">Projeto</span>
+          <select id="saude-selector" class="fselect"
+            style="font-size:.84rem;font-weight:600;min-width:260px;"
+            onchange="onSaudeSelect()"></select>
+          <span id="saude-meta" style="font-size:.72rem;color:var(--muted);"></span>
+        </div>
+      </div>
+
+      <div class="card" id="saude-hero-card">
+        <div class="sd-empty" id="saude-hero-vazio">Selecione um projeto.</div>
+        <div class="sd-hero" id="saude-hero" style="display:none;">
+          <div>
+            <div class="sd-gauge">
+              <canvas id="chart-saude-gauge"></canvas>
+              <div class="sd-gauge-val">
+                <div class="sd-gauge-num" id="saude-score">—</div>
+                <div class="sd-gauge-faixa" id="saude-faixa"></div>
+              </div>
+            </div>
+          </div>
+          <div class="sd-hero-txt">
+            <div class="card-title" style="margin-bottom:8px;">Diagnóstico</div>
+            <p id="saude-diagnostico"></p>
+            <div class="sd-chips" id="saude-chips"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sd-kpi-grid" id="saude-kpis"></div>
     </div>
 
     <!-- TOOL: REPORT SEMANAL -->
@@ -1381,13 +1607,18 @@ const VIEW_META = {
   projetos:   { title:'Por Projeto',              sub:'Cronograma completo com Gantt' },
   clientes:   { title:'Por Cliente',              sub:'Métricas agregadas por cliente' },
   cidades:    { title:'Por Cidade',               sub:'Distribuição geográfica dos projetos' },
+  saude:      { title:'Saúde dos Cronogramas',    sub:'Qualidade estrutural da rede de dependências' },
+  saudeproj:  { title:'Saúde do Cronograma',      sub:'Análise de um projeto' },
   report:     { title:'Report Semanal',           sub:'' },
   desembolso: { title:'Curva de Desembolso',      sub:'' },
   cronograma: { title:'Cronogramas de Alocação',  sub:'' },
   ferias:     { title:'Anotação de Férias',        sub:'' },
 };
 
-const TOOL_VIEWS = new Set(['report','desembolso','cronograma','ferias']);
+// A barra de filtros (cliente/coordenador) não se aplica a estas views.
+const TOOL_VIEWS = new Set(['report','desembolso','cronograma','ferias','saude','saudeproj']);
+// Views sem item próprio no menu: qual item fica aceso enquanto elas estão abertas.
+const NAV_ALIAS = { saudeproj: 'saude' };
 
 function showView(v) {
   const isTool = TOOL_VIEWS.has(v);
@@ -1397,9 +1628,11 @@ function showView(v) {
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.getElementById('view-' + v).classList.add('active');
   document.querySelectorAll('.nav-item[id]').forEach(el => el.classList.remove('active'));
-  document.getElementById('nav-' + v).classList.add('active');
+  document.getElementById('nav-' + (NAV_ALIAS[v] || v)).classList.add('active');
   document.getElementById('view-title').textContent = VIEW_META[v].title;
-  if (v === 'report') popularSeletorReport();
+  if (v === 'report')    popularSeletorReport();
+  if (v === 'saude')     carregarSaudeTodos();
+  if (v === 'saudeproj') abrirSaudeProjeto();
   if (!isTool && ALL_PROJECTS.length) renderCurrentView();
 }
 
@@ -2074,6 +2307,476 @@ function renderClientes(data) {
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
       scales:{ x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#f1f5f9'}}, y:{min:0,ticks:{color:'#64748b',font:{size:10},callback:v=>'+'+v+' d'},grid:{color:'#f1f5f9'}} } }
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SAÚDE DOS CRONOGRAMAS
+
+   Mede a qualidade estrutural da rede de dependências — o que faz (ou impede)
+   a análise de causa do report semanal funcionar. O score é uma taxa sobre o
+   número de tarefas de trabalho, senão projeto grande seria sempre pior que
+   pequeno.
+═══════════════════════════════════════════════════════════════ */
+let SAUDE_TODOS = null;      // cache do painel geral; recarrega junto do projeto
+
+const SD_CORES = { verde:'#16a34a', amarelo:'#ca8a04', laranja:'#d97706', vermelho:'#dc2626' };
+
+function abrirSaudeProjeto() {
+  const sel = document.getElementById('saude-selector');
+  if (!sel) return;
+  const prev = sel.value;
+  const lista = [...ALL_PROJECTS].sort((a,b) =>
+    String(a.name).localeCompare(String(b.name), 'pt-BR'));
+  if (!lista.length) {
+    sel.innerHTML = '<option value="">Nenhum projeto disponível</option>';
+    return;
+  }
+  sel.innerHTML = lista.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  if (prev && lista.find(p => String(p.id) === prev)) sel.value = prev;
+  onSaudeSelect();
+}
+
+function onSaudeSelect() {
+  const id = document.getElementById('saude-selector').value;
+  if (id) carregarSaudeProjeto(id);
+}
+
+/* Abre a análise de um projeto vindo do painel geral. */
+function irParaSaude(id) {
+  const sel = document.getElementById('saude-selector');
+  if (sel) sel.value = id;
+  showView('saudeproj');
+}
+
+async function carregarSaudeProjeto(id) {
+  const meta = document.getElementById('saude-meta');
+  meta.textContent = 'Analisando…';
+  try {
+    const r = await fetch(API + '/api/saude/' + id);
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || r.statusText);
+    renderSaude(d);
+  } catch (e) {
+    meta.textContent = '';
+    document.getElementById('saude-hero').style.display = 'none';
+    const vazio = document.getElementById('saude-hero-vazio');
+    vazio.style.display = '';
+    vazio.textContent = 'Não foi possível analisar: ' + e.message;
+    document.getElementById('saude-kpis').innerHTML = '';
+  }
+}
+
+function renderSaude(d) {
+  document.getElementById('saude-hero-vazio').style.display = 'none';
+  document.getElementById('saude-hero').style.display = '';
+  document.getElementById('saude-meta').textContent =
+    `${d.tarefas} linhas · ${d.folhas} tarefas de trabalho · ${d.total_defeitos} apontamento(s)`;
+
+  const cor = SD_CORES[d.cor] || SD_CORES.vermelho;
+  const num = document.getElementById('saude-score');
+  num.textContent = String(d.score).replace('.', ',');
+  num.style.color = cor;
+  const fx = document.getElementById('saude-faixa');
+  fx.textContent = d.faixa;
+  fx.style.color = cor;
+
+  // Gauge: meia-rosca, o quanto do 100 o projeto conquistou
+  if (charts['sd-gauge']) charts['sd-gauge'].destroy();
+  charts['sd-gauge'] = new Chart(document.getElementById('chart-saude-gauge'), {
+    type: 'doughnut',
+    data: { datasets: [{ data: [d.score, Math.max(0, 100 - d.score)],
+                         backgroundColor: [cor, '#eef2f7'], borderWidth: 0 }] },
+    options: { rotation: -90, circumference: 180, cutout: '72%',
+               responsive: true, maintainAspectRatio: false,
+               plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+  });
+
+  // Diagnóstico em texto: os dois piores indicadores conduzem a frase
+  const avaliados = d.kpis.filter(k => k.nota !== null);
+  const piores = [...avaliados].sort((a,b) => a.nota - b.nota).filter(k => k.nota < 100);
+  const limpos = avaliados.filter(k => k.qtd === 0).length;
+  let txt;
+  if (!piores.length) {
+    txt = `<strong>${d.nome}</strong> passou em todos os indicadores. A rede de dependências
+           está íntegra: a análise de ofensores do report semanal consegue percorrer o
+           cronograma inteiro.`;
+  } else {
+    const p = piores[0];
+    txt = `<strong>${d.nome}</strong> tem <strong>${d.total_defeitos} apontamento(s)</strong>
+           em ${d.folhas} tarefas. O indicador mais fraco é
+           <strong>${p.nome}</strong> (nota ${String(p.nota).replace('.',',')}),
+           com ${p.qtd} tarefa(s) — ${p.taxa.toString().replace('.',',')}% do cronograma.
+           ${p.porque}`;
+    if (piores[1]) {
+      txt += ` Em seguida vem <strong>${piores[1].nome}</strong>
+               (nota ${String(piores[1].nota).replace('.',',')}, ${piores[1].qtd} tarefas).`;
+    }
+    if (limpos) txt += ` ${limpos} indicador(es) estão zerados.`;
+  }
+  document.getElementById('saude-diagnostico').innerHTML = txt;
+
+  const chips = [];
+  const semFlag = d.kpis.find(k => k.indisponivel);
+  if (semFlag) chips.push(semFlag.motivo_indisponivel);
+  document.getElementById('saude-chips').innerHTML =
+    chips.map(c => `<span class="sd-chip">${c}</span>`).join('');
+
+  // Cartões dos KPIs
+  document.getElementById('saude-kpis').innerHTML = d.kpis.map(k => {
+    if (k.indisponivel) {
+      return `<div class="sd-kpi off">
+        <div class="sd-kpi-top"><span class="sd-kpi-nome">${k.nome}</span>
+          <span class="sd-kpi-nota" style="color:var(--muted);">—</span></div>
+        <div class="sd-bar"><div class="sd-bar-fill" style="width:0"></div></div>
+        <div class="sd-kpi-qtd">Indicador indisponível</div>
+        <div class="sd-kpi-txt">${k.motivo_indisponivel}</div></div>`;
+    }
+    const c = SD_CORES[k.cor];
+    return `<div class="sd-kpi">
+      <div class="sd-kpi-top">
+        <span class="sd-kpi-nome">${k.nome}</span>
+        <span class="sd-kpi-nota" style="color:${c}">${String(k.nota).replace('.',',')}</span>
+      </div>
+      <div class="sd-bar"><div class="sd-bar-fill" style="width:${k.nota}%;background:${c}"></div></div>
+      <div class="sd-kpi-qtd"><b>${k.qtd}</b> tarefa(s) · ${String(k.taxa).replace('.',',')}% do cronograma · peso ${k.peso}</div>
+      <div class="sd-kpi-txt">${k.desc} ${k.porque}</div>
+      <div class="sd-kpi-acao">↳ ${k.acao}</div>
+    </div>`;
+  }).join('');
+
+}
+
+/* ── Painel geral ─────────────────────────────────────────────────────────── */
+
+const SD_ABREV = {
+  dep_resumo:'Dep. em resumo', sem_sucessora:'Sem sucessora',
+  sem_predecessora:'Sem predec.', sem_recurso:'Sem recurso',
+  marco_com_duracao:'Marcos', fora_nivel4:'Fora do nível 4',
+};
+const SD_FAIXAS = [
+  { nome:'Excelente', min:90, cor:'#16a34a' },
+  { nome:'Bom',       min:75, cor:'#4ade80' },
+  { nome:'Regular',   min:60, cor:'#ca8a04' },
+  { nome:'Ruim',      min:40, cor:'#d97706' },
+  { nome:'Crítico',   min:0,  cor:'#dc2626' },
+];
+
+const n1 = v => String(Math.round(v * 10) / 10).replace('.', ',');
+const corDaNota = n => (SD_FAIXAS.find(f => n >= f.min) || SD_FAIXAS[4]).cor;
+
+async function carregarSaudeTodos() {
+  if (SAUDE_TODOS) { renderPainelSaude(SAUDE_TODOS); return; }
+  try {
+    const r = await fetch(API + '/api/saude');
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || r.statusText);
+    SAUDE_TODOS = d;
+    renderPainelSaude(d);
+  } catch (e) {
+    document.getElementById('saude-heat').innerHTML =
+      `<div class="sd-empty">Não foi possível carregar o painel: ${e.message}</div>`;
+  }
+}
+
+function renderPainelSaude(d) {
+  const lista = d.projetos || [];        // vem ordenada do pior para o melhor
+  const inds  = d.indicadores || [];
+  if (!lista.length) {
+    document.getElementById('saude-heat').innerHTML =
+      '<div class="sd-empty">Nenhum projeto com snapshot disponível.</div>';
+    return;
+  }
+  const melhores = [...lista].reverse().slice(0, 3);
+  // Sem o filtro, numa carteira de poucos projetos o mesmo apareceria dos dois
+  // lados — campeão e lanterna ao mesmo tempo.
+  const idsMelhores = new Set(melhores.map(p => p.id));
+  const piores = lista.filter(p => !idsMelhores.has(p.id)).slice(0, 3);
+
+  // O radar, a concentração e o mapa de calor dependem das notas por indicador,
+  // que só existem no /api/saude a partir de 14/08/26. Servidor antigo em
+  // memória serve o HTML novo do disco e a API velha: sem este aviso os três
+  // saem vazios e parecem defeito de tela.
+  const aviso = document.getElementById('saude-aviso');
+  const desatualizado = !inds.length || !lista.some(p => Array.isArray(p.notas));
+  aviso.style.display = desatualizado ? '' : 'none';
+  if (desatualizado) {
+    aviso.innerHTML = `<b>Servidor desatualizado.</b> O processo do Flask em execução é
+      anterior a esta tela e não devolve as notas por indicador, então o radar, a
+      concentração de defeitos e o mapa de calor ficam de fora. Reinicie o servidor
+      (<code>python app.py</code>) e recarregue a página.`;
+  }
+
+  // Medidor da média
+  const corMedia = corDaNota(d.media);
+  document.getElementById('saude-media-num').textContent = n1(d.media);
+  document.getElementById('saude-media-num').style.color = corMedia;
+  const faixaMedia = SD_FAIXAS.find(f => d.media >= f.min) || SD_FAIXAS[4];
+  const fm = document.getElementById('saude-media-faixa');
+  fm.textContent = faixaMedia.nome;
+  fm.style.color = corMedia;
+  if (charts['sd-media']) charts['sd-media'].destroy();
+  charts['sd-media'] = new Chart(document.getElementById('chart-saude-media'), {
+    type:'doughnut',
+    data:{ datasets:[{ data:[d.media, Math.max(0, 100 - d.media)],
+                       backgroundColor:[corMedia, '#eef2f7'], borderWidth:0 }] },
+    options:{ rotation:-90, circumference:180, cutout:'72%', responsive:true,
+              maintainAspectRatio:false,
+              plugins:{ legend:{display:false}, tooltip:{enabled:false} } },
+  });
+
+  // Termômetro da carteira
+  const grupos = SD_FAIXAS.map(f => ({
+    ...f, qtd: lista.filter(p => (SD_FAIXAS.find(x => p.score >= x.min) || SD_FAIXAS[4]).nome === f.nome).length,
+  })).filter(g => g.qtd);
+  document.getElementById('saude-dist-sub').textContent =
+    `${lista.length} projetos · ${lista.reduce((s,p) => s + p.total_defeitos, 0)} apontamentos no total`;
+  document.getElementById('saude-termo').innerHTML = grupos.map(g =>
+    `<div class="sd-termo-seg" style="width:${100*g.qtd/lista.length}%;background:${g.cor}"
+          title="${g.nome}: ${g.qtd} projeto(s)">${g.qtd}</div>`).join('');
+  document.getElementById('saude-termo-leg').innerHTML = grupos.map(g =>
+    `<span class="sd-termo-item"><span class="sd-termo-dot" style="background:${g.cor}"></span>
+     ${g.nome}</span>`).join('');
+
+  const saudaveis = lista.filter(p => p.score >= 75).length;
+  const criticos  = lista.filter(p => p.score < 40).length;
+  const somaKpi = {};
+  inds.forEach(k => { somaKpi[k.id] = 0; });
+  lista.forEach(p => (p.notas || []).forEach(k => { somaKpi[k.id] += k.qtd; }));
+  const dominante = inds.slice().sort((a,b) => somaKpi[b.id] - somaKpi[a.id])[0];
+  document.getElementById('saude-panel-txt').innerHTML =
+    `<strong>${saudaveis}</strong> de ${lista.length} projetos estão em condição de o report
+     semanal rastrear a causa de um atraso até a tarefa que o gerou${criticos ?
+     `, e <strong>${criticos}</strong> em estado crítico` : ''}.
+     O defeito mais comum da carteira é <strong>${dominante ? dominante.nome.toLowerCase() : '—'}</strong>,
+     com ${dominante ? somaKpi[dominante.id] : 0} tarefas apontadas.`;
+
+  // Cards de destaque — velocímetro no lugar do número solto
+  CARD_GAUGES.forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+  CARD_GAUGES.length = 0;
+  const card = (p, pos, tipo) => {
+    const c = SD_CORES[p.cor];
+    return `<div class="sd-dcard ${tipo}" onclick="irParaSaude('${p.id}')"
+                 title="Abrir a análise de ${p.nome}">
+      <div>
+        <div class="sd-dcard-medidor">
+          <canvas id="gauge-card-${p.id}"></canvas>
+          <div class="sd-dcard-num" style="color:${c}">${n1(p.score)}</div>
+        </div>
+        <div class="sd-dcard-pos">${pos} · ${p.faixa}</div>
+      </div>
+      <div>
+        <div class="sd-dcard-nome">${p.nome}</div>
+        <p class="sd-dcard-prosa">${tipo === 'top' ? prosaMelhor(p, inds) : prosaPior(p, inds)}</p>
+      </div>
+    </div>`;
+  };
+  document.getElementById('saude-melhores').innerHTML =
+    melhores.map((p,i) => card(p, `${i+1}º`, 'top')).join('');
+  document.getElementById('saude-piores').innerHTML =
+    piores.map((p,i) => card(p, `${lista.length-i}º`, 'bottom')).join('');
+  // Os medidores só podem nascer depois que o HTML dos cards existe no DOM.
+  melhores.concat(piores).forEach(p => desenharGaugeCard(p));
+
+  // Radar: o que separa os 3 melhores dos 3 piores
+  const media = (grupo, id) => {
+    const vals = grupo.map(p => (p.notas.find(k => k.id === id) || {}).nota)
+                      .filter(v => v !== null && v !== undefined);
+    return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 0;
+  };
+  // Indicador sem nota em nenhum projeto (o de marcos, até a próxima coleta)
+  // fica fora do radar: um eixo em zero seria lido como nota zero.
+  const indsRadar = inds.filter(k =>
+    lista.some(p => (p.notas.find(x => x.id === k.id) || {}).nota !== null));
+  if (charts['sd-radar']) charts['sd-radar'].destroy();
+  charts['sd-radar'] = new Chart(document.getElementById('chart-saude-radar'), {
+    type:'radar',
+    data:{
+      labels: indsRadar.map(k => SD_ABREV[k.id] || k.nome),
+      datasets:[
+        { label:'3 melhores', data: indsRadar.map(k => media(melhores, k.id)),
+          backgroundColor:'rgba(22,163,74,.16)', borderColor:'#16a34a',
+          borderWidth:2, pointBackgroundColor:'#16a34a', pointRadius:3 },
+        ...(piores.length ? [{ label:'3 piores', data: indsRadar.map(k => media(piores, k.id)),
+          backgroundColor:'rgba(220,38,38,.14)', borderColor:'#dc2626',
+          borderWidth:2, pointBackgroundColor:'#dc2626', pointRadius:3 }] : []),
+      ],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{font:{size:10},boxWidth:12,padding:12} } },
+      scales:{ r:{ min:0, max:100, ticks:{stepSize:25,font:{size:9},color:'#94a3b8',
+                   backdropColor:'transparent'},
+                   pointLabels:{font:{size:10},color:'#334155'},
+                   grid:{color:'#e2e8f0'}, angleLines:{color:'#e2e8f0'} } },
+    },
+  });
+
+  // Onde os defeitos se concentram
+  if (charts['sd-conc']) charts['sd-conc'].destroy();
+  const ordenados = inds.slice().sort((a,b) => somaKpi[b.id] - somaKpi[a.id]);
+  charts['sd-conc'] = new Chart(document.getElementById('chart-saude-concentracao'), {
+    type:'bar',
+    data:{ labels: ordenados.map(k => SD_ABREV[k.id] || k.nome),
+           datasets:[{ data: ordenados.map(k => somaKpi[k.id]),
+                       backgroundColor:'rgba(29,78,216,.16)', borderColor:'#1d4ed8',
+                       borderWidth:2, borderRadius:5,
+                       _peso: ordenados.map(k => k.peso) }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+                tooltip:{ callbacks:{ label: c =>
+                  ` ${c.raw} tarefa(s) · peso ${c.dataset._peso[c.dataIndex]} no score` } } },
+      scales:{ x:{ beginAtZero:true, ticks:{color:'#64748b',font:{size:10}}, grid:{color:'#f1f5f9'} },
+               y:{ ticks:{color:'#334155',font:{size:10}}, grid:{display:false} } },
+    },
+  });
+
+  // Mapa de calor: projetos × indicadores
+  const heat = document.getElementById('saude-heat');
+  heat.style.gridTemplateColumns = `minmax(140px,1.5fr) repeat(${inds.length},1fr) 50px`;
+  const cabecalho = ['<span></span>',
+    ...inds.map(k => `<span class="sd-heat-lbl">${SD_ABREV[k.id] || k.nome}</span>`),
+    '<span class="sd-heat-lbl">Score</span>'];
+  const linhas = [...lista].reverse().map(p => {
+    const celulas = inds.map(k => {
+      const n = (p.notas.find(x => x.id === k.id) || {}).nota;
+      if (n === null || n === undefined) {
+        return `<span class="sd-heat-cell vazio" title="Indicador indisponível">—</span>`;
+      }
+      const q = (p.notas.find(x => x.id === k.id) || {}).qtd;
+      return `<span class="sd-heat-cell" style="background:${corDaNota(n)}"
+                    onclick="irParaSaude('${p.id}')"
+                    title="${p.nome} · ${k.nome}: nota ${n1(n)} · ${q} tarefa(s)">${Math.round(n)}</span>`;
+    });
+    return [`<span class="sd-heat-proj" onclick="irParaSaude('${p.id}')"
+                   title="Abrir ${p.nome}">${p.nome}</span>`,
+            ...celulas,
+            `<span class="sd-heat-score" style="color:${SD_CORES[p.cor]}">${n1(p.score)}</span>`];
+  });
+  heat.innerHTML = cabecalho.concat(...linhas).join('');
+  document.getElementById('saude-heat-sub').textContent =
+    `${lista.length} projetos × ${inds.length} indicadores · clique em qualquer célula para abrir a análise`;
+}
+
+/* Velocímetro dentro do card de destaque. */
+const CARD_GAUGES = [];
+function desenharGaugeCard(p) {
+  const el = document.getElementById('gauge-card-' + p.id);
+  if (!el) return;
+  const chave = 'sd-card-' + p.id;
+  charts[chave] = new Chart(el, {
+    type:'doughnut',
+    data:{ datasets:[{ data:[p.score, Math.max(0, 100 - p.score)],
+                       backgroundColor:[SD_CORES[p.cor], '#eef2f7'], borderWidth:0 }] },
+    options:{ rotation:-90, circumference:180, cutout:'70%', responsive:true,
+              maintainAspectRatio:false, animation:false,
+              plugins:{ legend:{display:false}, tooltip:{enabled:false} } },
+  });
+  CARD_GAUGES.push(chave);
+}
+
+/* Quanto o score subiria se este indicador fosse zerado.
+
+   Serve para a frase do card dizer o que a correção vale em pontos, em vez de
+   mandar corrigir sem dizer quanto rende. */
+function projecao(p, inds, idAlvo) {
+  const pesos = {};
+  inds.forEach(k => { pesos[k.id] = k.peso; });
+  let somaPeso = 0, somaNota = 0;
+  (p.notas || []).forEach(k => {
+    if (k.nota === null) return;
+    const w = pesos[k.id] || 0;
+    somaPeso += w;
+    somaNota += (k.id === idAlvo ? 100 : k.nota) * w;
+  });
+  return somaPeso ? somaNota / somaPeso : p.score;
+}
+
+/* Texto corrido dos cards. Nada é frase fixa: os números e os indicadores saem
+   do próprio projeto, e a redação muda conforme o defeito dominante. */
+function prosaPior(p, inds) {
+  const avaliados = (p.notas || []).filter(k => k.nota !== null);
+  if (!avaliados.length) return 'Sem notas por indicador — reinicie o servidor.';
+  const ruins = avaliados.filter(k => k.qtd > 0).sort((a,b) => a.nota - b.nota);
+  if (!ruins.length) return 'Sem apontamentos — o cronograma está íntegro.';
+
+  const pior = ruins[0];
+  const ganho = projecao(p, inds, pior.id) - p.score;
+  const CAUSA = {
+    dep_resumo: `${pior.qtd} vínculos se apoiam em tarefas-resumo, que não têm variação
+      própria — a busca do ofensor morre em cada um deles e o atraso que passa por ali
+      fica sem dono no report`,
+    sem_sucessora: `${pior.qtd} tarefas não empurram ninguém, então um atraso nelas
+      simplesmente não chega ao término do projeto: o cronograma não reage`,
+    sem_predecessora: `${pior.qtd} tarefas não têm nada antes delas e flutuam soltas na
+      rede — nada explica a data em que começam`,
+    sem_recurso: `${pior.qtd} tarefas de nível 4 estão sem recurso atribuído, então quando
+      uma delas for o ofensor o report aponta o problema e não aponta para quem cobrar`,
+    marco_com_duracao: `${pior.qtd} marcos têm duração maior que zero, então em vez de
+      servirem de passagem viram elo comum e podem ser acusados no lugar da tarefa real`,
+    fora_nivel4: `${pior.qtd} tarefas estão fora do nível 4, o que quebra a padronização
+      da EAP`,
+  };
+  const CORRECAO = {
+    dep_resumo: 'criar tarefas de término de etapa com duração zero e passar esses vínculos para elas',
+    sem_sucessora: 'ligar cada uma à tarefa seguinte da sequência ou ao término da etapa',
+    sem_predecessora: 'ligar cada uma à tarefa que de fato a antecede',
+    sem_recurso: 'atribuir o responsável de cada uma no Project',
+    marco_com_duracao: 'zerar a duração desses marcos',
+    fora_nivel4: 'reposicionar essas tarefas na estrutura ou criar os níveis que faltam',
+  };
+
+  let txt = `Em <b>${p.folhas} tarefas</b> o cronograma acumula
+    <b>${p.total_defeitos} apontamentos</b>. O que mais pesa é que
+    ${CAUSA[pior.id] || pior.nome.toLowerCase()} — são ${n1(pior.taxa)}% do cronograma,
+    e só isso já derruba o indicador para ${Math.round(pior.nota)}.`;
+  if (ruins[1]) {
+    txt += ` Some a isso ${ruins[1].qtd} tarefas com ${ruins[1].nome.toLowerCase()}` +
+           (ruins[2] ? ` e ${ruins[2].qtd} com ${ruins[2].nome.toLowerCase()}` : '') + '.';
+  }
+  txt += ` O caminho mais curto é ${CORRECAO[pior.id] || 'corrigir o indicador mais fraco'}:
+    sozinho, isso levaria o score de ${n1(p.score)} para cerca de
+    <b>${n1(projecao(p, inds, pior.id))}</b>` +
+    (ganho >= 1 ? `, ${n1(ganho)} pontos a mais` : '') + '.';
+  return txt;
+}
+
+function prosaMelhor(p, inds) {
+  const avaliados = (p.notas || []).filter(k => k.nota !== null);
+  if (!avaliados.length) return 'Sem notas por indicador — reinicie o servidor.';
+  const zerados = avaliados.filter(k => k.qtd === 0);
+  const restam  = avaliados.filter(k => k.qtd > 0).sort((a,b) => a.nota - b.nota);
+  const rede = ['dep_resumo','sem_sucessora','sem_predecessora']
+    .filter(id => (avaliados.find(k => k.id === id) || {qtd:1}).qtd === 0);
+
+  let txt = `São <b>${p.folhas} tarefas</b> com apenas
+    <b>${p.total_defeitos} apontamento${p.total_defeitos === 1 ? '' : 's'}</b>.`;
+  if (rede.length === 3) {
+    txt += ` A rede está fechada: toda tarefa tem quem a empurre e alguém a quem empurrar,
+      e nenhum vínculo se apoia em tarefa-resumo. É exatamente isso que permite ao report
+      seguir a corrente de dependências até a tarefa que gerou o atraso, em vez de parar
+      no meio do caminho.`;
+  } else {
+    // Rede não totalmente fechada: dizer onde está a brecha vale mais que
+    // anunciar quantos indicadores estão zerados.
+    const brechas = ['dep_resumo','sem_sucessora','sem_predecessora']
+      .map(id => avaliados.find(k => k.id === id))
+      .filter(k => k && k.qtd > 0)
+      .map(k => `${k.qtd} com ${k.nome.toLowerCase()}`);
+    txt += ` A rede está quase fechada — falta acertar ${brechas.join(' e ')} —, o que
+      já basta para o report percorrer a maior parte da corrente de dependências.`;
+  }
+  if (!restam.length) {
+    txt += ` Não sobrou nenhum defeito para corrigir.`;
+  } else {
+    const r = restam[0];
+    const inofensivo = r.id === 'fora_nivel4';
+    txt += ` O que resta são ${r.qtd} tarefas com ${r.nome.toLowerCase()}
+      (${n1(r.taxa)}% do total)` +
+      (inofensivo ? `, que é questão de padronização e não impede a análise de causa.`
+                  : `, o único ponto que ainda pode esconder uma causa.`);
+  }
+  return txt;
 }
 
 /* ═══════════════════════════════════════════════════════════════

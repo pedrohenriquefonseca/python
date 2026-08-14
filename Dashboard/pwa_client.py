@@ -746,6 +746,10 @@ def fetch_tasks(project_id: str) -> list[dict]:
             # Marco = duração zero. Vem dos milissegundos crus porque `duracao`
             # é arredondada em dias e engoliria uma tarefa de poucas horas.
             "marco":        int(t.get("DurationMilliseconds") or 0) == 0,
+            # O flag do Project, que é outra coisa: marca a INTENÇÃO de ser
+            # marco. Divergir de `marco` (duração zero) é o defeito que a
+            # Análise de Saúde aponta — marco que não tem duração zero.
+            "isMilestone":  bool(t.get("IsMilestone", False)),
             # Rede de dependências, usada pelo comparador
             "preds":        _extract_preds(t),
             # Aliases pt-BR para compatibilidade

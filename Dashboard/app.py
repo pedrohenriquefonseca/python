@@ -40,10 +40,12 @@ sys.path.insert(0, str(_HERE_DIR / 'ferias'))
 # módulo que contém (comparador/comparador.py). Sem essa precedência o
 # `import comparador` acharia primeiro a pasta, como namespace package vazio.
 sys.path.insert(0, str(_HERE_DIR / 'comparador'))
+sys.path.insert(0, str(_HERE_DIR / 'saude'))
 
 from Report import gerar_relatorio_web_json
 import comparador
 import report_base
+import saude
 from gantt_projetos import gerar_para_web_json as _gerar_projetos_web_json
 from gantt_clientes import (
     gerar_para_web_json as _gerar_equipe_web_json,
@@ -327,6 +329,55 @@ def api_report_json():
                         "comparativo": info})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
+
+
+# ── Análise de Saúde dos Cronogramas ──────────────────────────────────────────
+
+@app.route("/api/saude/<project_id>")
+def api_saude(project_id: str):
+    """Análise completa de um cronograma: KPIs, notas e score."""
+    tarefas = _read_json(DATA_DIR / f"tasks_{project_id}.json", None)
+    if tarefas is None:
+        return jsonify({"error": "Tarefas não disponíveis para esse projeto."}), 404
+    projetos = _read_json(DATA_DIR / "projects.json", []) or []
+    nome = next((p.get("name", "") for p in projetos
+                 if str(p.get("id")) == project_id), "")
+    try:
+        return jsonify(saude.analisar(tarefas, nome, project_id))
+    except Exception as exc:
+        log.exception("Erro na análise de saúde de %s:", project_id[:8])
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/saude")
+def api_saude_todos():
+    """Score de todos os projetos, para o painel geral.
+
+    O projeto mestre consolidado fica de fora: é uma agregação de alocação, não
+    um cronograma de obra, e as regras daqui não se aplicam a ele.
+    """
+    projetos = _read_json(DATA_DIR / "projects.json", []) or []
+    saida, erros = [], []
+    for p in projetos:
+        pid = str(p.get("id"))
+        if _is_master(p):
+            continue
+        tarefas = _read_json(DATA_DIR / f"tasks_{pid}.json", None)
+        if not tarefas:
+            continue
+        try:
+            saida.append(saude.resumo(tarefas, p.get("name", ""), pid))
+        except Exception as exc:
+            log.warning("Saúde indisponível para %s: %s", pid[:8], exc)
+            erros.append({"id": pid, "nome": p.get("name", ""), "error": str(exc)})
+    saida.sort(key=lambda s: s["score"])
+    media = round(sum(s["score"] for s in saida) / len(saida), 1) if saida else 0.0
+    # Cabeçalho do mapa de calor: nome e peso de cada indicador, na ordem fixa
+    # em que as notas de cada projeto vêm.
+    indicadores = [{"id": k["id"], "nome": k["nome"], "peso": k["peso"]}
+                   for k in saude.KPIS]
+    return jsonify({"projetos": saida, "media": media, "erros": erros,
+                    "indicadores": indicadores})
 
 
 @app.route("/api/desembolso", methods=["POST"])
