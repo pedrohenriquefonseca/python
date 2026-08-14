@@ -55,8 +55,14 @@ def _dias(a: str | None, b: str | None) -> int | None:
 # ── Índice ────────────────────────────────────────────────────────────────────
 
 def indexar(tarefas: list[dict]) -> dict:
-    """Índice por id. `tarefas` no formato bruto do snapshot (com `preds`)."""
-    return {"por_id": {str(t["id"]): t for t in tarefas if t.get("id")}}
+    """Índice por id. `tarefas` no formato bruto do snapshot (com `preds`).
+
+    Guarda também a lista na ordem original: a hierarquia do MSP é posicional
+    (as filhas vêm logo depois da mãe, com nível maior), e é assim que se acha
+    a filha que manda no término de um resumo.
+    """
+    return {"por_id": {str(t["id"]): t for t in tarefas if t.get("id")},
+            "ordem":  list(tarefas)}
 
 
 def folhas(tarefas: list[dict]) -> set[str]:
@@ -70,12 +76,58 @@ def folhas(tarefas: list[dict]) -> set[str]:
 
 
 def _respeitado(pred: dict, sucessora: dict, vinculo: dict) -> bool:
-    """O vínculo é coerente com as datas? (só FS tem verificação direta)"""
+    """O vínculo é coerente com as datas? (só FS tem verificação direta)
+
+    A checagem só vale em tarefa NÃO INICIADA, onde a data ainda é plano. Depois
+    que a tarefa começou a data é fato: entrar com início real antes do fim da
+    predecessora é sobreposição de obra, não erro de lógica, e o vínculo continua
+    valendo como trilha de causa. Medido em 13/08/26 nos 16 cronogramas: das 223
+    ligações FS incoerentes, 223 tinham a sucessora já iniciada — descartar todas
+    elas cegava a análise sem motivo.
+    """
     if vinculo.get("tipo") != "FS":
+        return True
+    if (sucessora.get("pct") or 0) > 0:
         return True
     if not (pred.get("end") and sucessora.get("start")):
         return False
     return sucessora["start"] >= pred["end"]
+
+
+def _descendentes(sid: str, idx: dict) -> list[dict]:
+    """Tarefas sob `sid` na hierarquia — o bloco contíguo de nível maior."""
+    ordem = idx.get("ordem") or []
+    pos = next((i for i, t in enumerate(ordem) if str(t.get("id")) == sid), None)
+    if pos is None:
+        return []
+    nivel = ordem[pos].get("level") or 0
+    saida = []
+    for t in ordem[pos + 1:]:
+        if (t.get("level") or 0) <= nivel:
+            break
+        saida.append(t)
+    return saida
+
+
+def _condutora(sid: str, deltas: dict[str, dict], idx: dict) -> tuple[str, dict] | None:
+    """A filha que manda no término do resumo `sid`.
+
+    Resumo não tem variação própria — ele espelha as filhas, e por isso fica fora
+    dos deltas (senão contaria duas vezes). Só que o vínculo do cronograma pode
+    apontar para ele, e aí a caminhada morria ali: no Pirajuçara isso deixou 5
+    dos 6 dias de atraso sem dono. Quem realmente empurra é a filha que termina
+    junto com o resumo; é ela que a caminhada passa a seguir.
+    """
+    p = idx["por_id"].get(sid)
+    if not p or not p.get("end"):
+        return None
+    candidatas = [(str(t["id"]), deltas[str(t["id"])])
+                  for t in _descendentes(sid, idx)
+                  if t.get("end") == p["end"] and deltas.get(str(t["id"]))]
+    if not candidatas:
+        return None
+    # Entre as que terminam junto, a que mais se deslocou é a que explica o resumo.
+    return max(candidatas, key=lambda c: abs(c[1].get("dfim") or 0))
 
 
 # ── Causalidade ───────────────────────────────────────────────────────────────
@@ -97,12 +149,19 @@ def empurrador(tid: str, deltas: dict[str, dict], idx: dict,
 
     candidatas = []
     for pr in t.get("preds") or []:
-        p  = idx["por_id"].get(pr["id"])
-        dv = deltas.get(pr["id"])
+        pid = str(pr["id"])
+        p  = idx["por_id"].get(pid)
+        dv = deltas.get(pid)
+        if p and not dv:
+            # Predecessora sem delta é resumo: segue pela filha que o comanda.
+            alt = _condutora(pid, deltas, idx)
+            if alt:
+                pid, dv = alt
+                p = idx["por_id"].get(pid)
         if not p or not dv or not dv.get("dfim") or not _respeitado(p, t, pr):
             continue
         if dv["dfim"] * v["dini"] > 0 and abs(dv["dfim"] - v["dini"]) <= TOL_DIAS:
-            candidatas.append((abs(dv["dfim"]), pr["id"], p, dv))
+            candidatas.append((abs(dv["dfim"]), pid, p, dv))
     if not candidatas:
         return None
 

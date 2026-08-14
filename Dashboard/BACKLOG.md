@@ -10,58 +10,25 @@ Medido em 13/08/26 sobre os 16 snapshots em `data/tasks_*.json`.
 
 ---
 
-## 1. Ignorar a coerência de datas em tarefa já iniciada  — CÓDIGO
+## 1. Higiene dos cronogramas  — MS PROJECT
 
-**Onde:** `comparador/rede.py:72`, função `_respeitado()`.
-
-Hoje um vínculo FS é descartado quando a sucessora começa antes do fim da
-predecessora. Isso só faz sentido em tarefa **não iniciada**, onde a data ainda é
-plano. Depois que a tarefa começou, a data é fato e o vínculo continua válido como
-trilha de causa.
-
-Evidência: das 223 ligações FS incoerentes nos 16 cronogramas, **223 têm a sucessora
-com pct > 0**. Nenhuma exceção. Sobreposição mediana de 38 dias (p90 = 105), então
-afrouxar por tolerância não resolve — a condição tem que ser o início real.
-
-**Correção:** pular a verificação de data quando a sucessora tem `pct > 0`.
-**Efeito:** zera a coluna "FS ruim" do relatório de cronogramas (144 tarefas).
-
-## 2. Atravessar tarefa-resumo na caminhada  — CÓDIGO (rede de segurança)
-
-**Onde:** `comparador/rede.py`, `empurrador()`.
-
-Quando a predecessora é uma tarefa-resumo, ela não tem delta (resumos são excluídos
-de propósito em `comparador.py:184`, senão contariam duas vezes) e a caminhada para.
-Foi o que aconteceu no Pirajuçara: dos 6 dias de atraso, 5 entraram por
-`Projeto Legal` (resumo) e ficaram sem dono.
-
-**Correção:** quando a predecessora for resumo, resolver para o filho que determina o
-término dele e seguir — análogo ao salto que já existe sobre marcos (`rede.py:114`).
-O resumo continua fora da lista de ofensores, servindo só de conduíte.
-
-**Nota:** a correção dos cronogramas (item 3) elimina esse caso na origem. Este item
-vale como rede de segurança durante a transição, já que os 10 cronogramas não ficam
-prontos no mesmo dia e o report continua saindo enquanto isso.
-
-## 3. Higiene dos cronogramas  — MS PROJECT
-
-Ver `CORRECOES_CRONOGRAMAS.md` para a lista por projeto.
+Ver `CORRECOES_CRONOGRAMAS.md` no commit dff371a para a lista por projeto.
 
 - Nenhum resumo como predecessora ou sucessora — criar tarefas de término de etapa.
 - **Término de etapa com duração ZERO.** Com duração 1 dia vira elo comum: entra na
   cadeia e, quando esticar, aparece como ofensor no lugar da tarefa real. Marco o
-  código atravessa (`rede.py:114`) e nunca lista como ofensor (`comparador.py:166`).
-- A regra é **toda tarefa-folha**, não "toda tarefa de nível 4". O código não olha
-  nível: folha é a tarefa cuja próxima na lista tem nível menor ou igual
-  (`rede.folhas()`). Há folhas em nível 1, 2 e 3 em quase todos os projetos — o BM
-  Prodemge tem 64 folhas em nível 3 e só 10 em nível 4.
+  código atravessa (`rede.py:173`) e nunca lista como ofensor (`rede.py:225`).
+- A regra é **toda tarefa de trabalho**, não "toda tarefa de nível 4". O código não
+  olha nível: trabalho é a tarefa que não tem filhas (`rede.folhas()`). Há tarefas
+  de trabalho em nível 1, 2 e 3 em quase todos os projetos — o BM Prodemge tem 64
+  em nível 3 e só 10 em nível 4.
 
 **Efeito colateral esperado:** o primeiro report de cada cronograma corrigido sai
 pior. As tarefas novas não existem na base gravada do report anterior, ficam sem
 delta e podem matar a caminhada como o resumo mata hoje. É um report por projeto, e
 o aviso "N tarefa(s) inserida(s)" vai disparar junto.
 
-## 4. Data de tarefa só deve mudar por vínculo  — PROCESSO
+## 2. Data de tarefa só deve mudar por vínculo  — PROCESSO
 
 O resíduo que nenhuma das correções acima resolve. Se a tarefa é arrastada na mão ou
 tem restrição de data fixa, ela anda sem que nada antes dela ande — e não existe
@@ -74,7 +41,26 @@ predecessora não se moveu.
 
 ---
 
-## Feito nesta sessão (13/08/26)
+## Feito em 14/08/26 — as duas correções de código
+
+**Coerência de datas só em tarefa não iniciada** (`comparador/rede.py`,
+`_respeitado()`). Depois que a tarefa começou, a data é fato e o vínculo continua
+valendo como trilha de causa. Isso devolveu à análise as 223 ligações FS que
+eram descartadas sem motivo.
+
+**Caminhada atravessa tarefa-resumo** (`comparador/rede.py`, `_condutora()`).
+Quando o vínculo aponta para um resumo, a caminhada segue pela filha que termina
+junto com ele — a que de fato manda no término. Resultado no Pirajuçara, o caso
+que originou tudo: a cadeia foi de 2 para 3 elos e os ofensores passaram a somar
+**6 de 6 dias**, contra 1 de 6 antes. A tarefa que ficava sem dono
+(`Projeto Legal > Arquitetura > Projeto Legal > Análise`, +5 dias) agora sai
+nomeada no report.
+
+O resíduo previsto continua: o Palhano explica 3 dos 8 dias, porque lá a tarefa
+andou sem que nenhuma predecessora andasse — é o item 2 acima, que nenhuma
+mudança de código resolve.
+
+## Feito em 13/08/26
 
 - Barra de progresso no botão Atualizar, com andamento real vindo do fetcher.
 - Bloco `📌 RESUMO` do report reescrito em 4 linhas, com o percentual de variação

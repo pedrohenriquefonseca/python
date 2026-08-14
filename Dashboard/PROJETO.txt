@@ -774,22 +774,42 @@ nunca e ofensor: empurrador() pula por cima dele para apontar a causa real.
 Tolerancia: datas sao de calendario e vinculos sao em dias uteis, entao o
 casamento de deslocamentos usa folga de 3 dias (rede.TOL_DIAS).
 
+DOIS PONTOS EM QUE A CAMINHADA MORRIA (corrigidos em 14/08/26)
+--------------------------------------------------------------
+1) Vinculo FS descartado por incoerencia de data. A checagem de _respeitado()
+   agora so vale em tarefa NAO INICIADA: depois que comeca, a data e fato e
+   entrar com inicio real antes do fim da predecessora e sobreposicao de obra.
+   Nos 16 cronogramas, as 223 ligacoes incoerentes tinham TODAS a sucessora ja
+   iniciada — descartar todas cegava a analise sem motivo.
+
+2) Vinculo apontando para tarefa-resumo. Resumo fica fora dos deltas de
+   proposito (espelha as filhas e contaria duas vezes), entao a caminhada
+   morria nele. Agora rede._condutora() resolve o resumo para a filha que
+   termina junto com ele — a que manda no termino — e a caminhada segue.
+
+   No Pirajucara, o caso que originou a analise: a cadeia foi de 2 para 3 elos
+   e os ofensores passaram a somar 6 de 6 dias, contra 1 de 6 antes.
+
+O que NAO se resolve por codigo: tarefa que anda sem que nenhuma predecessora
+ande (restricao de data, nivelamento, remarcacao manual). A causa nao esta na
+rede. O Palhano, ja com os vinculos limpos, explica 3 dos 8 dias por isso.
+
 O BLOCO 📌 RESUMO
 -----------------
 Quatro linhas, montadas por Report._bloco_resumo() — funcao unica porque o
 resumo sai por dois caminhos (upload de Excel e JSON do PWA) e duplicado eles
 divergiriam na primeira mudanca de texto.
 
-    - Conclusao do Projeto conforme Linha de Base: 15/07/25
-    - Tendencia de conclusao do projeto: 18/08/26, com desvio de 399 dias corridos.
-    - Duracao da Linha de Base = 336 dias corridos.
-    - Duracao atual estimada: 736 dias corridos, com aumento de 119,0% em relacao
-      a Linha de Base.
+    - Conclusao do Projeto - Linha de Base: 19/06/25.
+    - Conclusao do Projeto - Tendencia: 08/09/26.
+    - Duracao do Projeto - Linha de Base: 310 dias corridos.
+    - Duracao do Projeto - Tendencia: 757 dias corridos.
 
-O percentual e (duracao_atual - duracao_base) / duracao_base, uma casa decimal e
-virgula decimal. Sem linha de base (DD = 0) a ultima linha sai sem o comparativo,
-em vez de dividir por zero. Duracao atual leva +1 (o dia de inicio conta); a da
-linha de base nao — assimetria antiga, mantida para os numeros nao mudarem.
+Linhas pareadas: linha de base e tendencia, primeiro a conclusao e depois a
+duracao. Quem le compara os dois numeros lado a lado — desde 14/08/26 o desvio em
+dias e o percentual de variacao nao vem mais escritos (versao anterior trazia os
+dois). Duracao da tendencia leva +1 (o dia de inicio conta); a da linha de base
+nao — assimetria antiga, mantida para os numeros nao mudarem.
 
 A SECAO DO REPORT SEMANAL
 -------------------------

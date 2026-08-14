@@ -162,41 +162,27 @@ def validar_colunas_necessarias(df):
     
     return df
 
-def _pct_br(valor):
-    """Percentual no padrão brasileiro, uma casa decimal: 119.047 → '119,0%'."""
-    return f'{valor:.1f}'.replace('.', ',') + '%'
-
-
-def _bloco_resumo(AA, BB, CC, DD, EE):
+def _bloco_resumo(AA, CC, DD, EE):
     """Linhas do bloco 📌 RESUMO, sem o cabeçalho.
+
+    Quatro linhas pareadas: linha de base e tendência, primeiro para a conclusão
+    e depois para a duração. Quem lê compara os dois números lado a lado — o
+    desvio e o percentual não vêm escritos.
 
     Existe uma função só porque o resumo é montado em dois fluxos (upload de
     Excel e leitura do JSON do PWA) — duplicado, ele divergiria na primeira
     alteração de texto.
 
-      AA término atual   BB desvio vs. linha de base   CC término da linha de base
-      DD duração da linha de base                      EE duração atual
+      AA término atual              CC término da linha de base
+      DD duração da linha de base   EE duração atual
     """
     dur_atual = EE + 1          # +1 como sempre foi: o dia de início conta
-    linhas = [
-        f'- Conclusão do Projeto conforme Linha de Base: {CC}',
-        f'- Tendência de conclusão do projeto: {AA}, com desvio de {BB} dias corridos.',
-        f'- Duração da Linha de Base = {DD} dias corridos.',
+    return [
+        f'- Conclusão do Projeto - Linha de Base: {CC}.',
+        f'- Conclusão do Projeto - Tendência: {AA}.',
+        f'- Duração do Projeto - Linha de Base: {DD} dias corridos.',
+        f'- Duração do Projeto - Tendência: {dur_atual} dias corridos.',
     ]
-    # Projeto sem linha de base cai com DD = 0. Nesse caso a duração atual sai
-    # sozinha, em vez de uma divisão por zero.
-    if DD:
-        variacao = (dur_atual - DD) / DD * 100
-        if variacao > 0:
-            comparativo = f', com aumento de {_pct_br(variacao)} em relação à Linha de Base'
-        elif variacao < 0:
-            comparativo = f', com redução de {_pct_br(abs(variacao))} em relação à Linha de Base'
-        else:
-            comparativo = ', igual à Linha de Base'
-    else:
-        comparativo = ''
-    linhas.append(f'- Duração atual estimada: {dur_atual} dias corridos{comparativo}.')
-    return linhas
 
 
 #Gera o relatório semanal diretamente em arquivo Markdown (.md).
@@ -234,7 +220,6 @@ def gerar_relatorio(nome_projeto):
         
         # Calcular métricas do projeto
         AA = nivel0.get('Término', 'N/A')
-        BB = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Término_da_linha_de_base_DT'))
         CC = nivel0.get('Término_da_linha_de_base', 'N/A')
         DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
         EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
@@ -249,7 +234,7 @@ def gerar_relatorio(nome_projeto):
         partes.append(f'REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n')
         partes.append('📌 RESUMO:\n')
 
-        for texto in _bloco_resumo(AA, BB, CC, DD, EE):
+        for texto in _bloco_resumo(AA, CC, DD, EE):
             partes.append(f'{texto}\n')
 
         partes.append(
@@ -296,7 +281,6 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
     nivel0_linhas = df[df['Nível_da_estrutura_de_tópicos'] == 0]
     nivel0 = nivel0_linhas.iloc[0] if not nivel0_linhas.empty else df.iloc[0]
     AA = nivel0.get('Término', 'N/A')
-    BB = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Término_da_linha_de_base_DT'))
     CC = nivel0.get('Término_da_linha_de_base', 'N/A')
     DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
     EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
@@ -305,7 +289,7 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
     partes = [
         f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}\n',
         '📌 RESUMO:\n',
-        *[f'{linha}\n' for linha in _bloco_resumo(AA, BB, CC, DD, EE)],
+        *[f'{linha}\n' for linha in _bloco_resumo(AA, CC, DD, EE)],
         # Bloco "O que mudou entre X e Y?", logo depois do resumo. Sem ele o
         # relatório sai exatamente como antes.
         (f'\n{secao_comparativo}\n' if secao_comparativo else ''),
