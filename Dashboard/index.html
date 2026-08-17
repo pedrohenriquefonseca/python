@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>PMO Dashboard — Horizontes Arq</title>
+<title>Portal de Planejamento de Projetos</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -20,6 +20,7 @@
   --amber:#d97706; --amber-lt:#fffbeb;
   --text:#1e293b; --muted:#64748b;
   --sidebar-w:220px; --sidebar-w-collapsed:60px; --radius:10px;
+  --font-display:'Bahnschrift','Segoe UI Variable Display','Segoe UI Semibold','Segoe UI',system-ui,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;overflow:hidden;}
@@ -45,9 +46,13 @@ a{color:inherit;text-decoration:none;}
 .sidebar.collapsed .sidebar-nav{padding-top:48px;}
 .sidebar.collapsed .nav-item{justify-content:center;padding:10px 0;gap:0;border-left:none;}
 .sidebar.collapsed .nav-icon{width:auto;}
-.brand{padding:22px 20px 20px;border-bottom:1px solid var(--sidebar-border);}
-.brand-name{font-size:1rem;font-weight:800;}
-.brand-sub{font-size:.68rem;opacity:.55;margin-top:2px;}
+.brand{padding:22px 20px 18px;border-bottom:1px solid var(--sidebar-border);}
+.brand-eyebrow{font-family:var(--font-display);font-size:.62rem;font-weight:600;
+  letter-spacing:.24em;text-transform:uppercase;color:#818cf8;margin-bottom:5px;}
+.brand-name{font-family:var(--font-display);font-size:1.34rem;font-weight:700;
+  line-height:1.06;letter-spacing:-.005em;}
+.brand-sub{font-size:.6rem;opacity:.45;margin-top:9px;letter-spacing:.14em;
+  text-transform:uppercase;}
 .sidebar-nav{padding:12px 0;flex:1;overflow-y:auto;}
 .nav-section{padding:8px 16px 4px;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;opacity:.38;}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:.82rem;
@@ -626,7 +631,8 @@ tbody tr:hover td{background:#f8fafc;}
 <aside class="sidebar" id="sidebar">
   <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Recolher/expandir menu" aria-label="Recolher/expandir menu">‹</button>
   <div class="brand">
-    <div class="brand-name">PMO Dashboard</div>
+    <div class="brand-eyebrow">Portal de</div>
+    <div class="brand-name">Planejamento<br>de Projetos</div>
     <div class="brand-sub">Horizontes Arquitetura</div>
   </div>
   <nav class="sidebar-nav">
@@ -2318,13 +2324,18 @@ function renderClientes(data) {
    pequeno.
 ═══════════════════════════════════════════════════════════════ */
 let SAUDE_TODOS = null;      // cache do painel geral; recarrega junto do projeto
+let SAUDE_ALVO  = null;      // projeto pedido por um clique no painel geral
 
 const SD_CORES = { verde:'#16a34a', amarelo:'#ca8a04', laranja:'#d97706', vermelho:'#dc2626' };
 
 function abrirSaudeProjeto() {
   const sel = document.getElementById('saude-selector');
   if (!sel) return;
-  const prev = sel.value;
+  // Projeto pedido pelo painel geral tem prioridade sobre o que já estava
+  // selecionado; o <select> pode estar vazio nesse momento, então o alvo não
+  // pode vir dele.
+  const alvo = SAUDE_ALVO || sel.value;
+  SAUDE_ALVO = null;
   const lista = [...ALL_PROJECTS].sort((a,b) =>
     String(a.name).localeCompare(String(b.name), 'pt-BR'));
   if (!lista.length) {
@@ -2332,7 +2343,7 @@ function abrirSaudeProjeto() {
     return;
   }
   sel.innerHTML = lista.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  if (prev && lista.find(p => String(p.id) === prev)) sel.value = prev;
+  if (alvo && lista.find(p => String(p.id) === String(alvo))) sel.value = alvo;
   onSaudeSelect();
 }
 
@@ -2343,8 +2354,7 @@ function onSaudeSelect() {
 
 /* Abre a análise de um projeto vindo do painel geral. */
 function irParaSaude(id) {
-  const sel = document.getElementById('saude-selector');
-  if (sel) sel.value = id;
+  SAUDE_ALVO = String(id);
   showView('saudeproj');
 }
 
