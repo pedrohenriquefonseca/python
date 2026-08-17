@@ -1,68 +1,5 @@
-import os
 import pandas as pd
 from datetime import datetime
-
-#Seleciona arquivo Excel da pasta atual.
-def selecionar_arquivo_excel():
-    arquivos = []
-    for arquivo in os.listdir():
-        if arquivo.endswith(('.xls', '.xlsx')):
-            arquivos.append(arquivo)
-    
-    if not arquivos:
-        raise FileNotFoundError('Nenhum arquivo Excel encontrado na pasta atual.')
-    elif len(arquivos) == 1:
-        print(f'Arquivo selecionado automaticamente: {arquivos[0]}')
-        return arquivos[0]
-    else:
-        print('Selecione um arquivo:')
-        for idx, arquivo in enumerate(arquivos, 1):
-            print(f'{idx}. {arquivo}')
-        
-        while True:
-            try:
-                escolha = int(input('Digite o número do arquivo desejado: '))
-                if 1 <= escolha <= len(arquivos):
-                    return arquivos[escolha - 1]
-                else:
-                    print(f'Por favor, digite um número entre 1 e {len(arquivos)}')
-            except ValueError:
-                print('Por favor, digite apenas números')
-            except KeyboardInterrupt:
-                print('\nOperação cancelada pelo usuário.')
-                exit(1)
-
-
-# Dicionário para tradução de meses
-meses_portugues = {
-    'janeiro': 'January', 'fevereiro': 'February', 'março': 'March', 'abril': 'April',
-    'maio': 'May', 'junho': 'June', 'julho': 'July', 'agosto': 'August',
-    'setembro': 'September', 'outubro': 'October', 'novembro': 'November', 'dezembro': 'December'
-}
-
-#Traduz nomes de meses do português para inglês.
-def traduzir_meses(texto):
-    if pd.isna(texto):
-        return texto
-    
-    texto_lower = str(texto).lower()
-    for pt, en in meses_portugues.items():
-        texto_lower = texto_lower.replace(pt, en)
-    return texto_lower
-
-#Formata coluna de datas para o padrão brasileiro.
-def formatar_data(coluna):
-    try:
-        datas_traduzidas = coluna.apply(traduzir_meses)
-        datas_convertidas = pd.to_datetime(
-            datas_traduzidas, 
-            format='%d %B %Y %H:%M', 
-            errors='coerce'
-        )
-        return datas_convertidas.dt.strftime('%d/%m/%y')
-    except Exception as e:
-        print(f'Aviso: Erro ao formatar datas: {e}')
-        return coluna
 
 #Calcula diferença em dias entre duas datas.
 def calcular_dias_diferenca(data1, data2):
@@ -99,15 +36,114 @@ def buscar_hierarquia(df, linha_index):
     
     return bisavo, avo, pai
 
-#Filtra tarefas baseado no recurso especificado.
-def filtrar_tarefas_por_recurso(df, termo_busca):
+# O único recurso nomeado da triagem. Todo o resto é entrega nossa.
+RECURSO_CLIENTE = 'Cliente'
+
+
+def _selecionar_tarefas(df, do_cliente):
+    """Tarefas em andamento de um dos dois lados da triagem.
+
+    A triagem tem um critério só: o recurso Cliente. O que estiver atribuído a
+    qualquer outro recurso é entrega da equipe e cai nas emissões — por
+    exclusão, e não por lista. Recurso novo no cronograma entra no relatório
+    sozinho, sem passar por aqui.
+
+    Tarefa sem recurso nenhum fica fora dos dois lados: não há a quem atribuir.
+    """
     try:
-        filtro_recursos = df['Nomes_dos_Recursos'].astype(str).str.contains(termo_busca, case=False, na=False)
-        filtro_percentual = (df['Porcentagem_Concluída'] > 0) & (df['Porcentagem_Concluída'] < 1)
-        return df[filtro_recursos & filtro_percentual]
+        recursos = df['Nomes_dos_Recursos'].fillna('').astype(str).str.strip()
+        eh_cliente = recursos.str.contains(RECURSO_CLIENTE, case=False, na=False)
+        lado = eh_cliente if do_cliente else (~eh_cliente & (recursos != ''))
+        em_andamento = (df['Porcentagem_Concluída'] > 0) & (df['Porcentagem_Concluída'] < 1)
+        return df[lado & em_andamento]
     except KeyError:
-        print(f'Aviso: Coluna necessária não encontrada para filtrar {termo_busca}')
+        print('Aviso: Coluna necessária não encontrada para filtrar as tarefas')
         return pd.DataFrame()
+
+
+#Tarefas a cargo do cliente.
+def filtrar_tarefas_cliente(df):
+    return _selecionar_tarefas(df, do_cliente=True)
+
+
+#Tarefas de qualquer recurso que não seja o cliente — as próximas emissões.
+def filtrar_tarefas_emissoes(df):
+    return _selecionar_tarefas(df, do_cliente=False)
+
+
+def _serie_marco(df):
+    """Quais linhas são marco, em Série booleana alinhada ao df.
+
+    Marco não tem recurso porque não tem trabalho — é data, não entrega. Cobrar
+    responsável por ele seria cobrar o cronograma por estar certo.
+
+    O campo vem pronto do JSON do PWA (`marco`, duração zero — pwa_client.py).
+    Cronograma sem a coluna não tem marco algum e a nota sai inteira.
+    """
+    if 'Marco' not in df.columns:
+        return pd.Series(False, index=df.index)
+    return df['Marco'].fillna(False).astype(bool)
+
+
+def filtrar_tarefas_sem_recurso(df):
+    """Tarefas de trabalho com o campo de recurso vazio — ninguém responde por
+    elas, e por isso não aparecem em nenhuma das duas seções do relatório.
+
+    Ficam de fora as duas famílias que não têm recurso por natureza, e não por
+    esquecimento: tarefa-resumo (quem recebe recurso são as filhas) e marco.
+
+    Resumo aqui é topologia, não campo do cronograma — é resumo quem tem alguém
+    logo abaixo na estrutura de tópicos, o mesmo raciocínio que
+    `buscar_hierarquia` usa para remontar a parentela. O campo `type` do PWA não
+    serve: num cronograma real, 35 dos 40 resumos vinham marcados como 'task'.
+    """
+    try:
+        recursos = df['Nomes_dos_Recursos'].fillna('').astype(str).str.strip()
+        niveis = pd.to_numeric(df['Nível_da_estrutura_de_tópicos'], errors='coerce')
+        # A última linha compara com NaN e dá False — folha, como tem de ser.
+        eh_resumo = niveis.shift(-1) > niveis
+        return df[(recursos == '') & ~eh_resumo & ~_serie_marco(df)]
+    except KeyError:
+        print('Aviso: Coluna necessária não encontrada para listar tarefas sem recurso')
+        return pd.DataFrame()
+
+
+# Teto de linhas da nota. Existe cronograma nosso com 196 tarefas sem recurso —
+# listadas uma a uma, a nota fica maior que o relatório inteiro. O total não se
+# perde: vai na linha de excedente.
+LIMITE_SEM_RECURSO = 15
+
+
+def montar_nota_sem_recurso(tarefas_df, df_principal, hoje):
+    """Nota de rodapé com as tarefas órfãs de recurso.
+
+    Some do relatório quando não há nenhuma: nota de pendência sem pendência é
+    ruído semanal. As demais seções sempre aparecem porque descrevem o projeto;
+    esta só existe quando há algo a corrigir no cronograma.
+    """
+    if tarefas_df.empty:
+        return ''
+
+    nota = montar_secao_markdown(
+        '📝 TAREFAS SEM RECURSO ATRIBUÍDO:',
+        tarefas_df.head(LIMITE_SEM_RECURSO), df_principal, hoje, 'sem_recurso'
+    )
+    excedente = len(tarefas_df) - LIMITE_SEM_RECURSO
+    if excedente == 1:
+        nota += '- ... e outra tarefa sem recurso atribuído\n'
+    elif excedente > 1:
+        nota += f'- ... e outras {excedente} tarefas sem recurso atribuído\n'
+    return nota
+
+
+def _caminho_tarefa(avo, pai, nome):
+    """'avô - pai - Nome', pulando os níveis que não existem.
+
+    Tarefa pendurada direto no projeto não tem avô nem pai, e o caminho fixo em
+    três partes saía como '-  -  - Nome'. Isso só aparece agora porque a nota de
+    tarefas sem recurso alcança níveis rasos, que as outras seções não pegavam.
+    """
+    return ' - '.join(parte for parte in (avo, pai, nome) if parte)
 
 
 def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
@@ -123,9 +159,12 @@ def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
     for idx, row in tarefas_df.iterrows():
         bisavo, avo, pai = buscar_hierarquia(df_principal, idx)
         chave = bisavo if bisavo else 'Sem categoria'
+        caminho = _caminho_tarefa(avo, pai, row['Nome'])
 
-        if tipo_secao == 'emissoes':
-            linha = f'{avo} - {pai} - {row["Nome"]}: Programado para {row.get("Término", "N/A")}'
+        # A nota de tarefas sem recurso usa a mesma linha das emissões: o
+        # caminho da tarefa e a data em que ela está programada.
+        if tipo_secao in ('emissoes', 'sem_recurso'):
+            linha = f'{caminho}: Programado para {row.get("Término", "N/A")}'
         else:
             dias_analise = '?'
             if pd.notna(row.get('Início_DT')):
@@ -133,7 +172,7 @@ def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
                     dias_analise = (hoje - row['Início_DT']).days
                 except:
                     dias_analise = '?'
-            linha = f'{avo} - {pai} - {row["Nome"]}: A cargo do cliente desde {row.get("Início", "N/A")} ({dias_analise} dias)'
+            linha = f'{caminho}: A cargo do cliente desde {row.get("Início", "N/A")} ({dias_analise} dias)'
 
         grupos.setdefault(chave, []).append(linha)
 
@@ -158,7 +197,7 @@ def validar_colunas_necessarias(df):
             colunas_faltantes.append(coluna)
     
     if colunas_faltantes:
-        raise ValueError(f"Planilha incompatível. Colunas ausentes: {', '.join(colunas_faltantes)}")
+        raise ValueError(f"Snapshot do PWA incompatível. Campos ausentes: {', '.join(colunas_faltantes)}")
     
     return df
 
@@ -168,10 +207,6 @@ def _bloco_resumo(AA, CC, DD, EE):
     Quatro linhas pareadas: linha de base e tendência, primeiro para a conclusão
     e depois para a duração. Quem lê compara os dois números lado a lado — o
     desvio e o percentual não vêm escritos.
-
-    Existe uma função só porque o resumo é montado em dois fluxos (upload de
-    Excel e leitura do JSON do PWA) — duplicado, ele divergiria na primeira
-    alteração de texto.
 
       AA término atual              CC término da linha de base
       DD duração da linha de base   EE duração atual
@@ -185,93 +220,10 @@ def _bloco_resumo(AA, CC, DD, EE):
     ]
 
 
-#Gera o relatório semanal diretamente em arquivo Markdown (.md).
-def gerar_relatorio(nome_projeto):
-    try:
-        # Selecionar e carregar arquivo
-        arquivo = selecionar_arquivo_excel()
-        df = pd.read_excel(arquivo)
-        
-        if df.empty:
-            raise ValueError('O arquivo Excel está vazio')
-        
-        # Validar colunas necessárias
-        df = validar_colunas_necessarias(df)
-        
-        # Processar colunas de data
-        col_datas = ['Início', 'Término', 'Início_da_Linha_de_Base', 'Término_da_linha_de_base']
-        for col in col_datas:
-            if col in df.columns:
-                df[col] = formatar_data(df[col])
-                # Criar versões datetime das colunas
-                df[col + '_DT'] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
-        
-        # Obter data atual
-        hoje = datetime.now()
-        hoje_fmt = hoje.strftime('%d/%m/%y')
-        
-        # Encontrar linha de nível 0 (projeto principal)
-        nivel0_linhas = df[df['Nível_da_estrutura_de_tópicos'] == 0]
-        if nivel0_linhas.empty:
-            print('Aviso: Nenhuma linha de nível 0 encontrada. Usando primeira linha.')
-            nivel0 = df.iloc[0]
-        else:
-            nivel0 = nivel0_linhas.iloc[0]
-        
-        # Calcular métricas do projeto
-        AA = nivel0.get('Término', 'N/A')
-        CC = nivel0.get('Término_da_linha_de_base', 'N/A')
-        DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
-        EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
-        
-
-        # Filtrar tarefas
-        filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
-        filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
-        
-        # Montar conteúdo Markdown
-        partes = []
-        partes.append(f'REPORT SEMANAL {nome_projeto.upper()} - {hoje_fmt}\n')
-        partes.append('📌 RESUMO:\n')
-
-        for texto in _bloco_resumo(AA, CC, DD, EE):
-            partes.append(f'{texto}\n')
-
-        partes.append(
-            montar_secao_markdown(
-                '📅 PRÓXIMAS EMISSÕES DE PROJETO:',
-                filtro_horizontes, df, hoje, 'emissoes'
-            )
-        )
-
-        partes.append(
-            montar_secao_markdown(
-                '🔎 TAREFAS A CARGO DO CLIENTE:',
-                filtro_cliente, df, hoje, 'analise'
-            )
-        )
-
-        conteudo_md = ''.join(partes)
-
-        # Salvar arquivo Markdown (sem data no nome)
-        nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
-        with open(nome_arquivo, 'w', encoding='utf-8') as f:
-            f.write(conteudo_md)
-        print(f'Relatório salvo como: {nome_arquivo}\n')
-        
-    except FileNotFoundError as e:
-        print(f'Erro: {e}')
-    except Exception as e:
-        print(f'Erro inesperado: {e}')
-        import traceback
-        traceback.print_exc()
-
-
 def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
-    """Núcleo compartilhado: recebe um DataFrame já com as colunas canônicas e
+    """Montagem do relatório: recebe um DataFrame já com as colunas canônicas e
     as colunas de data no formato de exibição '%d/%m/%y', e devolve
-    (conteudo_md, nome_arquivo). Usado tanto pelo fluxo de Excel quanto pelo
-    fluxo que lê o JSON do PWA — garante saída idêntica nos dois casos."""
+    (conteudo_md, nome_arquivo)."""
     df = validar_colunas_necessarias(df)
     col_datas = ['Início', 'Término', 'Início_da_Linha_de_Base', 'Término_da_linha_de_base']
     for col in col_datas:
@@ -284,8 +236,8 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
     CC = nivel0.get('Término_da_linha_de_base', 'N/A')
     DD = calcular_dias_diferenca(nivel0.get('Término_da_linha_de_base_DT'), nivel0.get('Início_da_Linha_de_Base_DT'))
     EE = calcular_dias_diferenca(nivel0.get('Término_DT'), nivel0.get('Início_DT'))
-    filtro_horizontes = filtrar_tarefas_por_recurso(df, 'Horizontes')
-    filtro_cliente = filtrar_tarefas_por_recurso(df, 'Cliente')
+    filtro_emissoes = filtrar_tarefas_emissoes(df)
+    filtro_cliente = filtrar_tarefas_cliente(df)
     partes = [
         f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}\n',
         '📌 RESUMO:\n',
@@ -293,8 +245,9 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
         # Bloco "O que mudou entre X e Y?", logo depois do resumo. Sem ele o
         # relatório sai exatamente como antes.
         (f'\n{secao_comparativo}\n' if secao_comparativo else ''),
-        montar_secao_markdown('📅 PRÓXIMAS EMISSÕES DE PROJETO:', filtro_horizontes, df, hoje, 'emissoes'),
+        montar_secao_markdown('📅 PRÓXIMAS EMISSÕES DE PROJETO:', filtro_emissoes, df, hoje, 'emissoes'),
         montar_secao_markdown('🔎 TAREFAS A CARGO DO CLIENTE:', filtro_cliente, df, hoje, 'analise'),
+        montar_nota_sem_recurso(filtrar_tarefas_sem_recurso(df), df, hoje),
     ]
     conteudo_md = ''.join(partes)
     nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
@@ -313,9 +266,11 @@ def _iso_para_br(valor):
 
 def gerar_relatorio_web_json(tarefas, nome_projeto, secao_comparativo=None):
     """Gera o relatório semanal a partir da lista de tarefas do JSON do PWA
-    (mesmo formato de data/tasks_<id>.json usado pelos dashboards), sem precisar
-    do Excel exportado. Retorna (conteudo_md, nome_arquivo) — saída idêntica à
-    versão de Excel, pois reaproveita o mesmo núcleo `_montar_relatorio_md`."""
+    (mesmo formato de data/tasks_<id>.json usado pelos dashboards) — única porta
+    de entrada do módulo. Retorna (conteudo_md, nome_arquivo).
+
+    As chaves do JSON são traduzidas aqui para o vocabulário de colunas que o
+    relatório usa, herdado das planilhas exportadas do Project."""
     linhas = []
     for t in tarefas:
         nivel = t.get('level')
@@ -326,6 +281,8 @@ def gerar_relatorio_web_json(tarefas, nome_projeto, secao_comparativo=None):
             'Nível_da_estrutura_de_tópicos': nivel,
             'Nome': t.get('name', ''),
             'Nomes_dos_Recursos': t.get('resources') or '',
+            # Duração zero. Só a nota de tarefas sem recurso lê este campo.
+            'Marco': bool(t.get('marco')),
             # O JSON guarda % concluída em escala 0–100; o relatório espera 0–1.
             'Porcentagem_Concluída': (pct / 100.0),
             'Início': _iso_para_br(t.get('start')),
@@ -337,16 +294,3 @@ def gerar_relatorio_web_json(tarefas, nome_projeto, secao_comparativo=None):
     if df.empty:
         raise ValueError('Projeto sem tarefas disponíveis no snapshot do PWA.')
     return _montar_relatorio_md(df, nome_projeto, secao_comparativo)
-
-
-if __name__ == '__main__':
-    try:
-        projeto = input('\nDigite o nome do projeto: ').strip()
-        if not projeto:
-            print('Nome do projeto é obrigatório.')
-            exit(1)
-        gerar_relatorio(projeto)
-    except KeyboardInterrupt:
-        print('\nOperação cancelada pelo usuário.')
-    except Exception as e:
-        print(f'Erro na execução: {e}')

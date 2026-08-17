@@ -796,9 +796,9 @@ rede. O Palhano, ja com os vinculos limpos, explica 3 dos 8 dias por isso.
 
 O BLOCO 📌 RESUMO
 -----------------
-Quatro linhas, montadas por Report._bloco_resumo() — funcao unica porque o
-resumo sai por dois caminhos (upload de Excel e JSON do PWA) e duplicado eles
-divergiriam na primeira mudanca de texto.
+Quatro linhas, montadas por Report._bloco_resumo(). A funcao nasceu para servir
+dois caminhos (upload de Excel e JSON do PWA); desde 17/08/26 o Excel foi
+removido e o report so sai do snapshot do PWA.
 
     - Conclusao do Projeto - Linha de Base: 19/06/25.
     - Conclusao do Projeto - Tendencia: 08/09/26.
