@@ -122,16 +122,22 @@ def _tolerar(ids: set[str], por_id: dict, campo: str, isentas: int = 0) -> set[s
 
 
 def _medir(tarefas: list[dict]) -> dict:
-    """Conta as tarefas com cada defeito.
+    """Conta as tarefas com cada defeito e guarda quais são.
 
     A base do cálculo são as tarefas de trabalho — as que não têm filhas. Resumo
     não entra: ele espelha as filhas e seria contado duas vezes.
+
+    Junto da contagem sai o motivo de cada tarefa apontada. É o que a tela usa
+    para dizer onde está o defeito: contar 49 dependências em resumo não ajuda
+    ninguém a achar as 49 no meio de 221 linhas do Project.
     """
     folhas = rede.folhas(tarefas)
     por_id = {str(t["id"]): t for t in tarefas if t.get("id")}
+    linha = {str(t["id"]): i + 1 for i, t in enumerate(tarefas) if t.get("id")}
     fim_projeto = max((t.get("end") or "") for t in tarefas) if tarefas else ""
 
     dep_resumo = set()
+    motivos_resumo: dict[str, list[str]] = {}
     com_pred, com_suc = set(), set()
 
     for t in tarefas:
@@ -141,11 +147,16 @@ def _medir(tarefas: list[dict]) -> dict:
             com_pred.add(tid)
             if tid not in folhas:
                 dep_resumo.add(tid)          # resumo que é sucessora
+                motivos_resumo.setdefault(tid, []).append(
+                    "é um resumo e mesmo assim tem predecessora")
         for pr in preds:
             pid_pred = str(pr.get("id"))
             com_suc.add(pid_pred)
             if pid_pred in por_id and pid_pred not in folhas:
                 dep_resumo.add(tid)          # predecessora é resumo
+                motivos_resumo.setdefault(tid, []).append(
+                    'predecessora é o resumo "%s" (linha %d)'
+                    % (por_id[pid_pred].get("name") or "", linha[pid_pred]))
 
     # A primeira tarefa não precisa de predecessora; quem termina junto com o
     # projeto não precisa de sucessora. Além dessas isenções estruturais, cada
@@ -176,24 +187,95 @@ def _medir(tarefas: list[dict]) -> dict:
                    and not por_id[x].get("marco")
                    and not (por_id[x].get("resources") or "").strip()}
 
+    caminhos = _caminhos(tarefas)
+    ofensores = {
+        "dep_resumo": {x: "; ".join(dict.fromkeys(motivos_resumo.get(x, [])))
+                       for x in dep_resumo},
+        "sem_sucessora": {
+            x: "ninguém depende dela: termina em %s e o atraso morre aí"
+               % _data_br(por_id[x].get("end")) for x in sem_suc},
+        "sem_predecessora": {
+            x: "nada antes dela na rede: começa em %s sem que ninguém a libere"
+               % _data_br(por_id[x].get("start")) for x in sem_pred},
+        "sem_recurso": {
+            x: 'campo Recursos vazio: o report sairia com "Responsável: não atribuído"'
+            for x in sem_recurso},
+        "marco_com_duracao": {
+            x: "marcado como marco no Project, mas com %d dia(s) de duração"
+               % (por_id[x].get("duracao") or 0) for x in marco_dur},
+        "fora_nivel4": {
+            x: "é trabalho e está no nível %s, direto dentro de \"%s\""
+               % (por_id[x].get("level"), caminhos[x][-1])
+               if caminhos[x] else
+               "é trabalho e está no nível %s, solta na raiz do cronograma"
+               % por_id[x].get("level")
+            for x in fora_nivel},
+    }
+
     return {
         "base": len(folhas),
         "tem_flag_marco": tem_flag,
-        "contagens": {
-            "dep_resumo":        len(dep_resumo),
-            "sem_sucessora":     len(sem_suc),
-            "sem_predecessora":  len(sem_pred),
-            "sem_recurso":       len(sem_recurso),
-            "marco_com_duracao": len(marco_dur),
-            "fora_nivel4":       len(fora_nivel),
-        },
+        "contagens": {k: len(v) for k, v in ofensores.items()},
+        "ofensores": ofensores,
+        "por_id": por_id,
+        "linha": linha,
+        "caminhos": caminhos,
     }
+
+
+# ── Localização de cada tarefa apontada ───────────────────────────────────────
+
+def _data_br(iso: str | None) -> str:
+    return "/".join(reversed(iso.split("-"))) if iso else ""
+
+
+def _caminhos(tarefas: list[dict]) -> dict[str, list[str]]:
+    """Caminho na EAP de cada tarefa, sem o nome do projeto.
+
+    A hierarquia do MSP é posicional — as filhas vêm logo depois da mãe, com
+    nível maior —, então uma pilha indexada pelo nível reconstrói o caminho.
+    Sem ele a lista não identifica nada: um cronograma tem dezenas de tarefas
+    chamadas "Análise" e "R00", e o nome sozinho não diz qual é qual.
+    """
+    caminhos: dict[str, list[str]] = {}
+    pilha: list[str] = []
+    for t in tarefas:
+        nivel = t.get("level") or 0
+        pilha = pilha[:nivel]
+        pilha.append(t.get("name") or "")
+        caminhos[str(t.get("id"))] = list(pilha[1:-1])   # [0] é o projeto
+    return caminhos
+
+
+def _itens(m: dict, kpi_id: str) -> list[dict]:
+    """As tarefas apontadas por um KPI, na ordem em que estão no cronograma."""
+    por_id, linha, caminhos = m["por_id"], m["linha"], m["caminhos"]
+    itens = []
+    for tid, motivo in m["ofensores"][kpi_id].items():
+        t = por_id[tid]
+        itens.append({
+            "linha": linha[tid],
+            "nome": t.get("name") or "",
+            "eap": " › ".join(caminhos.get(tid) or []) or "—",
+            "nivel": t.get("level"),
+            "inicio": t.get("start"),
+            "fim": t.get("end"),
+            "recurso": (t.get("resources") or "").strip(),
+            "motivo": motivo,
+        })
+    return sorted(itens, key=lambda i: i["linha"])
 
 
 # ── API do módulo ─────────────────────────────────────────────────────────────
 
-def analisar(tarefas: list[dict], nome: str = "", pid: str = "") -> dict:
-    """Análise completa de um cronograma: KPIs, notas e score total."""
+def analisar(tarefas: list[dict], nome: str = "", pid: str = "",
+             detalhar: bool = True) -> dict:
+    """Análise completa de um cronograma: KPIs, notas e score total.
+
+    `detalhar` traz junto a lista das tarefas apontadas por cada KPI. O painel
+    geral analisa a carteira inteira só para desenhar o mapa de calor e não usa
+    essas listas — nele sai `False` para não montar milhares de linhas à toa.
+    """
     m = _medir(tarefas)
     base = m["base"]
 
@@ -219,6 +301,7 @@ def analisar(tarefas: list[dict], nome: str = "", pid: str = "") -> dict:
             "motivo_indisponivel": ("O flag de marco do Project entrou no snapshot em "
                                     "14/08/26. Este KPI aparece após a próxima coleta.")
                                    if indisponivel else None,
+            "itens": _itens(m, k["id"]) if detalhar and not indisponivel else [],
         })
 
     score = round(soma_notas / soma_pesos, 1) if soma_pesos else 0.0
@@ -242,7 +325,7 @@ def resumo(tarefas: list[dict], nome: str = "", pid: str = "") -> dict:
     calor e o radar que compara os melhores com os piores; sem isso seria uma
     chamada por projeto só para desenhar a comparação.
     """
-    a = analisar(tarefas, nome, pid)
+    a = analisar(tarefas, nome, pid, detalhar=False)
     notas = [{"id": k["id"], "nome": k["nome"], "nota": k["nota"],
               "qtd": k["qtd"], "taxa": k["taxa"]} for k in a["kpis"]]
     avaliados = [k for k in notas if k["nota"] is not None]

@@ -890,9 +890,42 @@ DUAS TELAS
                   proprio dado, radar comparando os dois grupos por indicador,
                   barra de concentracao dos defeitos e mapa de calor
                   projetos x indicadores. Tudo clicavel.
-  view-saudeproj  Analise de um projeto: seletor, medidor, diagnostico em texto
-                  e os 6 cards de KPI com o porque e a acao corretiva.
+  view-saudeproj  Analise de um projeto: seletor, medidor, diagnostico em texto,
+                  os 6 cards de KPI com o porque e a acao corretiva, e a lista
+                  de apontamentos (abaixo).
                   Nao tem item de menu — NAV_ALIAS mantem "Saude" aceso.
+
+LISTA DE APONTAMENTOS (18/08/26)
+--------------------------------
+O KPI diz quantas tarefas estao erradas; a lista diz QUAIS SAO e ONDE ESTAO.
+Sem ela o coordenador tem a nota e nao tem como agir: achar as 49 tarefas com
+dependencia em resumo no meio das 221 linhas do Pirajucara e trabalho manual.
+
+Cada cartao de KPI com defeito e clicavel e abre a lista ja filtrada por ele;
+as abas trocam o filtro; o cabecalho da tabela ordena (clique de novo inverte,
+com a linha como desempate). Colunas: linha, tarefa + caminho na EAP, indicador,
+motivo especifico, datas e recurso.
+
+  - LINHA e a posicao da tarefa no snapshot, contada a partir de 1. O snapshot
+    nao guarda o Id nem a WBS do Project, entao ela bate com a linha do Project
+    quando o cronograma esta sem filtro nem reordenacao. E o que a dica no pe da
+    tabela explica (Ctrl+G leva ate a linha; Ctrl+L acha pelo nome).
+  - CAMINHO NA EAP faz o trabalho pesado de identificacao: um cronograma tem
+    dezenas de tarefas chamadas "Analise" e "R00", e o nome sozinho nao diz qual
+    e qual. Vem de _caminhos(), que reconstroi o caminho com uma pilha indexada
+    pelo nivel — a hierarquia do MSP e posicional.
+  - MOTIVO e por tarefa, nao a definicao do KPI: "predecessora e o resumo
+    'Implantacao' (linha 15)", "ninguem depende dela: termina em 02/06/2025 e o
+    atraso morre ai".
+
+No modulo: _medir() ja montava os conjuntos de ids ofensores e jogava fora no
+fim, ficando so com len(). Agora devolve tambem `ofensores` (id -> motivo), e
+_itens() os transforma em linhas. analisar(detalhar=False) desliga isso — e o
+que resumo() usa, porque o painel geral analisa a carteira inteira so para
+desenhar o mapa de calor e nao abre lista nenhuma. Nenhuma nota mudou.
+
+Sem `itens` na resposta (servidor anterior a esta tela) o card da lista some e
+os KPIs voltam a ser os de antes, sem link para uma lista que nao veio.
 
 O radar deixa de fora indicador sem nota em nenhum projeto: eixo em zero seria
 lido como nota zero, e nao como ausencia de dado.

@@ -59,7 +59,13 @@ a{color:inherit;text-decoration:none;}
   cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
 .nav-item:hover{background:var(--sidebar-hover);}
 .nav-item.active{background:var(--sidebar-active);border-left-color:#6366f1;font-weight:600;}
-.nav-icon{font-size:.85rem;width:16px;text-align:center;flex-shrink:0;}
+/* Os ícones de emoji vêm coloridos da fonte do sistema e `color` não os atinge.
+   O filtro achata cada um em preto e inverte: sai a mesma silhueta em branco,
+   igual aos ícones que são caractere de texto. Só sobrevivem a isso os emoji
+   desenhados em traço (🩺, ⛱, 🔗) — os de área cheia (📋, 📈, 📆) viravam um
+   retângulo branco sem leitura nenhuma, e por isso saíram daqui. */
+.nav-icon{font-size:.85rem;width:16px;text-align:center;flex-shrink:0;color:#fff;
+  filter:grayscale(1) brightness(0) invert(1);}
 .sidebar-footer{padding:14px 20px;font-size:.68rem;opacity:.35;border-top:1px solid var(--sidebar-border);}
 
 /* MAIN */
@@ -165,6 +171,47 @@ select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
 .sd-kpi-txt{font-size:.7rem;color:var(--muted);line-height:1.5;}
 .sd-kpi-acao{font-size:.7rem;line-height:1.5;color:var(--text);
   border-left:2px solid var(--border);padding-left:8px;border-radius:0;}
+.sd-kpi.clicavel{cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;}
+.sd-kpi.clicavel:hover{border-color:#bfdbfe;box-shadow:0 4px 14px rgba(29,78,216,.10);
+  transform:translateY(-1px);}
+.sd-kpi-ver{margin-top:auto;align-self:flex-start;background:none;border:none;padding:4px 0 0;
+  font:700 .72rem 'Segoe UI',system-ui;color:var(--primary);cursor:pointer;}
+.sd-kpi-ver.limpo{color:var(--green);font-weight:600;cursor:default;}
+/* Lista de apontamentos */
+.sd-lista{scroll-margin-top:12px;}
+.sd-tabs{display:flex;gap:7px;flex-wrap:wrap;}
+.sd-tab{display:inline-flex;align-items:center;gap:6px;font:600 .72rem 'Segoe UI',system-ui;
+  padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:#fff;
+  color:var(--muted);cursor:pointer;}
+.sd-tab i{width:7px;height:7px;border-radius:50%;display:inline-block;}
+.sd-tab b{font-weight:800;color:var(--text);}
+.sd-tab.ativa{background:var(--primary);border-color:var(--primary);color:#fff;}
+.sd-tab.ativa b{color:#fff;}
+.sd-scroll{max-height:470px;overflow:auto;border:1px solid var(--border);border-radius:8px;}
+.sd-tabela{width:100%;border-collapse:collapse;font-size:.75rem;}
+.sd-tabela th{text-align:left;font-size:.63rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);font-weight:700;padding:8px 9px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:#fff;z-index:1;cursor:pointer;user-select:none;
+  white-space:nowrap;}
+.sd-tabela th:hover{color:var(--primary);}
+.sd-tabela th.ord{color:var(--primary);}
+.sd-tabela th .seta{font-size:.6rem;margin-left:3px;}
+.sd-tabela td{padding:9px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+.sd-tabela tr:hover td{background:#f8fafc;}
+.sd-linha{font-variant-numeric:tabular-nums;font-weight:800;color:var(--primary);white-space:nowrap;}
+.sd-nome{font-weight:600;line-height:1.35;}
+.sd-eap{font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.35;}
+.sd-tag{display:inline-block;font-size:.62rem;font-weight:700;padding:2px 7px;
+  border-radius:999px;white-space:nowrap;}
+.sd-motivo{font-size:.7rem;color:var(--muted);line-height:1.45;}
+.sd-datas{font-size:.68rem;color:var(--muted);white-space:nowrap;line-height:1.5;
+  font-variant-numeric:tabular-nums;}
+.sd-rodape{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  flex-wrap:wrap;margin-top:11px;font-size:.7rem;color:var(--muted);}
+.sd-dica{font-size:.7rem;color:var(--muted);background:#f8fafc;border:1px solid var(--border);
+  border-left:3px solid var(--primary);border-radius:6px;padding:9px 12px;
+  line-height:1.55;margin-top:12px;}
+.sd-dica code{background:#eef2f7;padding:1px 5px;border-radius:4px;}
 /* Painel geral */
 .sd-panel-top{display:grid;grid-template-columns:250px 1fr;gap:18px;}
 .sd-media-card{display:flex;flex-direction:column;justify-content:center;gap:6px;}
@@ -649,14 +696,14 @@ tbody tr:hover td{background:#f8fafc;}
     <div class="nav-item" onclick="showView('cidades')" id="nav-cidades">
       <span class="nav-icon">◫</span><span class="nav-label">Por Cidade</span>
     </div>
+    <div class="nav-section" style="margin-top:8px;">Sistema</div>
     <div class="nav-item" onclick="showView('saude')" id="nav-saude">
       <span class="nav-icon">🩺</span><span class="nav-label">Saúde dos Cronogramas</span>
     </div>
-    <div class="nav-section" style="margin-top:8px;">Sistema</div>
-    <div class="nav-item" id="nav-report"     onclick="showView('report')"><span class="nav-icon">📋</span><span class="nav-label">Report Semanal</span></div>
-    <div class="nav-item" id="nav-desembolso" onclick="showView('desembolso')"><span class="nav-icon">📈</span><span class="nav-label">Curva de Desembolso</span></div>
-    <div class="nav-item" id="nav-cronograma" onclick="showView('cronograma')"><span class="nav-icon">📆</span><span class="nav-label">Cronogramas de Alocação</span></div>
-    <div class="nav-item" id="nav-ferias"     onclick="showView('ferias')"><span class="nav-icon">🌴</span><span class="nav-label">Anotação de Férias</span></div>
+    <div class="nav-item" id="nav-report"     onclick="showView('report')"><span class="nav-icon">▤</span><span class="nav-label">Report Semanal</span></div>
+    <div class="nav-item" id="nav-desembolso" onclick="showView('desembolso')"><span class="nav-icon">↗</span><span class="nav-label">Curva de Desembolso</span></div>
+    <div class="nav-item" id="nav-cronograma" onclick="showView('cronograma')"><span class="nav-icon">▦</span><span class="nav-label">Cronogramas de Alocação</span></div>
+    <div class="nav-item" id="nav-ferias"     onclick="showView('ferias')"><span class="nav-icon">⛱</span><span class="nav-label">Anotação de Férias</span></div>
     <div class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Configurações</span></div>
     <div class="nav-section" style="margin-top:8px;">Links Úteis</div>
     <a class="nav-item" href="https://horizontesarq.sharepoint.com/sites/pwa/Projects.aspx" target="_blank" style="text-decoration:none;color:inherit;">
@@ -930,6 +977,30 @@ tbody tr:hover td{background:#f8fafc;}
       </div>
 
       <div class="sd-kpi-grid" id="saude-kpis"></div>
+
+      <div class="card sd-lista" id="saude-lista" style="display:none;">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Apontamentos</div>
+            <div class="card-sub">As tarefas exatas por trás de cada nota &middot; clique no cabeçalho para ordenar</div>
+          </div>
+          <div class="sd-tabs" id="saude-tabs"></div>
+        </div>
+        <div class="sd-scroll">
+          <table class="sd-tabela">
+            <thead><tr id="saude-thead"></tr></thead>
+            <tbody id="saude-corpo"></tbody>
+          </table>
+        </div>
+        <div class="sd-rodape">
+          <span id="saude-contador"></span>
+          <span id="saude-ordem-txt"></span>
+        </div>
+        <div class="sd-dica"><b>Como achar no Project:</b> a coluna <b>Linha</b> é a posição da
+          tarefa no cronograma publicado &mdash; no Project, <code>Ctrl+G</code> e o número leva
+          direto até ela. Se o cronograma estiver filtrado, <code>Ctrl+L</code> e colar o nome
+          da tarefa resolve.</div>
+      </div>
     </div>
 
     <!-- TOOL: REPORT SEMANAL -->
@@ -2327,6 +2398,7 @@ let SAUDE_TODOS = null;      // cache do painel geral; recarrega junto do projet
 let SAUDE_ALVO  = null;      // projeto pedido por um clique no painel geral
 
 const SD_CORES = { verde:'#16a34a', amarelo:'#ca8a04', laranja:'#d97706', vermelho:'#dc2626' };
+const SD_TAG_BG = { verde:'#f0fdf4', amarelo:'#fefce8', laranja:'#fffbeb', vermelho:'#fef2f2' };
 
 function abrirSaudeProjeto() {
   const sel = document.getElementById('saude-selector');
@@ -2373,6 +2445,7 @@ async function carregarSaudeProjeto(id) {
     vazio.style.display = '';
     vazio.textContent = 'Não foi possível analisar: ' + e.message;
     document.getElementById('saude-kpis').innerHTML = '';
+    document.getElementById('saude-lista').style.display = 'none';
   }
 }
 
@@ -2442,7 +2515,15 @@ function renderSaude(d) {
         <div class="sd-kpi-txt">${k.motivo_indisponivel}</div></div>`;
     }
     const c = SD_CORES[k.cor];
-    return `<div class="sd-kpi">
+    // Sem itens (servidor anterior a esta tela) o cartão continua o de antes:
+    // sem link para uma lista que não veio.
+    const temLista = k.qtd > 0 && (k.itens || []).length > 0;
+    const ver = temLista
+      ? `<button class="sd-kpi-ver" onclick="sdAbrir('${k.id}')">${
+           k.qtd === 1 ? 'Ver a tarefa' : 'Ver as ' + k.qtd + ' tarefas'} ›</button>`
+      : (k.qtd === 0 ? '<span class="sd-kpi-ver limpo">Nenhum apontamento ✓</span>' : '');
+    return `<div class="sd-kpi${temLista ? ' clicavel' : ''}"
+        ${temLista ? `onclick="sdAbrir('${k.id}')"` : ''}>
       <div class="sd-kpi-top">
         <span class="sd-kpi-nome">${k.nome}</span>
         <span class="sd-kpi-nota" style="color:${c}">${String(k.nota).replace('.',',')}</span>
@@ -2451,9 +2532,113 @@ function renderSaude(d) {
       <div class="sd-kpi-qtd"><b>${k.qtd}</b> tarefa(s) · ${String(k.taxa).replace('.',',')}% do cronograma · peso ${k.peso}</div>
       <div class="sd-kpi-txt">${k.desc} ${k.porque}</div>
       <div class="sd-kpi-acao">↳ ${k.acao}</div>
+      ${ver}
     </div>`;
   }).join('');
 
+  montarApontamentos(d);
+}
+
+/* ── Lista de apontamentos ────────────────────────────────────────────────────
+
+   Os KPIs dizem quantas tarefas estão erradas; a lista diz quais são e onde
+   estão. Sem ela o coordenador tem a nota e não tem como agir: achar as 49
+   tarefas com dependência em resumo no meio de 221 linhas do Project é
+   trabalho manual.                                                            */
+
+let SD_ITENS  = [];                          // todos os apontamentos do projeto
+let SD_FILTRO = 'todos';                     // indicador selecionado nas abas
+let SD_ORD    = { col:'linha', asc:true };   // ordenação da tabela
+
+const SD_COLS = [
+  { id:'linha',   rot:'Linha',                   ord:'linha',           larg:'56px'  },
+  { id:'nome',    rot:'Tarefa & caminho na EAP', ord:'nome da tarefa'                },
+  { id:'kpi',     rot:'Apontamento',             ord:'indicador',       larg:'140px' },
+  { id:'motivo',  rot:'O que está errado',       ord:'motivo',          larg:'250px' },
+  { id:'inicio',  rot:'Datas',                   ord:'data de início',  larg:'96px'  },
+  { id:'recurso', rot:'Recurso',                 ord:'recurso',         larg:'96px'  },
+];
+
+const sdEsc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const sdData = d => d ? d.split('-').reverse().join('/') : '';
+
+function montarApontamentos(d) {
+  const card = document.getElementById('saude-lista');
+  SD_ITENS = [];
+  d.kpis.forEach(k => (k.itens || []).forEach(i => SD_ITENS.push({ ...i, kpi:k.id, cor:k.cor })));
+
+  // Servidor antigo não manda `itens`: some com o cartão em vez de mostrar uma
+  // tabela vazia que parece defeito de tela.
+  if (!SD_ITENS.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const comItens = d.kpis.filter(k => (k.itens || []).length);
+  document.getElementById('saude-tabs').innerHTML =
+    [`<button class="sd-tab" data-k="todos" onclick="sdFiltrar('todos')">Todos <b>${SD_ITENS.length}</b></button>`]
+    .concat(comItens.map(k =>
+      `<button class="sd-tab" data-k="${k.id}" onclick="sdFiltrar('${k.id}')">
+         <i style="background:${SD_CORES[k.cor]}"></i>${SD_ABREV[k.id] || k.nome} <b>${k.qtd}</b>
+       </button>`)).join('');
+
+  SD_ORD = { col:'linha', asc:true };
+  sdFiltrar('todos');
+}
+
+/* Abre a lista já filtrada pelo indicador do cartão clicado. */
+function sdAbrir(kpi) {
+  sdFiltrar(kpi);
+  document.getElementById('saude-lista').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function sdFiltrar(kpi) {
+  SD_FILTRO = kpi;
+  document.querySelectorAll('#saude-tabs .sd-tab')
+    .forEach(t => t.classList.toggle('ativa', t.dataset.k === kpi));
+  sdPintar();
+}
+
+function sdOrdenar(col) {
+  SD_ORD = { col, asc: SD_ORD.col === col ? !SD_ORD.asc : true };
+  sdPintar();
+}
+
+function sdPintar() {
+  const itens = SD_ITENS.filter(i => SD_FILTRO === 'todos' || i.kpi === SD_FILTRO);
+  const { col, asc } = SD_ORD;
+  // `linha` é número e ordena como número; o resto é texto e ordena em pt-BR,
+  // com a linha como desempate para a ordem não dançar entre nomes iguais.
+  const chave = i => col === 'kpi' ? (SD_ABREV[i.kpi] || i.kpi) : i[col];
+  itens.sort((a, b) => {
+    const x = chave(a), y = chave(b);
+    const r = col === 'linha' ? x - y
+            : String(x ?? '').localeCompare(String(y ?? ''), 'pt-BR');
+    return (asc ? r : -r) || (a.linha - b.linha);
+  });
+
+  document.getElementById('saude-thead').innerHTML = SD_COLS.map(c =>
+    `<th onclick="sdOrdenar('${c.id}')" class="${col === c.id ? 'ord' : ''}"
+       ${c.larg ? `style="width:${c.larg}"` : ''}>${c.rot}${
+       col === c.id ? `<span class="seta">${asc ? '▲' : '▼'}</span>` : ''}</th>`).join('');
+
+  document.getElementById('saude-corpo').innerHTML = itens.map(i => {
+    const c = SD_CORES[i.cor] || SD_CORES.vermelho;
+    return `<tr>
+      <td class="sd-linha">${i.linha}</td>
+      <td><div class="sd-nome">${sdEsc(i.nome)}</div>
+          <div class="sd-eap">${sdEsc(i.eap)} · nível ${i.nivel}</div></td>
+      <td><span class="sd-tag" style="color:${c};background:${SD_TAG_BG[i.cor] || '#fef2f7'}">${
+          SD_ABREV[i.kpi] || i.kpi}</span></td>
+      <td class="sd-motivo">${sdEsc(i.motivo)}</td>
+      <td class="sd-datas">${sdData(i.inicio)}<br>${sdData(i.fim)}</td>
+      <td class="sd-motivo">${i.recurso ? sdEsc(i.recurso) : '<i>não atribuído</i>'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('saude-contador').textContent =
+    `${itens.length} de ${SD_ITENS.length} apontamento(s)`;
+  document.getElementById('saude-ordem-txt').textContent = col === 'linha' && asc
+    ? 'Ordenado pela posição no cronograma — a mesma ordem das linhas no Project.'
+    : `Ordenado por ${SD_COLS.find(c => c.id === col).ord}, ${asc ? 'crescente' : 'decrescente'}.`;
 }
 
 /* ── Painel geral ─────────────────────────────────────────────────────────── */

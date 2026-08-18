@@ -41,6 +41,18 @@ predecessora não se moveu.
 
 ---
 
+## Feito em 18/08/26 — lista de apontamentos na Saúde do Cronograma
+
+A tela dizia quantas tarefas estão erradas em cada indicador e não dizia quais.
+Achar as 49 dependências em resumo do Pirajuçara no meio de 221 linhas do Project
+era trabalho manual, e o item 1 acima depende justamente disso.
+
+`saude/saude.py` passou a devolver, junto de cada KPI, a lista das tarefas
+apontadas — linha, caminho na EAP, motivo específico, datas e recurso. A tela do
+projeto ganhou o card **Apontamentos**: cartão de KPI clicável abre a lista
+filtrada por ele, abas trocam o indicador e o cabeçalho da tabela ordena.
+Nenhuma nota, peso ou limite mudou.
+
 ## Feito em 14/08/26 — as duas correções de código
 
 **Coerência de datas só em tarefa não iniciada** (`comparador/rede.py`,
