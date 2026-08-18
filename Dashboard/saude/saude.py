@@ -40,7 +40,7 @@ KPIS = [
     {
         "id": "sem_sucessora", "peso": 20, "limite": 0.25,
         "nome": "Tarefas sem sucessora",
-        "desc": "Tarefa que não empurra ninguém e não termina junto com o projeto.",
+        "desc": "Tarefa que não empurra ninguém e não termina junto com o projeto, fora uma tolerada por cronograma.",
         "porque": "Ponta solta: se ela atrasar, o atraso não chega ao término do projeto "
                   "pela rede, e o cronograma não reage.",
         "acao": "Ligar à próxima tarefa da sequência ou ao término da etapa.",
@@ -48,7 +48,7 @@ KPIS = [
     {
         "id": "sem_predecessora", "peso": 15, "limite": 0.25,
         "nome": "Tarefas sem predecessora",
-        "desc": "Tarefa sem nada antes dela, fora a primeira do cronograma.",
+        "desc": "Tarefa sem nada antes dela, fora a primeira do cronograma e uma tolerada por cronograma.",
         "porque": "Sem predecessora a tarefa é uma ilha: nada explica a data dela, e ela "
                   "não pode ser apontada como origem de nada.",
         "acao": "Ligar à tarefa que a antecede de fato.",
@@ -82,6 +82,7 @@ KPIS = [
 ]
 
 NIVEL_TRABALHO = 4          # nível em que o trabalho deve estar
+TOLERANCIA_PONTA = 1        # pontas soltas perdoadas por projeto, em cada lado
 FAIXAS = [                  # (nota mínima, rótulo, cor)
     (90, "Excelente", "verde"),
     (75, "Bom",       "verde"),
@@ -107,6 +108,18 @@ def _nota(qtd: int, base: int, limite: float) -> float:
 
 
 # ── Coleta dos defeitos ───────────────────────────────────────────────────────
+
+def _tolerar(ids: set[str], por_id: dict, campo: str, isentas: int = 0) -> set[str]:
+    """Tira da conta as pontas soltas perdoadas do projeto.
+
+    Perdoa as mais defensáveis: sem predecessora, as que começam antes de todas
+    (começo de uma frente); sem sucessora, as que terminam depois de todas (fim
+    de uma frente). `isentas` são as isenções estruturais, somadas à tolerância.
+    """
+    ordem = sorted(ids, key=lambda x: (por_id[x].get(campo) or ""),
+                   reverse=(campo == "end"))
+    return set(ordem[TOLERANCIA_PONTA + isentas:])
+
 
 def _medir(tarefas: list[dict]) -> dict:
     """Conta as tarefas com cada defeito.
@@ -135,13 +148,17 @@ def _medir(tarefas: list[dict]) -> dict:
                 dep_resumo.add(tid)          # predecessora é resumo
 
     # A primeira tarefa não precisa de predecessora; quem termina junto com o
-    # projeto não precisa de sucessora.
-    sem_pred = {x for x in folhas if x not in com_pred}
-    if sem_pred:
-        primeira = min(sem_pred, key=lambda x: (por_id[x].get("start") or "9999"))
-        sem_pred.discard(primeira)
-    sem_suc = {x for x in folhas
-               if x not in com_suc and (por_id[x].get("end") or "") != fim_projeto}
+    # projeto não precisa de sucessora. Além dessas isenções estruturais, cada
+    # cronograma tem direito a TOLERANCIA_PONTA ponta solta de cada lado sem
+    # perder nota: na prática todo projeto real abre uma frente a mais ("Início
+    # do Contrato" de um segundo lote) e fecha uma etapa antes do fim ("Término
+    # do Projeto" de uma fase). Uma dessas não é erro de amarração; da segunda
+    # em diante é, e aí conta.
+    sem_pred = _tolerar({x for x in folhas if x not in com_pred},
+                        por_id, "start", isentas=1)   # a primeira do cronograma
+    sem_suc = _tolerar({x for x in folhas if x not in com_suc
+                        and (por_id[x].get("end") or "") != fim_projeto},
+                       por_id, "end")
 
     # Marco por intenção (flag do Project) que não tem duração zero. O flag só
     # existe em snapshot coletado depois de 14/08/26 — sem ele o KPI sai de fora
