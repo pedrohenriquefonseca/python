@@ -74,7 +74,7 @@ KPIS = [
     {
         "id": "fora_nivel4", "peso": 15, "limite": 0.30,
         "nome": "Trabalho fora do nível 4",
-        "desc": "Tarefa de trabalho em nível diferente de 4.",
+        "desc": "Tarefa de trabalho em nível diferente de 4, fora marcos.",
         "porque": "Quebra a padronização da EAP: o trabalho deveria estar todo no mesmo "
                   "nível, e relatórios que agrupam por hierarquia ficam irregulares.",
         "acao": "Reposicionar a tarefa na estrutura ou criar os níveis que faltam.",
@@ -178,10 +178,14 @@ def _medir(tarefas: list[dict]) -> dict:
     marco_dur = {str(t["id"]) for t in tarefas
                  if t.get("isMilestone") and not t.get("marco")} if tem_flag else set()
 
+    # Marco (duração zero) não é trabalho: marca o começo ou o fim de uma etapa,
+    # e o lugar dele na EAP é o nível da etapa que ele delimita, não o nível 4.
+    # Cobrar nível dele apontaria como defeito o cronograma bem montado.
     fora_nivel = {x for x in folhas
-                  if (por_id[x].get("level") or 0) != NIVEL_TRABALHO}
+                  if (por_id[x].get("level") or 0) != NIVEL_TRABALHO
+                  and not por_id[x].get("marco")}
 
-    # Marco não executa trabalho, então não tem a quem atribuir: fica de fora.
+    # Pelo mesmo motivo o marco não tem a quem atribuir: fica de fora.
     sem_recurso = {x for x in folhas
                    if (por_id[x].get("level") or 0) == NIVEL_TRABALHO
                    and not por_id[x].get("marco")

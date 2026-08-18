@@ -943,7 +943,7 @@ final e a media das notas ponderada pelos pesos.
   Tarefas sem predecessora           15    25%    tarefa sem nada antes
   Tarefas nivel 4 sem recurso        10    10%    nivel 4, fora marcos, sem recurso
   Marcos com duracao                 10     5%    IsMilestone com duracao > 0
-  Trabalho fora do nivel 4           15    30%    tarefa de trabalho em nivel != 4
+  Trabalho fora do nivel 4           15    30%    trabalho em nivel != 4, fora marcos
 
 Faixas: 90 Excelente · 75 Bom · 60 Regular · 40 Ruim · abaixo disso Critico.
 
@@ -951,6 +951,17 @@ DESCONTOS DELIBERADOS
 ---------------------
   - A primeira tarefa nao precisa de predecessora; quem termina junto com o
     projeto nao precisa de sucessora. Ambas saem da conta.
+  - Alem dessas, cada cronograma tem direito a TOLERANCIA_PONTA ponta solta de
+    cada lado: todo projeto real abre uma frente a mais e fecha uma etapa antes
+    do fim. Da segunda em diante conta.
+  - MARCO (duracao zero) NAO E TRABALHO (18/08/26). Ele marca o comeco ou o fim
+    de uma etapa, entao o lugar dele na EAP e o nivel da etapa que delimita, e
+    nao existe a quem atribui-lo. Fica fora de "trabalho fora do nivel 4" e de
+    "nivel 4 sem recurso" — cobrar isso apontaria como defeito o cronograma bem
+    montado. Efeito na carteira: Sede 2, Palhano e Edson Pisani foram a 100 (o
+    que sobrava neles era so marco), e os 15 projetos subiram ou ficaram iguais.
+    Nenhum peso ou limite mudou.
+
 KPIS RETIRADOS
 --------------
 Media a sucessora que comeca antes do fim da predecessora. Saiu em 14/08/26: das

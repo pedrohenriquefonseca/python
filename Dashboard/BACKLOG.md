@@ -41,6 +41,16 @@ predecessora não se moveu.
 
 ---
 
+## Feito em 18/08/26 — marco não é trabalho
+
+Regra do usuário: tarefa de duração zero pode estar fora do 4º nível e pode não
+ter recurso atribuído. O marco delimita o começo ou o fim de uma etapa, então o
+lugar dele na EAP é o nível da etapa, e não existe a quem atribuí-lo.
+
+`sem_recurso` já isentava marcos; `fora_nivel4` não. Passou a isentar. Sede 2,
+Palhano e Edson Pisani foram a 100 — o que sobrava neles era só marco — e os 15
+projetos subiram ou ficaram iguais. Nenhum peso ou limite mudou.
+
 ## Feito em 18/08/26 — lista de apontamentos na Saúde do Cronograma
 
 A tela dizia quantas tarefas estão erradas em cada indicador e não dizia quais.
