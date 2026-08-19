@@ -241,57 +241,55 @@ def secao_semanal(r: dict, data_ant: str) -> str:
     saldo = pj["saldo"] or 0
     # Cabeçalhos no mesmo padrão das demais seções do report: emoji + caixa alta,
     # sem sintaxe de markdown — o report é lido como texto puro, não renderizado.
-    L: list[str] = [f"🤔 O QUE MUDOU DESDE O ULTIMO REPORT({data_ant})?"]
+    L: list[str] = [f"🤔 O QUE MUDOU DESDE O ÚLTIMO REPORT({data_ant})"]
 
+    # Sem movimento não se anuncia "mudou de X para X": a frase pede ao leitor
+    # que compare duas datas iguais para concluir o que a linha já podia dizer.
     if saldo > 0:
-        efeito = "gerando um atraso de %s" % dias_txt(saldo)
+        L.append("- A Previsão de Conclusão mudou de %s para %s, gerando um atraso de %s."
+                 % (br(pj["termino_ant"]), br(pj["termino_atu"]), dias_txt(saldo)))
     elif saldo < 0:
-        efeito = "gerando um adiantamento de %s" % dias_txt(saldo)
+        L.append("- A Previsão de Conclusão mudou de %s para %s, gerando um adiantamento de %s."
+                 % (br(pj["termino_ant"]), br(pj["termino_atu"]), dias_txt(saldo)))
     else:
-        efeito = "sem alteração de prazo"
-    L.append("- A Previsão de Conclusão mudou de %s para %s, %s."
-             % (br(pj["termino_ant"]), br(pj["termino_atu"]), efeito))
+        L.append("- A Previsão de Conclusão do projeto não sofreu alteração.")
 
     d_ant, d_atu = pj["duracao_ant"], pj["duracao_atu"]
     if d_ant is None or d_atu is None:
         L.append("- A Duração total do projeto não pôde ser comparada.")
+    elif d_atu == d_ant:
+        L.append("- A Duração total do projeto não sofreu alteração.")
     else:
         delta = d_atu - d_ant
         if delta > 0:
             efeito = "gerando um aumento de %s na duração total do projeto" % dias_txt(delta)
-        elif delta < 0:
-            efeito = "gerando uma redução de %s na duração total do projeto" % dias_txt(delta)
         else:
-            efeito = "sem alteração na duração total do projeto"
+            efeito = "gerando uma redução de %s na duração total do projeto" % dias_txt(delta)
         L.append("- A Duração total do projeto mudou de %s para %s, %s."
                  % (dias_txt(d_ant), dias_txt(d_atu), efeito))
 
     # ── Ofensores ────────────────────────────────────────────────────────────
-    ger = (causa or {}).get("geradores") or []
-    L += ["", "🚨PRINCIPAIS OFENSORES"]
-    if ger:
-        for g in ger[:TOPO_OFENSORES]:
-            # O número é o AUMENTO DE DURAÇÃO, não a variação do término: parte
-            # do deslocamento é herdada, e só o que a tarefa acrescentou de
-            # duração é responsabilidade dela. A data é a de agora, sem o "de →
-            # para": o par sugeria que a diferença entre as duas é o número da
-            # linha, e não é — ali cabe o deslocamento inteiro, herança inclusa.
-            L.append("- %s: Aumento na duração de %s (%s, Término atual: %s)."
-                     % (g.get("rotulo") or g["nome"], dias_sinal(g["ddur"]),
-                        responsavel(g["recurso"]), br(g.get("termino"))))
-    elif causa is None:
-        L.append("- Sem a rede de dependências não é possível apontar os ofensores.")
-    elif saldo:
-        L.append("- Nenhuma tarefa aumentou de duração na cadeia que leva ao término: "
-                 "o desvio veio de replanejamento, não de atraso de tarefa.")
-    else:
-        L.append("- Não existem tarefas que cumpram os critérios desta seção")
+    # A seção só existe para explicar um desvio de prazo. Sem desvio ela vira um
+    # cabeçalho vermelho seguido de "não existem tarefas" — alarme sem conteúdo.
+    if saldo:
+        ger = (causa or {}).get("geradores") or []
+        L += ["", "🚨PRINCIPAIS OFENSORES"]
+        if ger:
+            for g in ger[:TOPO_OFENSORES]:
+                # O número é o AUMENTO DE DURAÇÃO, não a variação do término: parte
+                # do deslocamento é herdada, e só o que a tarefa acrescentou de
+                # duração é responsabilidade dela. A data é a de agora, sem o "de →
+                # para": o par sugeria que a diferença entre as duas é o número da
+                # linha, e não é — ali cabe o deslocamento inteiro, herança inclusa.
+                L.append("- %s: Aumento na duração de %s (%s, Término atual: %s)."
+                         % (g.get("rotulo") or g["nome"], dias_sinal(g["ddur"]),
+                            responsavel(g["recurso"]), br(g.get("termino"))))
+        elif causa is None:
+            L.append("- Sem a rede de dependências não é possível apontar os ofensores.")
+        else:
+            L.append("- Nenhuma tarefa aumentou de duração na cadeia que leva ao término: "
+                     "o desvio veio de replanejamento, não de atraso de tarefa.")
 
-    rec = r["reconciliacao"]
-    if rec["removidas"] or rec["inseridas"]:
-        L += ["", "> Atenção: %d tarefa(s) removida(s) e %d inserida(s) entre as duas "
-              "versões não entram na comparação."
-              % (len(rec["removidas"]), len(rec["inseridas"]))]
     return "\n".join(L)
 
 
