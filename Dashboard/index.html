@@ -701,6 +701,7 @@ tbody tr:hover td{background:#f8fafc;}
       <span class="nav-icon">🩺</span><span class="nav-label">Saúde dos Cronogramas</span>
     </div>
     <div class="nav-item" id="nav-report"     onclick="showView('report')"><span class="nav-icon">▤</span><span class="nav-label">Report Semanal</span></div>
+    <div class="nav-item" id="nav-entregas"   onclick="showView('entregas')"><span class="nav-icon">👷</span><span class="nav-label">Entregas de Fornecedores</span></div>
     <div class="nav-item" id="nav-desembolso" onclick="showView('desembolso')"><span class="nav-icon">↗</span><span class="nav-label">Curva de Desembolso</span></div>
     <div class="nav-item" id="nav-cronograma" onclick="showView('cronograma')"><span class="nav-icon">▦</span><span class="nav-label">Cronogramas de Alocação</span></div>
     <div class="nav-item" id="nav-ferias"     onclick="showView('ferias')"><span class="nav-icon">⛱</span><span class="nav-label">Anotação de Férias</span></div>
@@ -1019,6 +1020,28 @@ tbody tr:hover td{background:#f8fafc;}
             </button>
           </form>
           <p class="gui-status" id="status-report"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOL: ENTREGAS DE FORNECEDORES DE PROJETO -->
+    <div class="view" id="view-entregas">
+      <div class="tool-hero">
+        <div class="tool-panel active" id="panel-entregas">
+          <h2 class="panel-title">Relatório de Entregas de Fornecedores de Projeto</h2>
+          <form id="form-entregas" class="tool-form" autocomplete="off">
+            <div class="gui-form-group">
+              <label for="proj-entregas">Projeto</label>
+              <select id="proj-entregas" class="fselect" style="font-size:.84rem;font-weight:600;width:100%;"></select>
+            </div>
+            <p class="form-obs-gui">Obs.: sai o que cada fornecedor tem em desenvolvimento e, nos documentos
+              que ainda não começaram, a próxima etapa dele. Documento parado em análise do cliente fica de fora.</p>
+            <button type="submit" class="btn-gui" id="btn-entregas">
+              <span class="btn-text">Gerar Relatório</span>
+              <span class="btn-loading hidden">Processando…</span>
+            </button>
+          </form>
+          <p class="gui-status" id="status-entregas"></p>
         </div>
       </div>
     </div>
@@ -1687,13 +1710,14 @@ const VIEW_META = {
   saude:      { title:'Saúde dos Cronogramas',    sub:'Qualidade estrutural da rede de dependências' },
   saudeproj:  { title:'Saúde do Cronograma',      sub:'Análise de um projeto' },
   report:     { title:'Report Semanal',           sub:'' },
+  entregas:   { title:'Relatório de Entregas de Fornecedores de Projeto', sub:'' },
   desembolso: { title:'Curva de Desembolso',      sub:'' },
   cronograma: { title:'Cronogramas de Alocação',  sub:'' },
   ferias:     { title:'Anotação de Férias',        sub:'' },
 };
 
 // A barra de filtros (cliente/coordenador) não se aplica a estas views.
-const TOOL_VIEWS = new Set(['report','desembolso','cronograma','ferias','saude','saudeproj']);
+const TOOL_VIEWS = new Set(['report','entregas','desembolso','cronograma','ferias','saude','saudeproj']);
 // Views sem item próprio no menu: qual item fica aceso enquanto elas estão abertas.
 const NAV_ALIAS = { saudeproj: 'saude' };
 
@@ -1707,15 +1731,17 @@ function showView(v) {
   document.querySelectorAll('.nav-item[id]').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + (NAV_ALIAS[v] || v)).classList.add('active');
   document.getElementById('view-title').textContent = VIEW_META[v].title;
-  if (v === 'report')    popularSeletorReport();
+  if (v === 'report')    popularSeletorProjetos('proj-report');
+  if (v === 'entregas')  popularSeletorProjetos('proj-entregas');
   if (v === 'saude')     carregarSaudeTodos();
   if (v === 'saudeproj') abrirSaudeProjeto();
   if (!isTool && ALL_PROJECTS.length) renderCurrentView();
 }
 
-/* Popula o seletor de projetos do Report Semanal a partir do snapshot já carregado */
-function popularSeletorReport() {
-  const sel = document.getElementById('proj-report');
+/* Popula um seletor de projetos a partir do snapshot já carregado (report semanal,
+   entregas de fornecedores — todos escolhem projeto da mesma lista) */
+function popularSeletorProjetos(selId) {
+  const sel = document.getElementById(selId);
   if (!sel) return;
   const prev = sel.value;
   // Apenas projetos ativos (avanço < 100%), todos eles — independente dos filtros da barra
@@ -3374,6 +3400,30 @@ document.getElementById('form-report').addEventListener('submit', async e => {
   } catch(err) {
     guiShowStatus('report', `Erro: ${err.message}`, true);
   } finally { guiSetLoading('report', false); }
+});
+
+/* Relatório de Entregas de Fornecedores de Projeto — mesmo snapshot do report */
+document.getElementById('form-entregas').addEventListener('submit', async e => {
+  e.preventDefault();
+  const sel  = document.getElementById('proj-entregas');
+  const id   = sel.value;
+  const proj = ALL_PROJECTS.find(p => String(p.id) === id);
+  if (!id || !proj) { guiShowStatus('entregas', 'Selecione um projeto.', true); return; }
+  const nome = proj.name;
+  guiSetLoading('entregas', true);
+  try {
+    const res = await fetch('/api/entregas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: id, nome_projeto: nome }),
+    });
+    const j = await res.json();
+    if (!res.ok || j.error) throw new Error(j.error);
+    mostrarRelatorios([{ nome, content: j.content, filename: j.filename }]);
+    guiShowStatus('entregas', 'Relatório gerado!');
+  } catch(err) {
+    guiShowStatus('entregas', `Erro: ${err.message}`, true);
+  } finally { guiSetLoading('entregas', false); }
 });
 
 /* Curva de Desembolso */

@@ -41,11 +41,13 @@ sys.path.insert(0, str(_HERE_DIR / 'ferias'))
 # `import comparador` acharia primeiro a pasta, como namespace package vazio.
 sys.path.insert(0, str(_HERE_DIR / 'comparador'))
 sys.path.insert(0, str(_HERE_DIR / 'saude'))
+sys.path.insert(0, str(_HERE_DIR / 'entregas'))
 
 from Report import gerar_relatorio_web_json
 import comparador
 import report_base
 import saude
+import entregas
 from gantt_projetos import gerar_para_web_json as _gerar_projetos_web_json
 from gantt_clientes import (
     gerar_para_web_json as _gerar_equipe_web_json,
@@ -328,6 +330,36 @@ def api_report_json():
         return jsonify({"success": True, "content": conteudo, "filename": nome_arq,
                         "comparativo": info})
     except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/entregas", methods=["POST"])
+def api_entregas():
+    """Relatório de Entregas de Fornecedores de Projeto.
+
+    Mesma porta do report semanal — {project_id, nome_projeto} e o snapshot já
+    baixado —, mas sem efeito colateral: este relatório só lê o cronograma, não
+    grava base de comparação nenhuma.
+    """
+    try:
+        data       = request.get_json(silent=True) or {}
+        project_id = (data.get("project_id") or "").strip()
+        nome       = (data.get("nome_projeto") or "").strip()
+        if not project_id:
+            return jsonify({"error": "Selecione um projeto."}), 400
+        tarefas = _read_json(DATA_DIR / f"tasks_{project_id}.json", None)
+        if tarefas is None:
+            return jsonify({"error": "Tarefas não disponíveis para esse projeto no snapshot."}), 404
+
+        if not nome:
+            projetos = _read_json(DATA_DIR / "projects.json", []) or []
+            nome = next((p.get("name", "") for p in projetos
+                         if str(p.get("id")) == project_id), "") or "Projeto"
+
+        conteudo, nome_arq = entregas.gerar(tarefas, nome)
+        return jsonify({"success": True, "content": conteudo, "filename": nome_arq})
+    except Exception as exc:
+        log.exception("Erro no relatório de entregas de %s:", project_id[:8])
         return jsonify({"error": str(exc)}), 500
 
 
