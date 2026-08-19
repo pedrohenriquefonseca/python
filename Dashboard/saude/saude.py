@@ -133,7 +133,11 @@ def _medir(tarefas: list[dict]) -> dict:
     """
     folhas = rede.folhas(tarefas)
     por_id = {str(t["id"]): t for t in tarefas if t.get("id")}
-    linha = {str(t["id"]): i + 1 for i, t in enumerate(tarefas) if t.get("id")}
+    # A tarefa-resumo do projeto ocupa a linha 0 do Project, não a 1. Quando ela
+    # abre a lista (é o normal: o coletor a injeta como primeira), a posição no
+    # cronograma é o próprio índice; sem ela a numeração começa em 1.
+    base = 0 if tarefas and tarefas[0].get("level") == 0 else 1
+    linha = {str(t["id"]): i + base for i, t in enumerate(tarefas) if t.get("id")}
     fim_projeto = max((t.get("end") or "") for t in tarefas) if tarefas else ""
 
     dep_resumo = set()
