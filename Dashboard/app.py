@@ -298,15 +298,24 @@ def _secao_comparativa(project_id: str, tarefas: list):
         return None, {"aviso": f"Comparativo indisponível: {exc}"}
 
 
+# Cronograma do último report gerado de cada projeto, à espera da decisão do
+# usuário na tela do relatório. Fica na memória do servidor, e não em disco,
+# porque é estado de uma tela aberta: enquanto o report não for salvo no
+# histórico, ele não existe para o próximo comparativo. Servidor reiniciado com
+# o modal aberto perde a pendência — o usuário gera de novo, que é barato.
+_BASE_PENDENTE: dict[str, dict] = {}
+
+
 @app.route("/api/report-json", methods=["POST"])
 def api_report_json():
     """Report Semanal 2.0 — gera o relatório direto do snapshot JSON do PWA,
     sem upload de Excel. Recebe {project_id, nome_projeto} e lê o
     data/tasks_<project_id>.json já usado pelos dashboards.
 
-    Gerar um report tem efeito colateral: o cronograma de agora vira a base do
-    próximo. É o que faz os reports ladrilharem a linha do tempo, cada um
-    começando onde o anterior parou."""
+    Gerar um report NÃO grava mais a base do próximo: quem decide isso é o
+    toggle da tela do relatório, via POST /api/report-base. Aqui o cronograma
+    fica apenas pendente — nem todo report é report de rotina, e um relatório
+    tirado para outro fim não pode engolir o período do próximo."""
     try:
         data       = request.get_json(silent=True) or {}
         project_id = (data.get("project_id") or "").strip()
@@ -324,12 +333,46 @@ def api_report_json():
 
         secao, info = _secao_comparativa(project_id, tarefas)
         conteudo, nome_arq = gerar_relatorio_web_json(tarefas, nome, secao)
-        # Só depois de o relatório existir: base gravada num report que falhou
-        # ao ser montado engoliria o período seguinte.
-        report_base.gravar(project_id, tarefas, (match or {}).get("publicadoEm"))
+        # Só depois de o relatório existir: pendência deixada por um report que
+        # falhou ao ser montado engoliria o período seguinte se fosse salva.
+        _BASE_PENDENTE[project_id] = {
+            "tarefas":     [{c: t.get(c) for c in report_base.CAMPOS} for t in tarefas],
+            "publicadoEm": (match or {}).get("publicadoEm"),
+        }
         return jsonify({"success": True, "content": conteudo, "filename": nome_arq,
                         "comparativo": info})
     except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/report-base", methods=["POST"])
+def api_report_base():
+    """Decisão do toggle da tela do report: {project_id, salvar}.
+
+    Salvar é o que faz os reports ladrilharem a linha do tempo, cada um
+    começando onde o anterior parou. Não salvar deixa a base intacta: o próximo
+    report parte de onde o último report SALVO parou, e o relatório temporário
+    não aparece na história do projeto.
+
+    A pendência é consumida nos dois casos — a decisão é tomada uma vez.
+    """
+    data       = request.get_json(silent=True) or {}
+    project_id = (data.get("project_id") or "").strip()
+    salvar     = bool(data.get("salvar", True))
+    pendente   = _BASE_PENDENTE.pop(project_id, None)
+    if pendente is None:
+        return jsonify({"error": "Não há report recente deste projeto para salvar."}), 409
+    if not salvar:
+        log.info("Report de %s descartado do histórico a pedido do usuário.", project_id[:8])
+        return jsonify({"success": True, "salvo": False})
+    try:
+        report_base.gravar(project_id, pendente["tarefas"], pendente["publicadoEm"])
+        return jsonify({"success": True, "salvo": True})
+    except Exception as exc:
+        # Devolve a pendência: gravação que falhou não pode custar o report ao
+        # usuário, que ainda tem o modal aberto para tentar de novo.
+        _BASE_PENDENTE[project_id] = pendente
+        log.exception("Erro ao salvar a base do report de %s:", project_id[:8])
         return jsonify({"error": str(exc)}), 500
 
 

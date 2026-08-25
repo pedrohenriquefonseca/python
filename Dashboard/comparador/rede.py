@@ -213,12 +213,15 @@ def causa_do_prazo(saldo: int | None, fim_atual: str | None,
                            "recurso": atual.get("resources") or "",
                            "marco": bool(atual.get("marco")),
                            "ddur": v.get("ddur"), "dini": v.get("dini"),
-                           "dfim": v.get("dfim")})
+                           "dfim": v.get("dfim"), "unidade": v.get("unidade")})
         emp = empurrador(tid, deltas, idx)
         atual = idx["por_id"].get(emp["id"]) if emp else None
 
     # Maior aumento primeiro. No empate vence quem está mais atrás na cadeia:
     # entre duas contribuições iguais, a de montante é a origem.
+    # `ddur` já chega do comparador na unidade de leitura da tarefa, o que
+    # permite ordenar junto dia útil e dia corrido; em `duracao` cru do Project
+    # um dia corrido vale 3 e ficaria à frente de um dia útil que pesa mais.
     # Os mesmos dicts da cadeia, não cópias — quem consome enriquece a cadeia
     # com rótulo e datas, e os geradores precisam enxergar esse enriquecimento.
     pos = {id(c): i for i, c in enumerate(cadeia)}

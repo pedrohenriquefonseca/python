@@ -7,12 +7,18 @@ do resumo e responde:
   - o término e a duração do projeto mudaram quanto?
   - quem causou o atraso (Principais Ofensores)?
 
-Duas decisões de método valem registro:
+Três decisões de método valem registro:
 
 Culpa não é o mesmo que variação. Uma tarefa pode ter o término deslocado 10
 dias tendo produzido apenas 2 — os outros 8 herdou da predecessora. Ofensor é
 quem AUMENTOU A DURAÇÃO dentro da cadeia que chega ao término do projeto; quem
 só foi deslocado por inteiro não entra.
+
+Duração é o campo Duração do Project, não o vão entre as duas datas. Enquanto
+foi o vão, bastava a tarefa escorregar para cima de um fim de semana ou de um
+feriado para ela aparecer como ofensora sem ter esticado um dia — foi assim que
+o 7 de setembro e o Finados de 2026 renderam ofensores inventados no 2525. Ver
+`_variacao_duracao`, que também resolve a unidade de cada linha.
 
 Marcos (duração zero) ficam fora da lista: não têm duração para esticar nem
 recurso a quem atribuir. Seguem visíveis para rede.py, que precisa deles como
@@ -75,14 +81,24 @@ def hierarquia(t: dict) -> tuple[str, str, str]:
     return anc[0], anc[1], anc[2]
 
 
+def negrito(texto: str) -> str:
+    """Marca de negrito do report — a mesma convenção de Report.negrito().
+
+    Duplicada aqui de propósito: esta seção é montada por um módulo que o
+    report importa, e não o contrário. Uma função de quatro caracteres não
+    justifica inverter a dependência.
+    """
+    return f"**{texto}**" if texto else texto
+
+
 def rotulo(t: dict) -> str:
-    """`bisavô - avô - pai - nome`: a identificação inteira, numa linha só."""
+    """`bisavô - avô - pai - **nome**`: a identificação inteira, numa linha só.
+
+    Negrito só no nome, como nas demais seções do report: o caminho situa, o
+    nome é o que se procura na linha.
+    """
     bisavo, avo, pai = hierarquia(t)
-    return " - ".join([x for x in (bisavo, avo, pai, t["nome"]) if x])
-
-
-def responsavel(recurso: str | None) -> str:
-    return "Responsável: %s" % (recurso or "não atribuído")
+    return " - ".join([x for x in (bisavo, avo, pai, negrito(t["nome"])) if x])
 
 
 def de_snapshot(tarefas: list[dict]) -> list[dict]:
@@ -94,6 +110,7 @@ def de_snapshot(tarefas: list[dict]) -> list[dict]:
         "nivel":   t.get("level") or 0,
         "inicio":  t.get("start"),
         "termino": t.get("end"),
+        "duracao": t.get("duracao"),
         "marco":   bool(t.get("marco")),
     } for t in tarefas])
 
@@ -101,15 +118,19 @@ def de_snapshot(tarefas: list[dict]) -> list[dict]:
 def de_base(tarefas: list[dict]) -> list[dict]:
     """data/report_base_<pid>.json — o cronograma do último report.
 
-    Só id e datas. Sem caminho hierárquico e sem marcação de folha: os dois são
-    lidos apenas do cronograma ATUAL, que é quem escreve o rótulo das linhas e
-    decide o que é folha. Calculá-los aqui seria percorrer a lista inteira para
-    produzir campos que ninguém consulta.
+    Só id, datas e duração. Sem caminho hierárquico e sem marcação de folha: os
+    dois são lidos apenas do cronograma ATUAL, que é quem escreve o rótulo das
+    linhas e decide o que é folha. Calculá-los aqui seria percorrer a lista
+    inteira para produzir campos que ninguém consulta.
+
+    `duracao` vem None nas bases gravadas antes de o campo existir — é o que
+    faz `_variacao_duracao` cair no vão do calendário nesse primeiro ciclo.
     """
     return [{
         "id":      str(t.get("id")) if t.get("id") else None,
         "inicio":  t.get("start"),
         "termino": t.get("end"),
+        "duracao": t.get("duracao"),
     } for t in tarefas]
 
 
@@ -126,20 +147,69 @@ def _dias(a: str | None, b: str | None) -> int | None:
         return None
 
 
-def dias_txt(n: int) -> str:
-    """`10 dias corridos` / `1 dia corrido` — magnitude, sem sinal."""
+def dias_txt(n: int, unidade: str = "corrido") -> str:
+    """`10 dias corridos` / `1 dia útil` — magnitude, sem sinal.
+
+    A unidade não é enfeite: o cronograma mistura tarefas lançadas em dias
+    úteis e em dias corridos, e a linha do ofensor precisa dizer em qual delas
+    o número está. As linhas do projeto ficam em dias corridos, que é o que a
+    distância entre duas datas mede.
+    """
     n = abs(int(n))
+    if unidade == "util":
+        return f"{n} dia útil" if n == 1 else f"{n} dias úteis"
     return f"{n} dia corrido" if n == 1 else f"{n} dias corridos"
-
-
-def dias_sinal(n: int) -> str:
-    """`+10 dias corridos` / `-1 dia corrido` — com sinal."""
-    n = int(n)
-    return f"{n:+d} dia corrido" if abs(n) == 1 else f"{n:+d} dias corridos"
 
 
 def br(d: str | None) -> str:
     return "—" if not d else f"{d[8:10]}/{d[5:7]}/{d[2:4]}"
+
+
+# ── Duração ───────────────────────────────────────────────────────────────────
+# O Project agenda cada tarefa numa de duas unidades, e as duas convivem no
+# mesmo cronograma: no 2525 são 374 folhas em dias úteis e 312 em dias corridos
+# (as `Análise`, lançadas como edays). Nenhuma medida única serve para as duas.
+# Contar o vão do calendário fazia de ofensor quem só escorregou para cima de um
+# fim de semana ou de um feriado; contar dia útil faria o inverso com as
+# `Análise`, que existem justamente para consumir dias corridos e encolheriam
+# ou cresceriam conforme o feriado caísse dentro ou fora da janela.
+#
+# Quem responde é a unidade da PRÓPRIA tarefa, e ela sai de graça do campo
+# Duração. `duracao` chega do pwa_client em unidades de 8h (DurationMilliseconds
+# / 480 min); um dia corrido são 24h, logo 3 unidades. Daí o teste ser uma linha
+# e não depender de tabela de feriado nenhuma.
+
+def _eday(t: dict) -> bool:
+    """A tarefa é lançada em dias corridos?
+
+    Não há como confundir com dia útil: uma tarefa de D dias úteis ocupa pelo
+    menos D-1 dias de calendário, então `3 * vao` só empata com D quando D é 1
+    ou menos — e aí o vão é zero e a igualdade não acontece.
+    """
+    dur, vao = t.get("duracao"), _dias(t.get("inicio"), t.get("termino"))
+    return bool(dur) and vao is not None and dur == 3 * vao
+
+
+def _variacao_duracao(a: dict, b: dict) -> tuple[int | None, str]:
+    """Quanto a duração da tarefa mudou, e em que unidade dizer isso.
+
+    O número volta já na unidade de leitura — dia útil ou dia corrido — e não
+    em `duracao` cru, porque a lista de ofensores ordena linhas das duas
+    espécies juntas: em cru um dia corrido vale 3 e passaria na frente de um
+    dia útil que pesa mais no prazo.
+
+    Sem `duracao` dos dois lados não há o que subtrair — base gravada antes de
+    o campo existir só tem datas. Aí a conta volta a ser o vão do calendário,
+    que é o comportamento antigo, até o próximo report salvo regravar a base.
+    """
+    da, db = a.get("duracao"), b.get("duracao")
+    if da is None or db is None:
+        va = _dias(a.get("inicio"), a.get("termino"))
+        vb = _dias(b.get("inicio"), b.get("termino"))
+        return (vb - va if va is not None and vb is not None else None), "corrido"
+    if _eday(b):
+        return round((db - da) / 3), "corrido"
+    return db - da, "util"
 
 
 # ── Pareamento ────────────────────────────────────────────────────────────────
@@ -183,13 +253,12 @@ def comparar(anterior: list[dict], atual: list[dict],
     for a, b in p["pares"]:
         if not b["folha"]:          # resumos espelham os filhos: contariam duas vezes
             continue
-        dur_a = _dias(a["inicio"], a["termino"])
-        dur_b = _dias(b["inicio"], b["termino"])
+        ddur, unidade = _variacao_duracao(a, b)
         variacoes.append({
             "ant": a, "atu": b, "marco": b["marco"],
             "dfim": _dias(a["termino"], b["termino"]),
             "dini": _dias(a["inicio"],  b["inicio"]),
-            "ddur": (dur_b - dur_a) if (dur_a is not None and dur_b is not None) else None,
+            "ddur": ddur, "unidade": unidade,
         })
 
     raiz_a = anterior[0] if anterior else {}
@@ -206,12 +275,11 @@ def comparar(anterior: list[dict], atual: list[dict],
                                      rede.indexar(brutos_atu),
                                      ids_folha=rede.folhas(brutos_atu))
         # A rede trabalha com os dicts brutos, que só têm o nome solto; o
-        # relatório precisa da grafia hierárquica e do término atual.
+        # relatório precisa da grafia hierárquica.
         for g in causa["cadeia"]:
             v = deltas.get(g["id"])
             if v:
-                g["rotulo"]  = rotulo(v["atu"])
-                g["termino"] = v["atu"].get("termino")
+                g["rotulo"] = rotulo(v["atu"])
 
     return {
         "projeto": {
@@ -239,17 +307,21 @@ def secao_semanal(r: dict, data_ant: str) -> str:
     pj    = r["projeto"]
     causa = r.get("causa")
     saldo = pj["saldo"] or 0
-    # Cabeçalhos no mesmo padrão das demais seções do report: emoji + caixa alta,
-    # sem sintaxe de markdown — o report é lido como texto puro, não renderizado.
-    L: list[str] = [f"🤔 O QUE MUDOU DESDE O ÚLTIMO REPORT({data_ant})"]
+    # Cabeçalhos no mesmo padrão das demais seções do report: emoji + caixa alta
+    # + a marca de negrito. Fora dela, nenhuma sintaxe de markdown: o report é
+    # lido como texto puro, e "##" apareceria cru do outro lado.
+    L: list[str] = [negrito(f"🤔 O QUE MUDOU DESDE O ÚLTIMO REPORT({data_ant})")]
 
     # Sem movimento não se anuncia "mudou de X para X": a frase pede ao leitor
     # que compare duas datas iguais para concluir o que a linha já podia dizer.
     if saldo > 0:
-        L.append("- A Previsão de Conclusão mudou de %s para %s, gerando um atraso de %s."
+        # "aumento", e não "atraso": a linha relata o deslocamento da data, e
+        # quem julga se aquilo é atraso é quem lê o report com o contrato na
+        # mão. O par com "redução" também deixa as duas metades simétricas.
+        L.append("- A Previsão de Conclusão mudou de %s para %s, aumento de %s."
                  % (br(pj["termino_ant"]), br(pj["termino_atu"]), dias_txt(saldo)))
     elif saldo < 0:
-        L.append("- A Previsão de Conclusão mudou de %s para %s, gerando um adiantamento de %s."
+        L.append("- A Previsão de Conclusão mudou de %s para %s, redução de %s."
                  % (br(pj["termino_ant"]), br(pj["termino_atu"]), dias_txt(saldo)))
     else:
         L.append("- A Previsão de Conclusão do projeto não sofreu alteração.")
@@ -260,30 +332,39 @@ def secao_semanal(r: dict, data_ant: str) -> str:
     elif d_atu == d_ant:
         L.append("- A Duração total do projeto não sofreu alteração.")
     else:
-        delta = d_atu - d_ant
-        if delta > 0:
-            efeito = "gerando um aumento de %s na duração total do projeto" % dias_txt(delta)
-        else:
-            efeito = "gerando uma redução de %s na duração total do projeto" % dias_txt(delta)
-        L.append("- A Duração total do projeto mudou de %s para %s, %s."
-                 % (dias_txt(d_ant), dias_txt(d_atu), efeito))
+        # Sem o "gerando um aumento de N dias corridos na duração total do
+        # projeto": o número era a subtração dos dois que a própria linha acaba
+        # de dar, e o complemento repetia o sujeito da frase. A linha da
+        # Previsão de Conclusão mantém o dela porque lá o desvio é a distância
+        # entre duas DATAS — ninguém conta isso de cabeça.
+        L.append("- A Duração total do projeto mudou de %s para %s."
+                 % (dias_txt(d_ant), dias_txt(d_atu)))
 
     # ── Ofensores ────────────────────────────────────────────────────────────
     # A seção só existe para explicar um desvio de prazo. Sem desvio ela vira um
     # cabeçalho vermelho seguido de "não existem tarefas" — alarme sem conteúdo.
     if saldo:
         ger = (causa or {}).get("geradores") or []
-        L += ["", "🚨PRINCIPAIS OFENSORES"]
+        L += ["", negrito("🚨PRINCIPAIS OFENSORES")]
         if ger:
             for g in ger[:TOPO_OFENSORES]:
                 # O número é o AUMENTO DE DURAÇÃO, não a variação do término: parte
                 # do deslocamento é herdada, e só o que a tarefa acrescentou de
-                # duração é responsabilidade dela. A data é a de agora, sem o "de →
-                # para": o par sugeria que a diferença entre as duas é o número da
-                # linha, e não é — ali cabe o deslocamento inteiro, herança inclusa.
-                L.append("- %s: Aumento na duração de %s (%s, Término atual: %s)."
-                         % (g.get("rotulo") or g["nome"], dias_sinal(g["ddur"]),
-                            responsavel(g["recurso"]), br(g.get("termino"))))
+                # duração é responsabilidade dela. E é a variação do campo Duração
+                # do Project, na unidade em que a tarefa foi lançada — daí a linha
+                # dizer "úteis" numa tarefa e "corridos" na outra.
+                #
+                # A linha é o nome e o número, e nada mais. Responsável e término
+                # vinham entre parênteses e roubavam a leitura do que a seção tem
+                # a dizer; quem precisa deles tem o cronograma e as outras seções
+                # do report.
+                # Sem o "+" na frente: a lista só admite quem aumentou de duração
+                # (rede.causa_do_prazo filtra ddur > 0), então o sinal não
+                # distingue uma linha da outra — e a palavra "Aumento" já está
+                # escrita ali do lado.
+                L.append("- %s: Aumento na duração de %s."
+                         % (g.get("rotulo") or g["nome"],
+                            dias_txt(g["ddur"], g.get("unidade") or "corrido")))
         elif causa is None:
             L.append("- Sem a rede de dependências não é possível apontar os ofensores.")
         else:

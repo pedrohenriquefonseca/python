@@ -591,6 +591,31 @@ tbody tr:hover td{background:#f8fafc;}
 .modal-grupos-actions .btn-gui{flex:1;margin-top:0;}
 /* Report */
 .report-sep{border:none;border-top:1.5px solid #e2e2e2;margin:40px 0;}
+/* Chave de salvar no histórico: interruptor no formato do iOS, e não um botão
+   como os vizinhos. Botão é ação, e ali não há ação nenhuma para executar — há
+   um estado ligado ou desligado, que precisa ser lido de relance. O trilho
+   verde/vermelho diz o estado sem depender de o usuário perceber qual dos dois
+   botões está "afundado". */
+.hist-toggle{
+  display:flex;align-items:center;gap:10px;
+  background:none;border:none;padding:6px 4px;
+  font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;
+  color:#888;cursor:pointer;font-family:inherit;transition:color .2s;
+}
+.hist-toggle:hover{color:#2c2c2c;}
+.hist-toggle:focus-visible{outline:1.5px solid #2c2c2c;outline-offset:3px;}
+.hist-switch{
+  position:relative;width:38px;height:22px;flex:0 0 auto;
+  background:#b5371f;border-radius:999px;transition:background .22s ease;
+}
+.hist-toggle[aria-pressed="true"] .hist-switch{background:#2a7d4f;}
+.hist-knob{
+  position:absolute;top:3px;left:3px;width:16px;height:16px;
+  background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.35);
+  transition:transform .22s ease;
+}
+.hist-toggle[aria-pressed="true"] .hist-knob{transform:translateX(16px);}
+.report-hist-nota{font-size:10.5px;color:#aaa;letter-spacing:.3px;margin:-18px 0 24px;}
 .report-header{
   display:flex;align-items:center;justify-content:space-between;
   margin-bottom:28px;padding-bottom:16px;border-bottom:1.5px solid #e2e2e2;
@@ -2931,8 +2956,8 @@ function prosaPior(p, inds) {
       simplesmente não chega ao término do projeto: o cronograma não reage`,
     sem_predecessora: `${pior.qtd} tarefas não têm nada antes delas e flutuam soltas na
       rede — nada explica a data em que começam`,
-    sem_recurso: `${pior.qtd} tarefas de nível 4 estão sem recurso atribuído, então quando
-      uma delas for o ofensor o report aponta o problema e não aponta para quem cobrar`,
+    sem_recurso: `${pior.qtd} tarefas de nível 4 estão sem recurso atribuído, e a triagem do
+      report é pelo recurso: elas ficam fora das duas seções e só aparecem na nota de pendências`,
     marco_com_duracao: `${pior.qtd} marcos têm duração maior que zero, então em vez de
       servirem de passagem viram elo comum e podem ser acusados no lugar da tarefa real`,
     fora_nivel4: `${pior.qtd} tarefas estão fora do nível 4, o que quebra a padronização
@@ -3174,7 +3199,18 @@ document.getElementById('gui-modal-close').addEventListener('click', fecharGuiMo
 guiModal.addEventListener('click', e => { if (e.target === guiModal) fecharGuiModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharGuiModal(); });
 
-function fecharGuiModal() { guiModal.classList.remove('visible'); }
+/* O que a tela do report deixou pendente para a hora de fechar — hoje, a
+   decisão do toggle de histórico. */
+let guiModalAoFechar = null;
+
+function fecharGuiModal() {
+  // O Escape é global e chega aqui com o modal já fechado: sem esta guarda a
+  // decisão do report seria enviada de novo a cada tecla.
+  if (!guiModal.classList.contains('visible')) { guiModalAoFechar = null; return; }
+  guiModal.classList.remove('visible');
+  const aoFechar = guiModalAoFechar; guiModalAoFechar = null;
+  if (aoFechar) aoFechar();
+}
 
 /* Visualizador de imagens — pan (padrão) + zoom pela rodinha, várias imagens em sequência */
 const Viewer = (() => {
@@ -3342,9 +3378,91 @@ const Viewer = (() => {
   return { abrir, fechar };
 })();
 
+/* O report viaja em texto puro com **negrito** marcado na geração. Aqui a marca
+   vira <strong> de verdade — e é isso que o Outlook recebe ao colar, porque o
+   navegador põe o HTML da seleção na área de transferência junto com o texto.
+
+   A ordem importa: escapar primeiro (senão um "<" do cronograma virava tag),
+   negrito depois, quebra de linha por último. O "." do regex não atravessa
+   quebra de linha, então marca aberta e não fechada morre na própria linha em
+   vez de engolir o resto do relatório. */
+function reportParaHtml(texto) {
+  return texto
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/[*][*](.+?)[*][*]/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+/* Para quem não lê HTML. O asterisco duplo vira simples: é a sintaxe de negrito
+   do WhatsApp, e onde não for interpretado incomoda menos que dois. */
+function reportParaTexto(texto) {
+  return texto.replace(/[*][*](.+?)[*][*]/g, '*$1*');
+}
+
+/* Toggle "Salvar no histórico" do report semanal.
+
+   Nem todo report é report de rotina: o usuário tira relatório para conferir
+   uma dúvida, para uma reunião fora de época, para testar uma correção do
+   cronograma. Salvar no histórico é o que faz o report virar a base do próximo
+   comparativo — e um report tirado para outro fim, se salvo, engoliria o
+   período do próximo. Por isso a decisão é dele, e é tomada aqui, DEPOIS de ler
+   o relatório.
+
+   Ligado é o padrão: report de rotina é a maioria, e o encadeamento dos
+   comparativos não pode depender de o usuário lembrar de marcar. */
+function criarToggleHistorico() {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'hist-toggle';
+  btn.setAttribute('aria-pressed', 'true');
+  // O rótulo não muda com o estado: quem muda é a chave, como no iOS. Rótulo que
+  // alterna obriga a ler para saber se descreve o que está valendo ou o que
+  // acontece se clicar.
+  btn.innerHTML = 'Salvar no histórico'
+                + '<span class="hist-switch"><span class="hist-knob"></span></span>';
+
+  const nota = document.createElement('p');
+  nota.className = 'report-hist-nota';
+
+  const ligado = () => btn.getAttribute('aria-pressed') === 'true';
+  const pintar = () => {
+    nota.textContent = ligado()
+      ? 'Ao fechar, este report vira a base do próximo comparativo.'
+      : 'Report temporário — o próximo comparativo continua partindo da base atual.';
+  };
+  btn.addEventListener('click', () => {
+    btn.setAttribute('aria-pressed', ligado() ? 'false' : 'true');
+    pintar();
+  });
+  pintar();
+  return { btn, nota, ligado };
+}
+
+/* Consome a pendência que a geração deixou no servidor — salvando a base ou
+   descartando-a. Vai nos dois casos: a decisão é tomada uma vez só. */
+async function decidirHistoricoReport(projectId, salvar) {
+  try {
+    const res = await fetch('/api/report-base', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, salvar }),
+    });
+    const j = await res.json();
+    if (!res.ok || j.error) throw new Error(j.error);
+    guiShowStatus('report', salvar
+      ? 'Report salvo no histórico do projeto.'
+      : 'Report temporário — o histórico do projeto ficou como estava.');
+  } catch (err) {
+    guiShowStatus('report', `Não foi possível salvar no histórico: ${err.message}`, true);
+  }
+}
+
+/* `historico` é o id do projeto cujo report está pendente de decisão; sem ele o
+   relatório não mexe em base nenhuma (é o caso do de entregas). */
 function mostrarRelatorios(relatorios) {
   guiModalBody.innerHTML = '';
-  relatorios.forEach(({ nome, content, filename }, idx) => {
+  const decisoes = [];
+  relatorios.forEach(({ nome, content, filename, historico }, idx) => {
     if (idx > 0) { const sep = document.createElement('hr'); sep.className = 'report-sep'; guiModalBody.appendChild(sep); }
     const wrap   = document.createElement('div'); wrap.className = 'report-wrap';
     const header = document.createElement('div'); header.className = 'report-header';
@@ -3357,20 +3475,43 @@ function mostrarRelatorios(relatorios) {
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     });
     const btnCopy = document.createElement('button'); btnCopy.className = 'btn-modal-dl'; btnCopy.textContent = 'Copiar tudo';
-    btnCopy.addEventListener('click', () => {
-      navigator.clipboard.writeText(content).then(() => {
+    btnCopy.addEventListener('click', async () => {
+      // Os dois formatos no mesmo copy: quem cola escolhe sem saber que
+      // escolheu — Outlook e Word pegam o HTML e ficam com o negrito, WhatsApp
+      // e editor de texto pegam o texto puro.
+      const html  = reportParaHtml(content);
+      const plano = reportParaTexto(content);
+      try {
+        if (window.ClipboardItem && navigator.clipboard.write) {
+          await navigator.clipboard.write([new ClipboardItem({
+            'text/html':  new Blob([html],  { type: 'text/html'  }),
+            'text/plain': new Blob([plano], { type: 'text/plain' }),
+          })]);
+        } else {
+          await navigator.clipboard.writeText(plano);
+        }
         btnCopy.textContent = 'Copiado!';
-        setTimeout(() => { btnCopy.textContent = 'Copiar tudo'; }, 2000);
-      });
+      } catch (_) {
+        btnCopy.textContent = 'Falhou — Ctrl+C';
+      }
+      setTimeout(() => { btnCopy.textContent = 'Copiar tudo'; }, 2000);
     });
     const acoes = document.createElement('div'); acoes.className = 'report-acoes';
+    const toggle = historico ? criarToggleHistorico() : null;
+    if (toggle) {
+      acoes.appendChild(toggle.btn);
+      decisoes.push(() => decidirHistoricoReport(historico, toggle.ligado()));
+    }
     acoes.appendChild(btnCopy); acoes.appendChild(btnDl);
     header.appendChild(title); header.appendChild(acoes);
     const body = document.createElement('div'); body.className = 'report-body';
-    body.innerHTML = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    wrap.appendChild(header); wrap.appendChild(body);
+    body.innerHTML = reportParaHtml(content);
+    wrap.appendChild(header);
+    if (toggle) wrap.appendChild(toggle.nota);
+    wrap.appendChild(body);
     guiModalBody.appendChild(wrap);
   });
+  guiModalAoFechar = decisoes.length ? () => decisoes.forEach(d => d()) : null;
   guiModal.classList.add('visible');
 }
 
@@ -3391,7 +3532,7 @@ document.getElementById('form-report').addEventListener('submit', async e => {
     });
     const j = await res.json();
     if (!res.ok || j.error) throw new Error(j.error);
-    mostrarRelatorios([{ nome, content: j.content, filename: j.filename }]);
+    mostrarRelatorios([{ nome, content: j.content, filename: j.filename, historico: id }]);
     // O aviso fica visível (sem auto-limpar): o relatório saiu, mas sem a seção
     // do comparativo, e isso precisa ser notado.
     const aviso = (j.comparativo || {}).aviso;

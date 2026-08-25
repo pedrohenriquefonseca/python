@@ -334,7 +334,8 @@ C:\Apps Python\Repos\Python\Dashboard\
 ├── data/
 │   ├── projects.json    — Snapshot de todos os projetos
 │   ├── tasks_<pid>.json — Snapshot das tarefas por projeto
-│   ├── report_base_<pid>.json — Cronograma do último report (id, start, end)
+│   ├── report_base_<pid>.json — Cronograma do último report (id, start, end,
+│   │                            duracao)
 │   ├── fetch_state.json — Publicação já coletada com sucesso, por projeto
 │   ├── lookup_cache.json— Cache das tabelas de pesquisa (validade de 7 dias)
 │   ├── last_update.json — Timestamp do último fetch + status
@@ -682,7 +683,17 @@ quando o ultimo report foi gerado. Nao existe terceira data. Publicacao de
 cronograma que nao virou report nao e comparada com nada e nao e guardada.
 
 Disso decorre que nao ha historico a manter: ha UM estado por projeto,
-substituido a cada report gerado.
+substituido a cada report SALVO no historico.
+
+Salvo, e nao gerado: a tela do relatorio tem um toggle "Salvar no historico"
+(ligado por padrao) que decide se aquele report entra na historia do projeto. E
+um interruptor no formato do iOS — trilho verde ligado, vermelho desligado, com
+o botao redondo deslizando entre os dois: ali nao ha acao a executar, ha um
+estado que precisa ser lido de relance.
+Nem todo report e de rotina — ha o tirado para conferir uma duvida, para uma
+reuniao fora de epoca, para testar uma correcao do cronograma —, e um report
+desses, se salvasse a base, engoliria o periodo do proximo. Desligado, a base
+fica como estava e o proximo comparativo parte do ultimo report SALVO.
 
   * Houve um historico.py com 15 versoes em "base completa + deltas", retencao
     com dobra do delta antigo na base, reconstrucao por data (versao_em) e
@@ -692,12 +703,18 @@ substituido a cada report gerado.
 
 BASE DO REPORT (report_base.py)
 -------------------------------
-data/report_base_<pid>.json, gravado por app.py ao fim de cada geracao de
-report. Guarda TRES campos por tarefa: id, start, end.
+data/report_base_<pid>.json, gravado por POST /api/report-base quando o usuario
+fecha a tela do report com o toggle ligado. Guarda QUATRO campos por tarefa: id,
+start, end, duracao.
 
   - Sao os unicos que o lado antigo da comparacao e lido para dar: o pareamento
-    e por id e a variacao e de datas. Nome, recurso, nivel e hierarquia saem
-    sempre do cronograma ATUAL, que e quem escreve o rotulo de cada linha.
+    e por id e a variacao e de datas e de duracao. Nome, recurso, nivel e
+    hierarquia saem sempre do cronograma ATUAL, que e quem escreve o rotulo de
+    cada linha.
+  - `duracao` entrou em 25/08/26, junto com a mudanca de unidade dos ofensores
+    (secao 16). Base gravada antes disso nao tem o campo: o comparador volta ao
+    vao do calendario enquanto for assim, e cada base se corrige sozinha no
+    proximo report salvo. Nao ha migracao a rodar.
   - A ordem da lista importa: o primeiro item e a tarefa-resumo do projeto
     (nivel 0), de onde saem o termino e a duracao totais.
   - `publicadoEm` (LastPublishedDate COM hora) carimba a base e vira a data do
@@ -705,11 +722,15 @@ report. Guarda TRES campos por tarefa: id, start, end.
   - API inteira: carregar(), gravar(), data(). Tres funcoes.
 
   GRAVAR E DEPOIS DE MONTAR O RELATORIO, nunca antes: base gravada num report
-  que falhou ao ser montado engoliria o periodo seguinte.
+  que falhou ao ser montado engoliria o periodo seguinte. Hoje a geracao nao
+  grava nada — deixa o cronograma PENDENTE em app._BASE_PENDENTE (memoria do
+  servidor, um estado por projeto, substituido a cada geracao) e quem grava e a
+  decisao do toggle. Servidor reiniciado com o modal aberto perde a pendencia:
+  gerar de novo e barato.
 
-  Gerar o report duas vezes seguidas faz o segundo comparar o cronograma consigo
-  mesmo e dizer que nada mudou. E consequencia direta da regra, e esta acordado:
-  sai um report por dia.
+  Salvar o report duas vezes seguidas faz o segundo comparar o cronograma
+  consigo mesmo e dizer que nada mudou. E consequencia direta da regra, e esta
+  acordado: sai um report por dia. Report gerado e nao salvo nao conta.
 
   SEMEADURA (feita uma vez, em 13/08/26): as 16 bases nasceram da versao mais
   antiga retida nos history_*.json antes de eles serem apagados, para que o
@@ -737,9 +758,17 @@ COMO O COMPARATIVO CHEGA NA TELA
            app._secao_comparativa()      -> report_base.carregar()
                                          -> comparador.secao_desde_base()
            Report.gerar_relatorio_web_json(tarefas, nome, secao)
-           report_base.gravar()          <- o cronograma de agora vira a base
-                                            do proximo report
+           app._BASE_PENDENTE[pid] = ... <- o cronograma de agora fica pendente
       <- {content, filename, comparativo:{desde | aviso}}
+
+    modal do relatorio (toggle "Salvar no historico", ligado por padrao)
+      -> ao fechar: POST /api/report-base {project_id, salvar}
+           salvar=true  -> report_base.gravar()  <- vira a base do proximo
+           salvar=false -> pendencia descartada  <- report temporario
+      <- {success, salvo}
+
+  A pendencia e consumida nos dois casos: a decisao e tomada uma vez. Fechar sem
+  pendencia (409) so acontece se o servidor tiver reiniciado com o modal aberto.
 
   Nao ha seletor de data na tela nem parametro de data na rota: nao existe o que
   escolher, ha uma base so. Houve um seletor "Comparar com" e um GET
@@ -773,6 +802,50 @@ nunca e ofensor: empurrador() pula por cima dele para apontar a causa real.
 
 Tolerancia: datas sao de calendario e vinculos sao em dias uteis, entao o
 casamento de deslocamentos usa folga de 3 dias (rede.TOL_DIAS).
+
+DURACAO E O CAMPO DURACAO DO PROJECT, NAO O VAO ENTRE AS DATAS (25/08/26)
+------------------------------------------------------------------------
+Ate 25/08/26 o aumento de duracao era `(fim-inicio) atual - (fim-inicio) antigo`,
+em dias de calendario. Bastava a tarefa escorregar para cima de um fim de semana
+ou de um feriado para virar ofensora sem ter esticado um dia. No 2525 o report
+de 25/08 acusou tres ofensores e dois eram isso: `URBANISMO / 2291GG-A-500029 /
+a` (10 dias uteis dos dois lados, +3 corridos porque passou a atravessar mais um
+fim de semana e o 7 de setembro) e `COMPATIBILIZACAO / 2291GG-G-500002 / a` (5
+dias uteis dos dois lados, +2 corridos porque o Finados empurrou o inicio para
+terca e o vao passou a engolir o sabado e o domingo).
+
+Contar dia util no lugar do calendario nao resolve: FAZ O ERRO SIMETRICO. O
+Project agenda cada tarefa numa de duas unidades e as duas convivem no mesmo
+cronograma — nas 689 folhas com duracao do 2525 sao 374 em dias uteis e 312 em
+dias corridos (todas as `Analise`, lancadas como edays). Uma `Analise` de 10
+edays nao muda de duracao quando a janela muda de lugar, mas o numero de dias
+uteis dentro dela muda: a `Analise 01` do 2291GG-G-500002 iria de 6 para 9 e
+apareceria como ofensora de +3. Alem disso, contar dia util exigiria uma tabela
+de feriados que nunca vai bater com o calendario do Project.
+
+O que resolve e comparar o proprio campo Duracao, que ja vem no snapshot como
+`duracao` (DurationMilliseconds / 480 min, ou seja, em unidades de 8h). A
+subtracao e exata para as duas especies de tarefa e nao consulta calendario
+nenhum. Quem faz e comparador._variacao_duracao().
+
+A unidade de cada tarefa sai de graca do proprio numero, sem tabela de feriado:
+um dia corrido sao 24h, logo 3 unidades, entao
+
+    duracao == 3 * (termino - inicio)   ->  tarefa lancada em dias corridos
+
+Nao confunde com dia util: uma tarefa de D dias uteis ocupa pelo menos D-1 dias
+de calendario, entao 3*(termino-inicio) so empata com D quando D <= 1, e ai o
+vao e zero e a igualdade nao acontece. Fechou em 686 das 689 folhas do 2525.
+
+`ddur` sai de _variacao_duracao ja na unidade de leitura (dia util, ou dia
+corrido com o valor dividido por 3), e nao em `duracao` cru, porque
+rede.causa_do_prazo ordena os geradores por ele e mistura as duas especies: em
+cru um dia corrido vale 3 e passaria na frente de um dia util que pesa mais no
+prazo. A linha do report diz a unidade — "Aumento na duracao de 8 dias uteis".
+
+Efeito no 2525: os dois ofensores inventados sumiram e o unico verdadeiro,
+`Aprovacao do Projeto Conceitual`, passou de "12 dias corridos" para "8 dias
+uteis", que e o que de fato foi editado no Project (16 -> 24).
 
 DOIS PONTOS EM QUE A CAMINHADA MORRIA (corrigidos em 14/08/26)
 --------------------------------------------------------------
@@ -816,26 +889,73 @@ A SECAO DO REPORT SEMANAL
 Entra logo depois do resumo, via Report._montar_relatorio_md(secao_comparativo).
 
     🤔 O QUE MUDOU DESDE O ULTIMO REPORT(07/08/26)?
-    - A Previsao de Conclusao mudou de ... para ..., gerando um atraso de N ...
-    - A Duracao total do projeto mudou de ... para ..., gerando um aumento ...
+    - A Previsao de Conclusao mudou de ... para ..., aumento de N dias corridos.
+    - A Duracao total do projeto mudou de ... para ...
 
-    🚨PRINCIPAIS OFENSORES
-    - <bisavo - avo - pai - nome>: Aumento na duracao de +N dias corridos
-      (Responsavel: X, Termino atual: dd/mm/aa).
+    **🚨PRINCIPAIS OFENSORES**
+    - <bisavo - avo - pai - **nome**>: Aumento na duracao de N dias corridos.
 
-Cabecalho e emoji + caixa alta, como as demais secoes: o report e lido como
-texto puro (colado em e-mail/WhatsApp), nao renderizado como markdown — "##" e
-"**" apareciam crus. Sem linha em branco entre o cabecalho e o primeiro item.
+Cabecalho e emoji + caixa alta, como as demais secoes, mais a marca de negrito
+(ver NEGRITO, abaixo). Fora dela nao ha sintaxe de markdown: o report e lido
+como texto puro (colado em e-mail/WhatsApp) e "##" apareceria cru. Sem linha em
+branco entre o cabecalho e o primeiro item.
 
 Ate 3 tarefas, da que mais esticou para a que menos esticou.
 
 O numero da linha e o AUMENTO DE DURACAO, nao a variacao do termino: parte do
 deslocamento e herdada da predecessora, e so o que a tarefa acrescentou de
-duracao e responsabilidade dela. Por isso a linha traz o termino ATUAL sozinho,
-sem o par "de -> para": o par sugeria que a diferenca entre as duas datas e o
-numero da linha, e nao e — ali cabe o deslocamento inteiro, heranca inclusa. No
-Vila Gilda a segunda linha mostra o caso: termino de 25/09 para 05/10 (10 dias
-de deslocamento) com aumento de duracao de apenas +2.
+duracao e responsabilidade dela. No Vila Gilda a segunda linha mostra o caso:
+termino de 25/09 para 05/10 (10 dias de deslocamento) com aumento de duracao de
+apenas 2 dias — e por isso a linha nunca trouxe o par "de -> para" de datas, que
+sugeriria que a diferenca entre as duas e o numero da linha.
+
+DESDE 24/08/26 A LINHA E SO O NOME E O NUMERO. O parenteses final
+"(Responsavel: X, Termino atual: dd/mm/aa)" foi retirado: roubava a leitura do
+que a secao tem a dizer, e quem precisa do responsavel ou da data tem o
+cronograma e as outras secoes do report. Saiu junto a funcao
+comparador.responsavel() e o enriquecimento `g["termino"]` da cadeia, que so
+existiam para essa linha.
+
+NEGRITO (desde 24/08/26)
+-----------------------
+Tres coisas ficam em negrito no report semanal, e nada mais: o titulo, os
+cabecalhos de secao e o nome da tarefa dentro do caminho (o ultimo trecho, o de
+nivel 4 — "a", "b", "Analise"). Os ancestrais do caminho ficam normais: eles
+situam, o nome e o que se procura na linha.
+
+A marca e "**assim**", posta na geracao por Report.negrito() e por
+comparador.negrito() (duplicada de proposito: o comparador e importado PELO
+report, inverter a dependencia por causa de uma funcao de uma linha nao paga).
+Marcam:
+
+    Report._montar_relatorio_md   titulo e "📌 RESUMO:"
+    Report.montar_secao_markdown  cabecalho de toda secao, inclusive a nota
+    Report._caminho_tarefa        o nome da tarefa em emissoes/cliente/nota
+    comparador.secao_semanal      "O QUE MUDOU..." e "PRINCIPAIS OFENSORES"
+    comparador.rotulo             o nome da tarefa nas linhas de ofensor
+
+QUEM TRANSFORMA A MARCA EM NEGRITO DE VERDADE E O MODAL, nao o destino. O report
+continua sendo texto puro: nao existe renderizador markdown no Outlook nem no
+WhatsApp. index.html tem duas funcoes:
+
+    reportParaHtml(texto)   escapa, troca **x** por <strong>x</strong> e quebra
+                            de linha por <br>. Nessa ordem: escapar depois do
+                            <strong> comeria a propria tag. O "." do regex nao
+                            atravessa quebra de linha, entao marca aberta e nao
+                            fechada morre na propria linha.
+    reportParaTexto(texto)  **x** vira *x* — a sintaxe do WhatsApp.
+
+O botao "Copiar tudo" poe OS DOIS na area de transferencia no mesmo copy
+(ClipboardItem com text/html e text/plain): Outlook e Word pegam o HTML e ficam
+com o negrito, WhatsApp e editor de texto pegam o texto. Selecionar com o mouse
+e Ctrl+C tambem leva o negrito, porque o proprio navegador poe o HTML da selecao
+no clipboard — o botao existe para nao precisar selecionar.
+
+  navigator.clipboard.write exige contexto seguro; localhost conta. Navegador
+  sem ClipboardItem cai no writeText com o texto puro. Colar com Ctrl+Shift+V
+  no Outlook descarta o negrito, como em qualquer origem.
+
+  No .md baixado a marca fica como esta: "**" e markdown legitimo.
 
 LISTA RETIRADA: MAIORES VARIACOES
 ---------------------------------
@@ -867,7 +987,7 @@ Rotulo = bisavo - avo - pai - nome, a convencao do report_semanal/Report.py. A
 busca dos ancestrais e relativa (os tres mais proximos), nao por nivel fixo:
 mesmo resultado nas tarefas de nivel 4 (a maioria) e correto nas mais rasas,
 onde o nivel fixo pegaria um ramo alheio. A linha de nivel 0 (o projeto) nunca
-entra como ancestral. Recurso aparece como "Responsavel: <nome>".
+entra como ancestral.
 
 
 ================================================================================

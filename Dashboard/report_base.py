@@ -4,15 +4,27 @@ report_base.py — O cronograma como estava no último report gerado.
 O comparativo do report semanal tem exatamente dois lados: o cronograma de agora
 e o cronograma de quando o último report saiu. Não existe terceira data, então
 não existe histórico a manter — existe UM estado por projeto, substituído a cada
-report gerado. Publicação de cronograma que não virou report não é comparada com
-nada e não precisa ser guardada.
+report SALVO no histórico. Publicação de cronograma que não virou report não é
+comparada com nada e não precisa ser guardada.
 
-data/report_base_<pid>.json guarda TRÊS campos por tarefa: id, start e end. São
-os únicos que a comparação lê do lado antigo — o pareamento é por id (GUID
-estável entre publicações, imune a renomeação) e a variação é de datas. Nome,
-recurso, nível e hierarquia saem sempre do cronograma ATUAL, que é quem escreve
-o rótulo de cada linha do relatório; guardá-los aqui seria copiar dado que
-ninguém lê.
+Salvo, e não gerado: a tela do report tem um toggle (ligado por padrão) que
+decide se aquele relatório entra na história do projeto. Report tirado para
+outro fim — conferir uma dúvida, uma reunião fora de época — passa sem tocar
+nesta base, e o próximo comparativo continua partindo do último report salvo.
+
+data/report_base_<pid>.json guarda QUATRO campos por tarefa: id, start, end e
+duracao. São os únicos que a comparação lê do lado antigo — o pareamento é por
+id (GUID estável entre publicações, imune a renomeação) e a variação é de datas
+e de duração. Nome, recurso, nível e hierarquia saem sempre do cronograma
+ATUAL, que é quem escreve o rótulo de cada linha do relatório; guardá-los aqui
+seria copiar dado que ninguém lê.
+
+`duracao` entrou depois dos outros três. Sem ela o lado antigo só tinha datas, e
+o aumento de duração era medido pelo vão do calendário — o que promovia a
+ofensor qualquer tarefa que tivesse escorregado para cima de um fim de semana ou
+de um feriado sem ter esticado um dia sequer. Base gravada antes desta mudança
+não tem o campo; o comparador volta ao vão do calendário enquanto for assim, e
+cada base se corrige sozinha no próximo report salvo.
 
 A ordem da lista é preservada porque o primeiro item é a tarefa-resumo do
 projeto (nível 0), de onde saem o término e a duração totais.
@@ -28,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent / "data"
 
-CAMPOS = ("id", "start", "end")
+CAMPOS = ("id", "start", "end", "duracao")
 
 
 def _caminho(pid: str) -> Path:
@@ -66,7 +78,8 @@ def gravar(pid: str, tarefas: list[dict], publicado_em: str | None) -> None:
     """Fixa o cronograma atual como base do próximo report.
 
     Chamada depois de o relatório ser montado, nunca antes: a base que entra na
-    comparação é a do report ANTERIOR.
+    comparação é a do report ANTERIOR. E só quando o usuário decide salvar o
+    report no histórico — quem chama é POST /api/report-base, não a geração.
     """
     conteudo = {
         "pid":         pid,

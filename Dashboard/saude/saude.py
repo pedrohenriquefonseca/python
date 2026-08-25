@@ -57,9 +57,9 @@ KPIS = [
         "id": "sem_recurso", "peso": 10, "limite": 0.10,
         "nome": "Tarefas nível 4 sem recurso",
         "desc": "Tarefa de nível 4, fora marcos, sem nenhum recurso atribuído.",
-        "porque": "O report nomeia o responsável de cada ofensor. Sem recurso a linha sai "
-                  "com \"Responsável: não atribuído\" — aponta o problema e não aponta "
-                  "para quem cobrar.",
+        "porque": "A triagem do report é pelo recurso: sem ele a tarefa não é emissão "
+                  "nossa nem está a cargo do cliente, fica fora das duas seções e só "
+                  "aparece na nota de pendências do cronograma.",
         "acao": "Atribuir o recurso responsável pela tarefa no Project.",
     },
     {
@@ -206,7 +206,8 @@ def _medir(tarefas: list[dict]) -> dict:
             x: "nada antes dela na rede: começa em %s sem que ninguém a libere"
                % _data_br(por_id[x].get("start")) for x in sem_pred},
         "sem_recurso": {
-            x: 'campo Recursos vazio: o report sairia com "Responsável: não atribuído"'
+            x: 'campo Recursos vazio: fica fora das duas seções do report e cai na '
+               'nota de pendências'
             for x in sem_recurso},
         "marco_com_duracao": {
             x: "marcado como marco no Project, mas com %d dia(s) de duração"

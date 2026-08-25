@@ -1,10 +1,8 @@
 {
     "André": "#2196F3",
     "Bruno": "#4CAF50",
-    "Carolina": "#FF9800",
     "Gabriel": "#9C27B0",
     "Iris": "#00BCD4",
-    "Janine": "#F06292",
     "Jessye": "#8BC34A",
     "João": "#FF5722",
     "Marcelo": "#3F51B5",
@@ -14,5 +12,8 @@
     "PH": "#03A9F4",
     "Victoria": "#795548",
     "A Definir": "#E63946",
-    "Equipe Vertin": "#CDDC39"
+    "Equipe Vertin": "#CDDC39",
+    "Fill": "#F06292",
+    "Silvia": "#673AB7",
+    "Janine": "#FF9800"
 }

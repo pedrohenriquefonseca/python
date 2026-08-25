@@ -36,6 +36,23 @@ def buscar_hierarquia(df, linha_index):
     
     return bisavo, avo, pai
 
+
+def negrito(texto):
+    """Marca um trecho como negrito, na convenção do report: **assim**.
+
+    O report é texto puro, colado inteiro em e-mail e WhatsApp — não existe
+    renderizador markdown do outro lado. Quem transforma a marca em negrito de
+    verdade é o modal do dashboard, que monta o <strong> na exibição e põe o
+    HTML na área de transferência junto com o texto; no .md baixado a marca
+    continua sendo markdown legítimo.
+
+    Por isso a marca é dupla: no texto puro do clipboard ela vira asterisco
+    simples, que é a sintaxe do WhatsApp. Nada além de título, cabeçalho de
+    seção e nome de tarefa recebe negrito — marcar demais é não marcar nada.
+    """
+    return f'**{texto}**' if texto else texto
+
+
 # O único recurso nomeado da triagem. Todo o resto é entrega nossa.
 RECURSO_CLIENTE = 'Cliente'
 
@@ -137,18 +154,24 @@ def montar_nota_sem_recurso(tarefas_df, df_principal, hoje):
 
 
 def _caminho_tarefa(avo, pai, nome):
-    """'avô - pai - Nome', pulando os níveis que não existem.
+    """'avô - pai - **Nome**', pulando os níveis que não existem.
 
     Tarefa pendurada direto no projeto não tem avô nem pai, e o caminho fixo em
     três partes saía como '-  -  - Nome'. Isso só aparece agora porque a nota de
     tarefas sem recurso alcança níveis rasos, que as outras seções não pegavam.
+
+    O negrito é só no nome da tarefa: os ancestrais existem para situar, e quem
+    lê procura na linha a tarefa de que ela fala. Sobre a marcação, ver
+    `negrito()`.
     """
-    return ' - '.join(parte for parte in (avo, pai, nome) if parte)
+    return ' - '.join(parte for parte in (avo, pai, negrito(nome)) if parte)
 
 
 def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
     #Monta uma seção em Markdown com as tarefas especificadas.
-    secao_md = f'\n{titulo}'
+    # O negrito entra aqui, e não em cada chamada: cabeçalho de seção é sempre
+    # cabeçalho de seção, e a decisão vale para todas de uma vez.
+    secao_md = f'\n{negrito(titulo)}'
     if tarefas_df.empty:
         # O \n é daqui, não do título: no caminho com tarefas quem quebra a linha
         # é o cabeçalho do grupo, que também separa um grupo do outro.
@@ -239,8 +262,8 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
     filtro_emissoes = filtrar_tarefas_emissoes(df)
     filtro_cliente = filtrar_tarefas_cliente(df)
     partes = [
-        f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}\n',
-        '📌 RESUMO:\n',
+        negrito(f'REPORT SEMANAL {nome_projeto.upper()} - {hoje.strftime("%d/%m/%y")}') + '\n',
+        negrito('📌 RESUMO:') + '\n',
         *[f'{linha}\n' for linha in _bloco_resumo(AA, CC, DD, EE)],
         # Bloco "O que mudou entre X e Y?", logo depois do resumo. Sem ele o
         # relatório sai exatamente como antes.
