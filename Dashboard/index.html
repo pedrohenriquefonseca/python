@@ -378,7 +378,11 @@ tbody tr:hover td{background:#f8fafc;}
 .gantt-right-cell{flex-shrink:0;position:relative;height:22px;}
 .gcol-name{flex:1;font-size:.77rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 6px;min-width:120px;display:flex;align-items:center;gap:2px;}
 .gcol-pct{width:68px;font-size:.72rem;text-align:right;flex-shrink:0;padding:0 6px;border-left:1px solid var(--border);}
-.gcol-dur{width:60px;font-size:.72rem;text-align:right;flex-shrink:0;color:#1e293b;padding:0 6px;border-left:1px solid var(--border);}
+/* 112px, e não os 60px de quando a coluna dizia só "18 dias": a unidade agora
+   vai escrita ("11 dias corridos"), e abreviar para "11 dd" seria trocar a
+   coluna por um código que só quem mexe no Project decifra. A sobra sai da
+   coluna do nome, que é flex e tem 268px de folga. */
+.gcol-dur{width:112px;font-size:.72rem;text-align:right;flex-shrink:0;color:#1e293b;padding:0 6px;border-left:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gcol-date{width:62px;font-size:.69rem;flex-shrink:0;color:#1e293b;padding:0 6px;border-left:1px solid var(--border);}
 .gh-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;color:#1e293b;}
 .gcol-toggle{cursor:pointer;font-size:.6rem;color:#1e293b;user-select:none;flex-shrink:0;width:14px;text-align:center;display:inline-block;transition:color .15s;}
@@ -1320,6 +1324,33 @@ function fmtS(d) {
   if (!d) return '—';
   const [y,m,day] = d.split('-');
   return `${day}/${m}/${y.slice(-2)}`;
+}
+
+// Duração da tarefa na unidade em que ela foi lançada no Project, por extenso.
+// O `d`/`dd` é abreviação do Project e fica lá: aqui e no report a unidade vai
+// escrita, porque é ela que muda o sentido do número. Sem `duracaoUn` o
+// snapshot é anterior ao campo Duração e o número não é comparável — a coluna
+// prefere o travessão a exibir uma escala que já não é a de hoje.
+function diasTxt(n, un) {
+  const [sing, plur] = un === 'corrido' ? ['corrido','corridos'] : ['útil','úteis'];
+  return Math.abs(n) === 1 ? `1 dia ${sing}` : `${n} dias ${plur}`;
+}
+
+// Marco continua com travessão, como antes de a coluna dizer a unidade: a linha
+// já se anuncia como marco no gráfico, e "0 dias úteis" repetido dezenas de
+// vezes só suja a coluna.
+function fmtDur(t) {
+  if (!t.duracaoUn || !t.duracao) return '—';
+  return diasTxt(t.duracao, t.duracaoUn);
+}
+
+// Só há o que dizer quando o Project tem uma casa decimal que a coluna arredonda.
+// Nas demais o título repetiria a célula.
+function durTitulo(t) {
+  const txt = t.duracaoTxt || '';
+  if (!t.duracaoUn || !(txt.includes(',') || txt.includes('.'))) return '';
+  const num = txt.replace(/[^\d.,]/g, '');
+  return `No Project: ${num} ${t.duracaoUn === 'corrido' ? 'dias corridos' : 'dias úteis'}`;
 }
 
 function adhColor(v) {
@@ -2315,7 +2346,7 @@ function renderGantt(tasks) {
           ${toggleBtn}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.name}</span>
         </div>
         <div class="gcol-pct" style="color:${adhColor(t.pct||0)};font-weight:700;">${t.pct||0}%</div>
-        <div class="gcol-dur">${t.duracao ? t.duracao + ' dias' : '—'}</div>
+        <div class="gcol-dur" title="${durTitulo(t)}">${fmtDur(t)}</div>
         <div class="gcol-date">${fmtS(t.start)}</div>
         <div class="gcol-date">${fmtS(t.end)}</div>
       </div>
@@ -2549,9 +2580,9 @@ function renderSaude(d) {
   }
   document.getElementById('saude-diagnostico').innerHTML = txt;
 
-  const chips = [];
-  const semFlag = d.kpis.find(k => k.indisponivel);
-  if (semFlag) chips.push(semFlag.motivo_indisponivel);
+  // Todos os indisponíveis, não só o primeiro: hoje são dois motivos possíveis
+  // (o flag de marco e o campo Duração), e podem coexistir no mesmo cronograma.
+  const chips = d.kpis.filter(k => k.indisponivel).map(k => k.motivo_indisponivel);
   document.getElementById('saude-chips').innerHTML =
     chips.map(c => `<span class="sd-chip">${c}</span>`).join('');
 
@@ -2698,6 +2729,7 @@ const SD_ABREV = {
   dep_resumo:'Dep. em resumo', sem_sucessora:'Sem sucessora',
   sem_predecessora:'Sem predec.', sem_recurso:'Sem recurso',
   marco_com_duracao:'Marcos', fora_nivel4:'Fora do nível 4',
+  duracao_fracionada:'Duração quebrada',
 };
 const SD_FAIXAS = [
   { nome:'Excelente', min:90, cor:'#16a34a' },
@@ -2962,6 +2994,9 @@ function prosaPior(p, inds) {
       servirem de passagem viram elo comum e podem ser acusados no lugar da tarefa real`,
     fora_nivel4: `${pior.qtd} tarefas estão fora do nível 4, o que quebra a padronização
       da EAP`,
+    duracao_fracionada: `${pior.qtd} tarefas têm duração com casa decimal, e o report fala
+      em dias inteiros: cada uma é arredondada para caber na frase, e uma edição pequena
+      no Project pode virar um dia inteiro de variação no comparativo`,
   };
   const CORRECAO = {
     dep_resumo: 'criar tarefas de término de etapa com duração zero e passar esses vínculos para elas',
@@ -2970,6 +3005,7 @@ function prosaPior(p, inds) {
     sem_recurso: 'atribuir o responsável de cada uma no Project',
     marco_com_duracao: 'zerar a duração desses marcos',
     fora_nivel4: 'reposicionar essas tarefas na estrutura ou criar os níveis que faltam',
+    duracao_fracionada: 'lançar a duração dessas tarefas em dias inteiros no Project',
   };
 
   let txt = `Em <b>${p.folhas} tarefas</b> o cronograma acumula
@@ -3016,7 +3052,7 @@ function prosaMelhor(p, inds) {
     txt += ` Não sobrou nenhum defeito para corrigir.`;
   } else {
     const r = restam[0];
-    const inofensivo = r.id === 'fora_nivel4';
+    const inofensivo = r.id === 'fora_nivel4' || r.id === 'duracao_fracionada';
     txt += ` O que resta são ${r.qtd} tarefas com ${r.nome.toLowerCase()}
       (${n1(r.taxa)}% do total)` +
       (inofensivo ? `, que é questão de padronização e não impede a análise de causa.`

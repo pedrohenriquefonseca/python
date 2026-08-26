@@ -126,13 +126,38 @@ def _save_state(projects: dict) -> None:
     })
 
 
+# Campo que só existe em snapshot coletado depois de a duração passar a sair do
+# campo Duração do Project. É o marcador de formato: sem ele, `duracao` está na
+# unidade antiga (8h, com um dia corrido valendo 3) e estourada nas tarefas
+# longas. Reaproveitar um snapshot desses seria comparar duas escalas diferentes
+# sem que nada acusasse, então ele é recoletado mesmo sem republicação.
+_MARCADOR_FORMATO = '"duracaoUn"'
+
+
+def _formato_atual(caminho: Path) -> bool:
+    """O snapshot em disco já tem a duração no formato novo?
+
+    Procura a chave no texto cru em vez de desserializar: o maior snapshot tem
+    2,7 MB e 2860 tarefas, e isso roda uma vez por projeto a cada coleta.
+    Arquivo ilegível conta como formato velho — a recoleta o conserta.
+    """
+    try:
+        return _MARCADOR_FORMATO in caminho.read_text(encoding="utf-8")
+    except Exception as exc:
+        log.warning("Não foi possível ler %s (%s) — recoletando.", caminho.name, exc)
+        return False
+
+
 def _precisa_coletar(p: dict, state: dict, forcar: bool) -> tuple[bool, str]:
     """Decide se as tarefas do projeto precisam ser buscadas do servidor."""
     pid = p["id"]
     if forcar:
         return True, "recoleta forçada"
-    if not (DATA_DIR / f"tasks_{pid}.json").exists():
+    snapshot = DATA_DIR / f"tasks_{pid}.json"
+    if not snapshot.exists():
         return True, "sem snapshot local"
+    if not _formato_atual(snapshot):
+        return True, "snapshot sem o campo de duração novo"
     publicado = p.get("publicadoEm")
     if not publicado:
         # Sem carimbo de publicação não há como detectar mudança — na dúvida,

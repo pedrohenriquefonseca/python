@@ -17,8 +17,14 @@ só foi deslocado por inteiro não entra.
 Duração é o campo Duração do Project, não o vão entre as duas datas. Enquanto
 foi o vão, bastava a tarefa escorregar para cima de um fim de semana ou de um
 feriado para ela aparecer como ofensora sem ter esticado um dia — foi assim que
-o 7 de setembro e o Finados de 2026 renderam ofensores inventados no 2525. Ver
-`_variacao_duracao`, que também resolve a unidade de cada linha.
+o 7 de setembro e o Finados de 2026 renderam ofensores inventados no 2525 e na
+2ª Entrega do Jardim Coreano. O campo diz a unidade de cada tarefa por escrito
+(`18d`, `11dd`), então aqui não se adivinha nem se consulta calendário.
+
+Quando a conta não pode ser feita — base velha demais, ou tarefa que trocou de
+unidade —, a seção diz isso numa ressalva. Não há segunda conta de reserva: as
+duas falhas que este comparador já produziu foram degradações silenciosas, uma
+caindo no vão do calendário e outra tratando duração estourada como zero.
 
 Marcos (duração zero) ficam fora da lista: não têm duração para esticar nem
 recurso a quem atribuir. Seguem visíveis para rede.py, que precisa deles como
@@ -110,7 +116,8 @@ def de_snapshot(tarefas: list[dict]) -> list[dict]:
         "nivel":   t.get("level") or 0,
         "inicio":  t.get("start"),
         "termino": t.get("end"),
-        "duracao": t.get("duracao"),
+        "duracao":   t.get("duracao"),
+        "duracaoUn": t.get("duracaoUn"),
         "marco":   bool(t.get("marco")),
     } for t in tarefas])
 
@@ -123,14 +130,16 @@ def de_base(tarefas: list[dict]) -> list[dict]:
     linhas e decide o que é folha. Calculá-los aqui seria percorrer a lista
     inteira para produzir campos que ninguém consulta.
 
-    `duracao` vem None nas bases gravadas antes de o campo existir — é o que
-    faz `_variacao_duracao` cair no vão do calendário nesse primeiro ciclo.
+    `duracaoUn` vem None nas bases gravadas antes de a duração sair do campo
+    Duração do Project — é o que faz `_variacao_duracao` declarar a duração
+    indisponível nesse primeiro ciclo, em vez de comparar duas escalas.
     """
     return [{
         "id":      str(t.get("id")) if t.get("id") else None,
         "inicio":  t.get("start"),
         "termino": t.get("end"),
-        "duracao": t.get("duracao"),
+        "duracao":   t.get("duracao"),
+        "duracaoUn": t.get("duracaoUn"),
     } for t in tarefas]
 
 
@@ -167,49 +176,44 @@ def br(d: str | None) -> str:
 
 # ── Duração ───────────────────────────────────────────────────────────────────
 # O Project agenda cada tarefa numa de duas unidades, e as duas convivem no
-# mesmo cronograma: no 2525 são 374 folhas em dias úteis e 312 em dias corridos
-# (as `Análise`, lançadas como edays). Nenhuma medida única serve para as duas.
+# mesmo cronograma: nos 13 projetos do PWA são 4341 folhas em dias úteis e 1453
+# em dias corridos (as `Análise`). Nenhuma medida única serve para as duas.
 # Contar o vão do calendário fazia de ofensor quem só escorregou para cima de um
 # fim de semana ou de um feriado; contar dia útil faria o inverso com as
 # `Análise`, que existem justamente para consumir dias corridos e encolheriam
 # ou cresceriam conforme o feriado caísse dentro ou fora da janela.
 #
-# Quem responde é a unidade da PRÓPRIA tarefa, e ela sai de graça do campo
-# Duração. `duracao` chega do pwa_client em unidades de 8h (DurationMilliseconds
-# / 480 min); um dia corrido são 24h, logo 3 unidades. Daí o teste ser uma linha
-# e não depender de tabela de feriado nenhuma.
+# Quem responde é a unidade da PRÓPRIA tarefa, e ela vem escrita do campo
+# Duração do Project: `18d` é dia útil, `11dd` é dia corrido. O pwa_client já
+# entrega isso partido em `duracao` (o número, na unidade dela) e `duracaoUn`.
+# Aqui não se adivinha unidade nem se consulta calendário: subtrai-se.
 
-def _eday(t: dict) -> bool:
-    """A tarefa é lançada em dias corridos?
+def _variacao_duracao(a: dict, b: dict) -> tuple[int | None, str | None, str | None]:
+    """Quanto a duração da tarefa mudou, em que unidade dizer isso, e o que
+    impediu a conta quando ela não pôde ser feita.
 
-    Não há como confundir com dia útil: uma tarefa de D dias úteis ocupa pelo
-    menos D-1 dias de calendário, então `3 * vao` só empata com D quando D é 1
-    ou menos — e aí o vão é zero e a igualdade não acontece.
+    Os dois lados já estão na unidade de leitura da tarefa, o que também é o que
+    permite à lista de ofensores ordenar junto dia útil e dia corrido.
+
+    Duas situações não têm resposta, e nenhuma delas vira outra conta:
+
+    - `duracaoUn` ausente de um dos lados. É base gravada antes de a duração
+      passar a sair do campo Duração: o número que está lá conta unidades de 8h,
+      em que um dia corrido vale 3, e subtrair um do outro daria um número
+      plausível e errado. Voltar ao vão do calendário também não serve — era ele
+      o falso positivo que tirou a duração do calendário em primeiro lugar.
+
+    - A tarefa trocou de espécie entre os dois reports (`18d` virou `18dd`).
+      A duração mudou de verdade, mas a diferença dos números é zero. É raro e é
+      dito por escrito, não escondido num número.
     """
-    dur, vao = t.get("duracao"), _dias(t.get("inicio"), t.get("termino"))
-    return bool(dur) and vao is not None and dur == 3 * vao
-
-
-def _variacao_duracao(a: dict, b: dict) -> tuple[int | None, str]:
-    """Quanto a duração da tarefa mudou, e em que unidade dizer isso.
-
-    O número volta já na unidade de leitura — dia útil ou dia corrido — e não
-    em `duracao` cru, porque a lista de ofensores ordena linhas das duas
-    espécies juntas: em cru um dia corrido vale 3 e passaria na frente de um
-    dia útil que pesa mais no prazo.
-
-    Sem `duracao` dos dois lados não há o que subtrair — base gravada antes de
-    o campo existir só tem datas. Aí a conta volta a ser o vão do calendário,
-    que é o comportamento antigo, até o próximo report salvo regravar a base.
-    """
-    da, db = a.get("duracao"), b.get("duracao")
-    if da is None or db is None:
-        va = _dias(a.get("inicio"), a.get("termino"))
-        vb = _dias(b.get("inicio"), b.get("termino"))
-        return (vb - va if va is not None and vb is not None else None), "corrido"
-    if _eday(b):
-        return round((db - da) / 3), "corrido"
-    return db - da, "util"
+    ua, ub = a.get("duracaoUn"), b.get("duracaoUn")
+    da, db = a.get("duracao"),   b.get("duracao")
+    if not ua or not ub or da is None or db is None:
+        return None, None, "sem_campo"
+    if ua != ub:
+        return None, None, "mudou_unidade"
+    return db - da, ub, None
 
 
 # ── Pareamento ────────────────────────────────────────────────────────────────
@@ -250,10 +254,15 @@ def comparar(anterior: list[dict], atual: list[dict],
     p = parear(anterior, atual)
 
     variacoes = []
+    sem_duracao = {"sem_campo": 0, "mudou_unidade": 0}
     for a, b in p["pares"]:
         if not b["folha"]:          # resumos espelham os filhos: contariam duas vezes
             continue
-        ddur, unidade = _variacao_duracao(a, b)
+        ddur, unidade, motivo = _variacao_duracao(a, b)
+        # Marco não tem duração para esticar: entra na rede como conduíte, mas
+        # não conta como duração que ficou por comparar.
+        if motivo and not b["marco"]:
+            sem_duracao[motivo] += 1
         variacoes.append({
             "ant": a, "atu": b, "marco": b["marco"],
             "dfim": _dias(a["termino"], b["termino"]),
@@ -290,6 +299,12 @@ def comparar(anterior: list[dict], atual: list[dict],
         },
         "reconciliacao": {"removidas": p["removidas"], "inseridas": p["inseridas"]},
         "causa":   causa,
+        # Quantas tarefas ficaram sem comparação de duração, e por quê. A lista
+        # de ofensores só admite quem aumentou de duração, então essas somem
+        # dela — e sumir calado é como o report passou duas semanas afirmando
+        # coisas que não tinha como saber.
+        "sem_duracao": sem_duracao,
+        "pares_folha": len(variacoes),
     }
 
 
@@ -345,6 +360,8 @@ def secao_semanal(r: dict, data_ant: str) -> str:
     # cabeçalho vermelho seguido de "não existem tarefas" — alarme sem conteúdo.
     if saldo:
         ger = (causa or {}).get("geradores") or []
+        sd = r.get("sem_duracao") or {}
+        n_sem, n_troca = sd.get("sem_campo") or 0, sd.get("mudou_unidade") or 0
         L += ["", negrito("🚨PRINCIPAIS OFENSORES")]
         if ger:
             for g in ger[:TOPO_OFENSORES]:
@@ -367,9 +384,31 @@ def secao_semanal(r: dict, data_ant: str) -> str:
                             dias_txt(g["ddur"], g.get("unidade") or "corrido")))
         elif causa is None:
             L.append("- Sem a rede de dependências não é possível apontar os ofensores.")
+        elif n_sem or n_troca:
+            # "Veio de replanejamento" é uma conclusão, e ela se apoia em ter
+            # comparado a duração de todas as tarefas da cadeia. Com alguma
+            # delas fora da conta, a conclusão não está disponível — o que há é
+            # a ausência de ofensor entre as que deu para medir.
+            L.append("- Nenhuma das tarefas comparadas aumentou de duração na cadeia que "
+                     "leva ao término, mas nem todas puderam ser comparadas — veja a "
+                     "ressalva abaixo.")
         else:
             L.append("- Nenhuma tarefa aumentou de duração na cadeia que leva ao término: "
                      "o desvio veio de replanejamento, não de atraso de tarefa.")
+
+        # O que ficou fora da conta é dito, não omitido: a lista acima só enxerga
+        # quem teve a duração comparada, e quem não teve sairia dela sem deixar
+        # rastro. Uma linha a mais é mais barata que um ofensor que não aparece.
+        if n_sem:
+            L.append("- Ressalva: %d tarefa(s) ficaram fora da comparação de duração "
+                     "porque o report anterior é mais antigo que o campo Duração do "
+                     "Project. Some sozinho no próximo report salvo no histórico."
+                     % n_sem)
+        if n_troca:
+            L.append("- Ressalva: %d tarefa(s) trocaram de dias úteis para dias corridos "
+                     "(ou o contrário) entre os dois reports. A duração delas mudou, mas "
+                     "as duas unidades não se subtraem — confira no Project."
+                     % n_troca)
 
     return "\n".join(L)
 

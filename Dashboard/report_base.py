@@ -12,19 +12,25 @@ decide se aquele relatório entra na história do projeto. Report tirado para
 outro fim — conferir uma dúvida, uma reunião fora de época — passa sem tocar
 nesta base, e o próximo comparativo continua partindo do último report salvo.
 
-data/report_base_<pid>.json guarda QUATRO campos por tarefa: id, start, end e
-duracao. São os únicos que a comparação lê do lado antigo — o pareamento é por
-id (GUID estável entre publicações, imune a renomeação) e a variação é de datas
-e de duração. Nome, recurso, nível e hierarquia saem sempre do cronograma
-ATUAL, que é quem escreve o rótulo de cada linha do relatório; guardá-los aqui
-seria copiar dado que ninguém lê.
+data/report_base_<pid>.json guarda CINCO campos por tarefa: id, start, end,
+duracao e duracaoUn. São os únicos que a comparação lê do lado antigo — o
+pareamento é por id (GUID estável entre publicações, imune a renomeação) e a
+variação é de datas e de duração. Nome, recurso, nível e hierarquia saem sempre
+do cronograma ATUAL, que é quem escreve o rótulo de cada linha do relatório;
+guardá-los aqui seria copiar dado que ninguém lê.
 
-`duracao` entrou depois dos outros três. Sem ela o lado antigo só tinha datas, e
-o aumento de duração era medido pelo vão do calendário — o que promovia a
-ofensor qualquer tarefa que tivesse escorregado para cima de um fim de semana ou
-de um feriado sem ter esticado um dia sequer. Base gravada antes desta mudança
-não tem o campo; o comparador volta ao vão do calendário enquanto for assim, e
-cada base se corrige sozinha no próximo report salvo.
+A duração entrou depois dos outros três, e em duas etapas. Primeiro como número
+solto — antes disso o lado antigo só tinha datas, e o aumento de duração era
+medido pelo vão do calendário, o que promovia a ofensor qualquer tarefa que
+tivesse escorregado para cima de um fim de semana ou de um feriado sem ter
+esticado um dia sequer. Depois com `duracaoUn`, quando a duração passou a sair
+do campo Duração do Project, que diz a unidade de cada tarefa.
+
+`duracaoUn` é o marcador de formato da base. Sem ele, o número guardado está na
+escala velha (unidades de 8h, um dia corrido valendo 3) e não se compara com o
+de hoje. Base assim não é convertida nem estimada por outro caminho: o
+comparador declara a duração indisponível e diz isso no report, em vez de trocar
+de conta caladamente. Cada base se corrige sozinha no próximo report salvo.
 
 A ordem da lista é preservada porque o primeiro item é a tarefa-resumo do
 projeto (nível 0), de onde saem o término e a duração totais.
@@ -40,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent / "data"
 
-CAMPOS = ("id", "start", "end", "duracao")
+CAMPOS = ("id", "start", "end", "duracao", "duracaoUn")
 
 
 def _caminho(pid: str) -> Path:

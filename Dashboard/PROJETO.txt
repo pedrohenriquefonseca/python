@@ -251,17 +251,55 @@ Os úteis para nós:
   Start, Finish                               → datas reais (ScheduledStart/Finish)
   ActualStart, ActualFinish                   → datas executadas
   BaselineStart, BaselineFinish               → linha de base
-  Duration                                    → "57d" (string formatada)
-  DurationMilliseconds                        → 1641600000 (mais preciso)
+  Duration                                    → "57d" / "11dd" (string formatada)
+  DurationMilliseconds                        → 1641600000 (NÃO USAR — ver abaixo)
   BaselineDurationMilliseconds                → idem para BL
   PercentComplete                             → 0..100
   Work, ActualWork, RemainingWork             → horas (string "1.080h")
   WorkBreakdownStructure                      → WBS "1.2.3"
 
-Para converter DurationMilliseconds em dias úteis: ms / (480*60*1000)
-(480 minutos = 8h de trabalho por dia padrão MSP).
+DURAÇÃO: LER `Duration`, NUNCA `DurationMilliseconds`
+-----------------------------------------------------
+`Duration` é a string formatada e é a única fonte da duração no coletor. Traz o
+número e a unidade juntos, na grafia pt-BR do Project:
 
-Para dias corridos (calendário): diferença em dias entre Start e Finish.
+    "18d"      → 18 dias ÚTEIS
+    "11dd"     → 11 dias CORRIDOS (decorridos; o "ed" do Project em inglês)
+    "33,38dd"  → fracionada, vírgula decimal
+
+Levantamento de 26/08/26 nas 5794 tarefas dos 13 projetos do PWA: `Duration`
+nunca vem nulo nem vazio, e os únicos sufixos que ocorrem são `d` (4341) e `dd`
+(1453) — este tenant é todo pt-BR. Nenhuma tarefa em horas, semanas ou meses.
+São 107 com casa decimal. As 28 com `IsDurationEstimate` NÃO ganham o "?" que o
+Project mostra na tela; a string do REST vem limpa.
+
+`DurationMilliseconds` foi abandonado por dois defeitos:
+
+1. Não diz a unidade. A espécie tinha de ser adivinhada comparando o número com
+   o vão do calendário (`duracao == 3 * vão`).
+2. É int32 e ESTOURA. Acima de 74,6 dias úteis (ou 24,9 corridos) o servidor
+   devolve -2147483648, que o coletor tratava como duração zero: eram 435
+   tarefas nos snapshots, e no comparador cada uma passava como "não mudou de
+   duração" sem que nada aparecesse no report.
+
+No snapshot a duração vira três campos:
+
+    duracao      → int, JÁ ARREDONDADO, na unidade da própria tarefa (18, 11)
+    duracaoUn    → "util" | "corrido"
+    duracaoTxt   → a grafia do Project ("33,38dd"), para a tela de saúde
+
+`duracaoUn` é o MARCADOR DE FORMATO. Sem ele o dado veio de coleta anterior a
+26/08/26, em que `duracao` contava unidades de 8h e um dia corrido valia 3 —
+escala diferente, que não se compara com a de hoje. Quem consome checa
+`duracaoUn`, nunca `duracao` sozinho. O fetcher recoleta qualquer snapshot sem o
+campo, mesmo sem republicação (fetcher._formato_atual).
+
+Arredondamento: meio dia SOBE (floor(v + 0,5)), e não o round() do Python, que
+arredonda 2,5 para 2. Marco continua sendo duração zero testada no valor EXATO,
+antes de arredondar — "0,2d" arredonda para zero e viraria marco sem ser.
+
+Para dias corridos (calendário): diferença em dias entre Start e Finish. É outra
+medida, e não substitui a duração — ver a seção do comparador.
 
 
 ================================================================================
@@ -335,7 +373,7 @@ C:\Apps Python\Repos\Python\Dashboard\
 │   ├── projects.json    — Snapshot de todos os projetos
 │   ├── tasks_<pid>.json — Snapshot das tarefas por projeto
 │   ├── report_base_<pid>.json — Cronograma do último report (id, start, end,
-│   │                            duracao)
+│   │                            duracao, duracaoUn)
 │   ├── fetch_state.json — Publicação já coletada com sucesso, por projeto
 │   ├── lookup_cache.json— Cache das tabelas de pesquisa (validade de 7 dias)
 │   ├── last_update.json — Timestamp do último fetch + status
@@ -704,17 +742,22 @@ fica como estava e o proximo comparativo parte do ultimo report SALVO.
 BASE DO REPORT (report_base.py)
 -------------------------------
 data/report_base_<pid>.json, gravado por POST /api/report-base quando o usuario
-fecha a tela do report com o toggle ligado. Guarda QUATRO campos por tarefa: id,
-start, end, duracao.
+fecha a tela do report com o toggle ligado. Guarda CINCO campos por tarefa: id,
+start, end, duracao, duracaoUn.
 
   - Sao os unicos que o lado antigo da comparacao e lido para dar: o pareamento
     e por id e a variacao e de datas e de duracao. Nome, recurso, nivel e
     hierarquia saem sempre do cronograma ATUAL, que e quem escreve o rotulo de
     cada linha.
-  - `duracao` entrou em 25/08/26, junto com a mudanca de unidade dos ofensores
-    (secao 16). Base gravada antes disso nao tem o campo: o comparador volta ao
-    vao do calendario enquanto for assim, e cada base se corrige sozinha no
-    proximo report salvo. Nao ha migracao a rodar.
+  - A duracao entrou em duas etapas. Em 25/08/26 como numero solto, e em
+    26/08/26 com `duracaoUn`, quando ela passou a sair do campo Duracao do
+    Project. `duracaoUn` e o MARCADOR DE FORMATO da base: sem ele o numero
+    guardado esta na escala velha (unidades de 8h, um dia corrido valendo 3) e
+    nao se compara com o de hoje.
+  - Base velha nao e convertida nem estimada por outro caminho — o comparador
+    declara a duracao indisponivel e IMPRIME A RESSALVA no report. Cada base se
+    corrige sozinha no proximo report salvo. Nao ha migracao a rodar: as 13
+    bases no disco em 26/08/26 sao todas do formato antigo.
   - A ordem da lista importa: o primeiro item e a tarefa-resumo do projeto
     (nivel 0), de onde saem o termino e a duracao totais.
   - `publicadoEm` (LastPublishedDate COM hora) carimba a base e vira a data do
@@ -823,29 +866,51 @@ uteis dentro dela muda: a `Analise 01` do 2291GG-G-500002 iria de 6 para 9 e
 apareceria como ofensora de +3. Alem disso, contar dia util exigiria uma tabela
 de feriados que nunca vai bater com o calendario do Project.
 
-O que resolve e comparar o proprio campo Duracao, que ja vem no snapshot como
-`duracao` (DurationMilliseconds / 480 min, ou seja, em unidades de 8h). A
-subtracao e exata para as duas especies de tarefa e nao consulta calendario
-nenhum. Quem faz e comparador._variacao_duracao().
+O que resolve e comparar o proprio campo Duracao. A subtracao e exata para as
+duas especies de tarefa e nao consulta calendario nenhum. Quem faz e
+comparador._variacao_duracao().
 
-A unidade de cada tarefa sai de graca do proprio numero, sem tabela de feriado:
-um dia corrido sao 24h, logo 3 unidades, entao
+A UNIDADE VEM ESCRITA (26/08/26)
+-------------------------------
+A primeira versao disto (25/08/26) adivinhava a especie pelo numero, testando
+`duracao == 3 * (termino - inicio)` sobre DurationMilliseconds. Funcionava, mas
+era heuristica sobre um campo que ainda por cima estoura em int32 — ver a secao
+9. Hoje a unidade sai escrita do campo `Duration` ("18d" / "11dd") e chega ao
+comparador em `duracaoUn`. Nao ha adivinhacao nem calendario na conta.
 
-    duracao == 3 * (termino - inicio)   ->  tarefa lancada em dias corridos
+`ddur` sai de _variacao_duracao na unidade de leitura da tarefa, que e a mesma
+dos dois lados, porque rede.causa_do_prazo ordena os geradores por ele e mistura
+as duas especies. A linha do report diz a unidade — "Aumento na duracao de 8
+dias uteis".
 
-Nao confunde com dia util: uma tarefa de D dias uteis ocupa pelo menos D-1 dias
-de calendario, entao 3*(termino-inicio) so empata com D quando D <= 1, e ai o
-vao e zero e a igualdade nao acontece. Fechou em 686 das 689 folhas do 2525.
+QUANDO A CONTA NAO PODE SER FEITA, O REPORT DIZ
+------------------------------------------------
+Duas situacoes nao tem resposta, e NENHUMA delas vira outra conta:
 
-`ddur` sai de _variacao_duracao ja na unidade de leitura (dia util, ou dia
-corrido com o valor dividido por 3), e nao em `duracao` cru, porque
-rede.causa_do_prazo ordena os geradores por ele e mistura as duas especies: em
-cru um dia corrido vale 3 e passaria na frente de um dia util que pesa mais no
-prazo. A linha do report diz a unidade — "Aumento na duracao de 8 dias uteis".
+  sem_campo      base gravada antes de 26/08/26, sem `duracaoUn`. O numero que
+                 esta la conta unidades de 8h — subtrair daria um resultado
+                 plausivel e errado.
+  mudou_unidade  a tarefa trocou de `18d` para `18dd` entre os dois reports. A
+                 duracao mudou de verdade, mas as unidades nao se subtraem.
+
+Nos dois casos a tarefa sai da lista de ofensores (que so admite ddur > 0), e e
+por isso que a secao imprime uma RESSALVA contando quantas ficaram de fora. Sem
+ela o report diria "o desvio veio de replanejamento, nao de atraso de tarefa" —
+uma conclusao que depende de ter comparado a cadeia inteira.
+
+Isso e regra, nao detalhe: as duas falhas que este comparador ja produziu foram
+degradacoes silenciosas. Uma caindo no vao do calendario quando faltava o campo,
+outra tratando duracao estourada como zero. As duas passaram semanas sem
+aparecer porque nada no report avisava.
 
 Efeito no 2525: os dois ofensores inventados sumiram e o unico verdadeiro,
 `Aprovacao do Projeto Conceitual`, passou de "12 dias corridos" para "8 dias
 uteis", que e o que de fato foi editado no Project (16 -> 24).
+
+Efeito no 12925 - Jardim Coreano (26/08/26): `PROJETO EXECUTIVO / ARQUITETURA E
+PAISAGISMO / 2a Entrega` acusava "+3 dias corridos". Sao 10 dias uteis dos dois
+lados (24/08->04/09 e 02/09->16/09): a tarefa escorregou por cima de um fim de
+semana a mais e do 7 de setembro, e nao esticou um dia. Sumiu da lista.
 
 DOIS PONTOS EM QUE A CAMINHADA MORRIA (corrigidos em 14/08/26)
 --------------------------------------------------------------
@@ -975,7 +1040,7 @@ empurrador. O que saiu foi a ordenacao por variacao e a lista no markdown.
 
 MARCOS FORA DA ANALISE
 ----------------------
-Tarefa de duracao zero (`marco`, de DurationMilliseconds == 0) nao entra na
+Tarefa de duracao zero (`marco`, hoje do campo Duracao == 0) nao entra na
 lista: nao tem duracao para esticar nem recurso a quem atribuir. Conferido
 contra o IsMilestone do servidor: 94 de 94 coincidem em 1.018 tarefas. Deduzir
 por start == end teria errado — existe tarefa de 1 dia com inicio e termino no
@@ -1011,7 +1076,7 @@ DUAS TELAS
                   barra de concentracao dos defeitos e mapa de calor
                   projetos x indicadores. Tudo clicavel.
   view-saudeproj  Analise de um projeto: seletor, medidor, diagnostico em texto,
-                  os 6 cards de KPI com o porque e a acao corretiva, e a lista
+                  os 7 cards de KPI com o porque e a acao corretiva, e a lista
                   de apontamentos (abaixo).
                   Nao tem item de menu — NAV_ALIAS mantem "Saude" aceso.
 
@@ -1063,9 +1128,36 @@ final e a media das notas ponderada pelos pesos.
   Tarefas sem predecessora           15    25%    tarefa sem nada antes
   Tarefas nivel 4 sem recurso        10    10%    nivel 4, fora marcos, sem recurso
   Marcos com duracao                 10     5%    IsMilestone com duracao > 0
-  Trabalho fora do nivel 4           15    30%    trabalho em nivel != 4, fora marcos
+  Duracoes fracionadas                5     5%    duracao com casa decimal
+  Trabalho fora do nivel 4           10    30%    trabalho em nivel != 4, fora marcos
 
 Faixas: 90 Excelente · 75 Bom · 60 Regular · 40 Ruim · abaixo disso Critico.
+
+DURACOES FRACIONADAS (26/08/26)
+-------------------------------
+Tarefa lancada com casa decimal — "33,38dd", "723,63d". O report fala em dias
+inteiros, entao cada uma e arredondada para caber na frase, e uma edicao pequena
+no Project pode virar um dia inteiro de variacao no comparativo. Sao 108 na
+carteira, concentradas em tres cronogramas: Complexo Esportivo Pompeia (60),
+Escola Edson Pisani (3) e Cemiterio Corrego do Feijao (1).
+
+Os 5 pontos de peso sairam de "trabalho fora do nivel 4", que era o outro KPI de
+padronizacao — os dois apontam desleixo de lancamento, nao quebra da analise de
+causa. A lista mostra o numero exato do Project com a unidade por extenso
+("duracao lancada como 33,38 dias corridos"), que e o que se procura na coluna
+Duracao para corrigir a tarefa.
+
+O `d`/`dd` E ABREVIACAO DO PROJECT E FICA LA. Nas telas e no report a unidade
+vai escrita — "dias uteis" e "dias corridos" —, porque e ela que muda o sentido
+do numero e o codigo so e legivel para quem mexe no cronograma. Vale para a
+lista de saude (saude._por_extenso), para a coluna Duracao do Gantt
+(index.html diasTxt/fmtDur) e para a linha de ofensor do report
+(comparador.dias_txt). A coluna do Gantt foi de 60px para 112px por causa disso;
+o maior texto da carteira e "114 dias corridos", 17 caracteres.
+
+Depende de `duracaoTxt`, que so existe em snapshot coletado depois de 26/08/26:
+antes o numero vinha dos milissegundos ja arredondado e a casa decimal se perdia
+na propria coleta. Sem o campo o KPI sai como indisponivel, como o dos marcos.
 
 DESCONTOS DELIBERADOS
 ---------------------

@@ -12,6 +12,7 @@ Autenticação: MSAL device flow (OAuth2 + AllSites.Read), suporta MFA.
 
 import json
 import logging
+import math
 import os
 import re
 import threading
@@ -280,16 +281,70 @@ def _extract_preds(t: dict) -> list[dict]:
     return sorted(saida, key=lambda x: x["id"])
 
 
-def _parse_duration_ms(raw_ms) -> int | None:
-    """Converte DurationMilliseconds em dias úteis (480 min/dia)."""
+# ── Duração ───────────────────────────────────────────────────────────────────
+# O Project agenda cada tarefa numa de duas unidades, e as duas convivem no mesmo
+# cronograma: nos 13 projetos do PWA são 4341 folhas em dias úteis e 1453 em dias
+# corridos (as `Análise`, lançadas como decorridos).
+#
+# A unidade sai escrita no campo `Duration`, que é uma string: `18d` para dias
+# úteis, `11dd` para dias corridos. Foi por aí que a leitura passou a vir.
+#
+# Antes lia-se `DurationMilliseconds`, e ele tem dois defeitos que o campo texto
+# não tem. O primeiro é não dizer a unidade: a espécie era adivinhada comparando
+# o número com o vão do calendário. O segundo é ser int32 e ESTOURAR — acima de
+# 74,6 dias úteis (ou 24,9 corridos) o servidor devolve -2147483648, que virava
+# duração zero; eram 435 tarefas nos snapshots, e no comparador cada uma delas
+# passava como "não mudou de duração" sem que nada aparecesse no report.
+#
+# `Duration` nunca vem nulo nem vazio nas 5794 tarefas do PWA, e os únicos
+# sufixos que ocorrem são `d` e `dd` — este tenant é todo pt-BR. Unidade fora
+# dessas duas não é adivinhada: a tarefa fica sem duração e o log avisa.
+_UNIDADES = {"d": "util", "dd": "corrido"}
+
+# `123,45d`, `18d`, `5d?` (o "?" do Project para duração estimada; o REST não o
+# manda hoje, mas ele é barato de tolerar).
+_DUR_RE = re.compile(r"^\s*(-?[\d.,]+)\s*([^\d\s?]*)\s*\??\s*$")
+
+
+def _parse_duration(raw) -> tuple[float | None, str | None, str | None]:
+    """`Duration` do Project → (valor, unidade, texto original).
+
+    O valor sai como float de propósito, sem arredondar: quem decide o marco
+    precisa distinguir duração zero de uma tarefa de poucas horas, e `0,2d`
+    arredondado seria zero.
+    """
+    if raw is None:
+        return None, None, None
+    txt = str(raw).strip()
+    if not txt:
+        return None, None, None
+    m = _DUR_RE.match(txt)
+    if not m:
+        logger.warning("Duração em formato inesperado (%r) — tarefa sem duração.", txt)
+        return None, None, txt
+    num, sufixo = m.group(1), m.group(2).lower()
+    unidade = _UNIDADES.get(sufixo)
+    if unidade is None:
+        logger.warning("Unidade de duração desconhecida em %r — tarefa sem duração.", txt)
+        return None, None, txt
+    # pt-BR: a vírgula é o separador decimal. Ponto só aparece como milhar, e só
+    # quando há vírgula — sozinho ele é decimal de um servidor em outra locale.
+    num = num.replace(".", "") if "," in num else num
     try:
-        ms = int(raw_ms)
-        if ms <= 0:
-            return 0
-        # 480 min/dia = 480*60*1000 ms
-        return round(ms / (480 * 60 * 1000))
-    except (ValueError, TypeError):
-        return None
+        return float(num.replace(",", ".")), unidade, txt
+    except ValueError:
+        logger.warning("Duração ilegível (%r) — tarefa sem duração.", txt)
+        return None, None, txt
+
+
+def _arredondar_duracao(valor: float | None) -> int | None:
+    """Inteiro mais próximo. Meio dia sobe.
+
+    Não é `round()`: o do Python arredonda 2,5 para 2 (metade par), e o report
+    fala com quem espera o arredondamento comercial. São 107 tarefas com casa
+    decimal nos 13 cronogramas — todas passam por aqui.
+    """
+    return None if valor is None else int(math.floor(valor + 0.5))
 
 
 def _calendar_days(start: str | None, end: str | None) -> int | None:
@@ -585,11 +640,12 @@ def fetch_projects() -> list[dict]:
 # inteira de cada tarefa e de cada atribuição — o grosso do tempo do fetcher.
 _TASK_FIELDS = (
     "Id,Name,Start,Finish,BaselineStart,BaselineFinish,"
-    "OutlineLevel,PercentComplete,IsCritical,IsMilestone,DurationMilliseconds"
+    "OutlineLevel,PercentComplete,IsCritical,IsMilestone,Duration"
 )
 _LINK_FIELDS = "PredecessorTaskId,SuccessorTaskId,DependencyType,LinkLag"
 _PST_FIELDS = (
-    "Id,Name,Start,Finish,BaselineStart,BaselineFinish,PercentComplete,IsCritical"
+    "Id,Name,Start,Finish,BaselineStart,BaselineFinish,PercentComplete,IsCritical,"
+    "Duration"
 )
 
 _EXPAND_TASKS = ("Tasks,Tasks/Assignments,Tasks/Assignments/Resource,"
@@ -665,6 +721,7 @@ def fetch_tasks(project_id: str) -> list[dict]:
         p_bl_end   = _parse_date(pst.get("BaselineFinish"))
         p_pct      = pst.get("PercentComplete") or 0
         p_days     = _calendar_days(p_start, p_end) or 0
+        p_dur, p_un, p_dur_txt = _parse_duration(pst.get("Duration"))
         tasks.append({
             "id":           str(pst.get("Id", "")),
             "name":         pst.get("Name", ""),
@@ -683,7 +740,12 @@ def fetch_tasks(project_id: str) -> list[dict]:
             # e nunca é marco.
             "preds":        [],
             "marco":        False,
-            "duracao":      p_days,
+            # A duração da linha do projeto passou a sair do campo Duração, como
+            # a das demais: enquanto foi o vão do calendário, `duracao`
+            # significava uma coisa na linha 0 e outra em todo o resto.
+            "duracao":      _arredondar_duracao(p_dur),
+            "duracaoUn":    p_un,
+            "duracaoTxt":   p_dur_txt,
             "diasCorridos": p_days,
             "inicio":       p_start,
             "blInicio":     p_bl_start,
@@ -727,6 +789,7 @@ def fetch_tasks(project_id: str) -> list[dict]:
             task_status = "late"
 
         days = _calendar_days(start, end) or 0
+        dur, dur_un, dur_txt = _parse_duration(t.get("Duration"))
 
         tasks.append({
             "id":           str(t.get("Id", "")),
@@ -743,17 +806,26 @@ def fetch_tasks(project_id: str) -> list[dict]:
             "pct":          pct_conc,
             "days":         days,
             "critical":     bool(t.get("IsCritical", False)),
-            # Marco = duração zero. Vem dos milissegundos crus porque `duracao`
-            # é arredondada em dias e engoliria uma tarefa de poucas horas.
-            "marco":        int(t.get("DurationMilliseconds") or 0) == 0,
+            # Marco = duração zero. Testa o valor exato, e não o arredondado,
+            # porque `0,2d` arredonda para zero e viraria marco sem ser.
+            "marco":        dur == 0,
             # O flag do Project, que é outra coisa: marca a INTENÇÃO de ser
             # marco. Divergir de `marco` (duração zero) é o defeito que a
             # Análise de Saúde aponta — marco que não tem duração zero.
             "isMilestone":  bool(t.get("IsMilestone", False)),
             # Rede de dependências, usada pelo comparador
             "preds":        _extract_preds(t),
-            # Aliases pt-BR para compatibilidade
-            "duracao":      _parse_duration_ms(t.get("DurationMilliseconds") or 0) or 0,
+            # Aliases pt-BR para compatibilidade.
+            # `duracao` é o número NA UNIDADE DA PRÓPRIA TAREFA, já arredondado:
+            # 18 para `18d`, 11 para `11dd`. `duracaoUn` diz qual das duas é, e
+            # é ele que marca o snapshot como novo — sem ele, o dado veio de uma
+            # coleta antiga, em que `duracao` contava unidades de 8h e um dia
+            # corrido valia 3. Quem consome checa `duracaoUn`, nunca `duracao`
+            # sozinho. `duracaoTxt` guarda a grafia do Project (`33,38dd`), que
+            # é o que a Análise de Saúde mostra ao apontar duração fracionada.
+            "duracao":      _arredondar_duracao(dur),
+            "duracaoUn":    dur_un,
+            "duracaoTxt":   dur_txt,
             "diasCorridos": days,
             "inicio":       start,
             "blInicio":     bl_start,

@@ -17,6 +17,8 @@ comparador/ no sys.path — app.py já insere as duas pastas.
 """
 from __future__ import annotations
 
+import re
+
 import rede
 
 # ── Definição dos KPIs ────────────────────────────────────────────────────────
@@ -27,7 +29,8 @@ import rede
 #
 # Os pesos seguem o impacto na análise de causa: dependência em resumo trava a
 # caminhada por completo, então pesa mais; tarefa fora do nível 4 é padronização,
-# não quebra nada, então pesa menos.
+# não quebra nada, então pesa menos. Somam 100 — os 5 pontos de duração
+# fracionada saíram de `fora_nivel4`, que era o outro KPI de padronização.
 KPIS = [
     {
         "id": "dep_resumo", "peso": 30, "limite": 0.10,
@@ -72,7 +75,18 @@ KPIS = [
         "acao": "Zerar a duração do marco.",
     },
     {
-        "id": "fora_nivel4", "peso": 15, "limite": 0.30,
+        "id": "duracao_fracionada", "peso": 5, "limite": 0.05,
+        "nome": "Durações fracionadas",
+        "desc": "Tarefa cuja duração não é um número inteiro de dias "
+                "(ex.: 33,38 dias corridos).",
+        "porque": "O report fala em dias inteiros, então a duração fracionada é "
+                  "arredondada para caber na frase. Duas tarefas de 5,4 dias somam 11 no "
+                  "Project e 10 no report, e uma edição pequena pode virar um dia inteiro "
+                  "de variação que ninguém encomendou.",
+        "acao": "Lançar a duração em dias inteiros no Project.",
+    },
+    {
+        "id": "fora_nivel4", "peso": 10, "limite": 0.30,
         "nome": "Trabalho fora do nível 4",
         "desc": "Tarefa de trabalho em nível diferente de 4, fora marcos.",
         "porque": "Quebra a padronização da EAP: o trabalho deveria estar todo no mesmo "
@@ -108,6 +122,44 @@ def _nota(qtd: int, base: int, limite: float) -> float:
 
 
 # ── Coleta dos defeitos ───────────────────────────────────────────────────────
+
+def _fracionada(dur_txt: str | None) -> bool:
+    """`33,38dd` sim; `18d` não.
+
+    O campo Duração do Project é número seguido de sufixo só com letras (`d` ou
+    `dd` neste PWA), então qualquer separador decimal no meio da string denuncia
+    a fração — sem precisar reparsear o número.
+    """
+    return bool(dur_txt) and ("," in dur_txt or "." in dur_txt)
+
+
+def _dias_txt(n: int | None, unidade: str | None) -> str:
+    """`10 dias úteis` / `1 dia corrido` — para as mensagens desta tela."""
+    if n is None:
+        return "—"
+    singular, plural = (("útil", "úteis") if unidade == "util"
+                        else ("corrido", "corridos"))
+    return ("1 dia %s" % singular) if abs(n) == 1 else ("%d dias %s" % (n, plural))
+
+
+def _por_extenso(dur_txt: str | None) -> str:
+    """`33,38dd` → `33,38 dias corridos`.
+
+    O `d`/`dd` é a abreviação do Project; nas telas e no report a unidade vai
+    escrita. O número fica como o Project o grafou, com a vírgula e todas as
+    casas: é ele que se procura na coluna Duração para corrigir a tarefa.
+    """
+    if not dur_txt:
+        return "—"
+    m = re.match(r"^\s*(-?[\d.,]+)\s*(dd?)\s*\??\s*$", dur_txt)
+    if not m:
+        return dur_txt          # formato inesperado: mostra como veio do servidor
+    num, sufixo = m.group(1), m.group(2)
+    singular, plural = (("corrido", "corridos") if sufixo == "dd"
+                        else ("útil", "úteis"))
+    um = num.replace(".", "").replace(",", ".") in ("1", "1.0")
+    return "%s dia %s" % (num, singular) if um else "%s dias %s" % (num, plural)
+
 
 def _tolerar(ids: set[str], por_id: dict, campo: str, isentas: int = 0) -> set[str]:
     """Tira da conta as pontas soltas perdoadas do projeto.
@@ -182,6 +234,15 @@ def _medir(tarefas: list[dict]) -> dict:
     marco_dur = {str(t["id"]) for t in tarefas
                  if t.get("isMilestone") and not t.get("marco")} if tem_flag else set()
 
+    # Duração que não é número inteiro de dias. Depende de `duracaoTxt`, a
+    # grafia do Project, que só existe em snapshot coletado depois de a duração
+    # passar a sair do campo Duração: antes o número vinha dos milissegundos já
+    # arredondado, e a casa decimal se perdia na própria coleta. Sem o campo o
+    # KPI fica indisponível pelo mesmo motivo que o dos marcos.
+    tem_dur_txt = any("duracaoTxt" in t for t in tarefas)
+    dur_frac = {x for x in folhas
+                if _fracionada(por_id[x].get("duracaoTxt"))} if tem_dur_txt else set()
+
     # Marco (duração zero) não é trabalho: marca o começo ou o fim de uma etapa,
     # e o lugar dele na EAP é o nível da etapa que ele delimita, não o nível 4.
     # Cobrar nível dele apontaria como defeito o cronograma bem montado.
@@ -210,8 +271,14 @@ def _medir(tarefas: list[dict]) -> dict:
                'nota de pendências'
             for x in sem_recurso},
         "marco_com_duracao": {
-            x: "marcado como marco no Project, mas com %d dia(s) de duração"
-               % (por_id[x].get("duracao") or 0) for x in marco_dur},
+            x: "marcado como marco no Project, mas com duração de %s"
+               % _por_extenso(por_id[x].get("duracaoTxt")) for x in marco_dur},
+        "duracao_fracionada": {
+            x: "duração lançada como %s: não é um número inteiro de dias, e o "
+               "report arredonda para %s"
+               % (_por_extenso(por_id[x].get("duracaoTxt")),
+                  _dias_txt(por_id[x].get("duracao"), por_id[x].get("duracaoUn")))
+            for x in dur_frac},
         "fora_nivel4": {
             x: "é trabalho e está no nível %s, direto dentro de \"%s\""
                % (por_id[x].get("level"), caminhos[x][-1])
@@ -224,6 +291,20 @@ def _medir(tarefas: list[dict]) -> dict:
     return {
         "base": len(folhas),
         "tem_flag_marco": tem_flag,
+        # KPI que depende de campo que o snapshot ainda não tem sai de fora do
+        # score, com o motivo escrito. Ficar dentro seria anunciar um 100 que
+        # não foi medido — o oposto do que esta tela existe para fazer.
+        "indisponiveis": {
+            k: v for k, v in {
+                "marco_com_duracao":
+                    None if tem_flag else
+                    "O flag de marco do Project entrou no snapshot em 14/08/26. "
+                    "Este KPI aparece após a próxima coleta.",
+                "duracao_fracionada":
+                    None if tem_dur_txt else
+                    "A duração passou a vir do campo Duração do Project. Este KPI "
+                    "aparece após a próxima coleta deste cronograma.",
+            }.items() if v},
         "contagens": {k: len(v) for k, v in ofensores.items()},
         "ofensores": ofensores,
         "por_id": por_id,
@@ -291,7 +372,7 @@ def analisar(tarefas: list[dict], nome: str = "", pid: str = "",
     kpis = []
     soma_pesos = soma_notas = 0.0
     for k in KPIS:
-        indisponivel = (k["id"] == "marco_com_duracao" and not m["tem_flag_marco"])
+        indisponivel = k["id"] in m["indisponiveis"]
         qtd = m["contagens"][k["id"]]
         nota = None if indisponivel else _nota(qtd, base, k["limite"])
         if not indisponivel:
@@ -307,16 +388,14 @@ def analisar(tarefas: list[dict], nome: str = "", pid: str = "",
             "faixa": None if indisponivel else rotulo,
             "cor": None if indisponivel else cor,
             "indisponivel": indisponivel,
-            "motivo_indisponivel": ("O flag de marco do Project entrou no snapshot em "
-                                    "14/08/26. Este KPI aparece após a próxima coleta.")
-                                   if indisponivel else None,
+            "motivo_indisponivel": m["indisponiveis"].get(k["id"]),
             "itens": _itens(m, k["id"]) if detalhar and not indisponivel else [],
         })
 
     score = round(soma_notas / soma_pesos, 1) if soma_pesos else 0.0
     faixa, cor = _classificar(score)
     total_defeitos = sum(m["contagens"][k["id"]] for k in KPIS
-                         if not (k["id"] == "marco_com_duracao" and not m["tem_flag_marco"]))
+                         if k["id"] not in m["indisponiveis"])
 
     return {
         "id": pid, "nome": nome,
