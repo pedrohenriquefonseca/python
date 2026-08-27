@@ -250,7 +250,7 @@ def plotar(df_aloc, recursos, cores_dict, titulo, arquivo_saida):
     ax.set_xlim(data_inicio_min, data_fim_max)
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%b/%y'))
-    ax.tick_params(axis='x', colors='gray')
+    ax.tick_params(axis='x', colors='gray', labelsize=7)
     ax.grid(axis='x', linestyle='--', color='#CCCCCC', linewidth=0.7, zorder=1)
     ax.set_title(titulo, fontsize=16, fontweight='bold', pad=20)
     ax.set_xlabel('Data', fontsize=11, fontweight='bold')

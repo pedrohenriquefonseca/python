@@ -376,6 +376,31 @@ def api_report_base():
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/report-base/<project_id>", methods=["GET"])
+def api_report_base_info(project_id: str):
+    """Data do último report salvo no histórico do projeto.
+
+    A tela do report escolhe o projeto antes de gerar coisa alguma, e é aí que
+    a pergunta aparece: desde quando este comparativo vai contar? Sem esta
+    consulta a resposta só chega dentro do relatório pronto — tarde demais para
+    quem queria saber se já saiu report desta semana.
+
+    `desde` é a mesma data que vai no título da seção comparativa (a publicação
+    do cronograma que a base retrata); `salvoEm` é quando o report foi mandado
+    para o histórico. As duas costumam diferir, e são coisas diferentes.
+    """
+    base = report_base.carregar(project_id)
+    if base is None:
+        return jsonify({"existe": False})
+    return jsonify({
+        "existe":      True,
+        "desde":       report_base.data(base),
+        "publicadoEm": base.get("publicadoEm"),
+        "salvoEm":     base.get("geradoEm"),
+        "tarefas":     len(base.get("tarefas") or []),
+    })
+
+
 @app.route("/api/entregas", methods=["POST"])
 def api_entregas():
     """Relatório de Entregas de Fornecedores de Projeto.

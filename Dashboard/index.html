@@ -620,6 +620,12 @@ tbody tr:hover td{background:#f8fafc;}
 }
 .hist-toggle[aria-pressed="true"] .hist-knob{transform:translateX(16px);}
 .report-hist-nota{font-size:10.5px;color:#aaa;letter-spacing:.3px;margin:-18px 0 24px;}
+.report-base-nota{
+  font-size:10.5px;color:#aaa;letter-spacing:.3px;line-height:1.5;
+  margin:-6px 0 0;min-height:16px;
+}
+.report-base-nota strong{color:#2c2c2c;font-weight:700;}
+.report-base-nota.vazio strong{color:#b5371f;}
 .report-header{
   display:flex;align-items:center;justify-content:space-between;
   margin-bottom:28px;padding-bottom:16px;border-bottom:1.5px solid #e2e2e2;
@@ -1043,6 +1049,7 @@ tbody tr:hover td{background:#f8fafc;}
               <label for="proj-report">Projeto</label>
               <select id="proj-report" class="fselect" style="font-size:.84rem;font-weight:600;width:100%;"></select>
             </div>
+            <p class="report-base-nota" id="base-report"></p>
             <button type="submit" class="btn-gui" id="btn-report">
               <span class="btn-text">Gerar Relatório</span>
               <span class="btn-loading hidden">Processando…</span>
@@ -1787,7 +1794,7 @@ function showView(v) {
   document.querySelectorAll('.nav-item[id]').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + (NAV_ALIAS[v] || v)).classList.add('active');
   document.getElementById('view-title').textContent = VIEW_META[v].title;
-  if (v === 'report')    popularSeletorProjetos('proj-report');
+  if (v === 'report')  { popularSeletorProjetos('proj-report'); mostrarBaseReport(); }
   if (v === 'entregas')  popularSeletorProjetos('proj-entregas');
   if (v === 'saude')     carregarSaudeTodos();
   if (v === 'saudeproj') abrirSaudeProjeto();
@@ -3488,6 +3495,7 @@ async function decidirHistoricoReport(projectId, salvar) {
     guiShowStatus('report', salvar
       ? 'Report salvo no histórico do projeto.'
       : 'Report temporário — o histórico do projeto ficou como estava.');
+    if (salvar) mostrarBaseReport();
   } catch (err) {
     guiShowStatus('report', `Não foi possível salvar no histórico: ${err.message}`, true);
   }
@@ -3552,6 +3560,54 @@ function mostrarRelatorios(relatorios) {
 }
 
 /* Report Semanal — direto do snapshot JSON do PWA */
+/* Data do último report salvo no histórico do projeto escolhido.
+
+   O comparativo do report não tem escolha de período: ele conta a partir do
+   último report SALVO. Sem esta linha, essa data só aparece dentro do relatório
+   já gerado — e a pergunta que se faz antes de gerar ("já saiu report desta
+   semana? de quando ele é?") ficava sem resposta na tela. */
+let _baseReportPedido = 0;
+
+async function mostrarBaseReport() {
+  const el = document.getElementById('base-report');
+  if (!el) return;
+  const pid = document.getElementById('proj-report').value;
+  // Cada consulta carimba o seu pedido: trocas rápidas de projeto podem chegar
+  // fora de ordem, e a resposta velha não pode sobrescrever a nova.
+  const meu = ++_baseReportPedido;
+  el.className = 'report-base-nota';
+  if (!pid) { el.textContent = ''; return; }
+  el.textContent = 'Consultando o histórico do projeto…';
+  try {
+    const res = await fetch(`/api/report-base/${pid}`);
+    const j   = await res.json();
+    if (!res.ok || j.error) throw new Error(j.error || `HTTP ${res.status}`);
+    if (meu !== _baseReportPedido) return;
+    if (!j.existe) {
+      el.className = 'report-base-nota vazio';
+      el.innerHTML = '<strong>Nenhum report salvo</strong> — este é o primeiro '
+                   + 'deste projeto e sai sem o comparativo.';
+      return;
+    }
+    const dia   = iso => fmt(String(iso || '').slice(0, 10));
+    const hora  = String(j.salvoEm || '').slice(11, 16);
+    const desde = dia(j.desde);
+    let txt = `Último report salvo em <strong>${dia(j.salvoEm)}</strong>`
+            + (hora ? ` às ${hora}` : '');
+    // Quando o projeto não tem data de publicação, a base é datada pela própria
+    // gravação: repetir o mesmo dia como se fossem duas datas só confunde.
+    txt += (desde && desde !== dia(j.salvoEm))
+      ? ` — o comparativo parte do cronograma de <strong>${desde}</strong>.`
+      : ' — é daí que o comparativo parte.';
+    el.innerHTML = txt;
+  } catch (err) {
+    if (meu !== _baseReportPedido) return;
+    el.textContent = `Histórico indisponível: ${err.message}`;
+  }
+}
+
+document.getElementById('proj-report').addEventListener('change', mostrarBaseReport);
+
 document.getElementById('form-report').addEventListener('submit', async e => {
   e.preventDefault();
   const sel  = document.getElementById('proj-report');
