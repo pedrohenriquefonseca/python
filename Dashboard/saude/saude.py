@@ -10,6 +10,10 @@ trabalho (as que não são resumo). Sem isso o Sede 2 (2.286 tarefas) seria semp
 pior que o Jardim Coreano (19), o que diria mais sobre o tamanho do projeto do
 que sobre a qualidade dele.
 
+Tarefa inativa do Project fica fora de tudo — da base e de todos os KPIs. Ela não
+é agendada nem propaga atraso, então cobrar amarração dela é apontar defeito em
+linha que o próprio Project ignora.
+
 Lê apenas os snapshots em data/tasks_<pid>.json. Não escreve nada.
 
 Depende de `rede` (pasta comparador/): quem importar este módulo precisa ter
@@ -183,22 +187,41 @@ def _medir(tarefas: list[dict]) -> dict:
     para dizer onde está o defeito: contar 49 dependências em resumo não ajuda
     ninguém a achar as 49 no meio de 221 linhas do Project.
     """
-    folhas = rede.folhas(tarefas)
+    # Tarefa inativa do Project não é agendada, não empurra ninguém e não
+    # aparece no cronograma que se executa: cobrar amarração, recurso ou nível
+    # dela é apontar defeito em linha que o Project já ignora. Sai da base e de
+    # todos os KPIs — inclusive como PONTA de vínculo: um link para uma inativa
+    # não propaga atraso, então quem só liga nela continua sendo ponta solta.
+    #
+    # `ativa` entrou no snapshot depois dos demais campos. Onde ele não existe,
+    # ninguém é inativa e a medição sai como sempre saiu.
+    inativas = {str(t["id"]) for t in tarefas
+                if t.get("id") and t.get("ativa") is False}
+    ativas = [t for t in tarefas if str(t.get("id")) not in inativas]
+
+    # `folhas` é posicional: quem decide se uma linha é resumo é o nível da
+    # linha SEGUINTE. Por isso a varredura vê a lista inteira e as inativas são
+    # descontadas depois — tirá-las antes faria um resumo cujas filhas são todas
+    # inativas virar tarefa de trabalho.
+    folhas = rede.folhas(tarefas) - inativas
     por_id = {str(t["id"]): t for t in tarefas if t.get("id")}
     # A tarefa-resumo do projeto ocupa a linha 0 do Project, não a 1. Quando ela
     # abre a lista (é o normal: o coletor a injeta como primeira), a posição no
     # cronograma é o próprio índice; sem ela a numeração começa em 1.
     base = 0 if tarefas and tarefas[0].get("level") == 0 else 1
     linha = {str(t["id"]): i + base for i, t in enumerate(tarefas) if t.get("id")}
-    fim_projeto = max((t.get("end") or "") for t in tarefas) if tarefas else ""
+    fim_projeto = max((t.get("end") or "") for t in ativas) if ativas else ""
 
     dep_resumo = set()
     motivos_resumo: dict[str, list[str]] = {}
     com_pred, com_suc = set(), set()
 
-    for t in tarefas:
+    for t in ativas:
         tid = str(t.get("id"))
-        preds = t.get("preds") or []
+        # Vínculo com uma inativa é vínculo que o Project não honra: não conta
+        # como predecessora existente nem como sucessora de ninguém.
+        preds = [pr for pr in (t.get("preds") or [])
+                 if str(pr.get("id")) not in inativas]
         if preds:
             com_pred.add(tid)
             if tid not in folhas:
@@ -231,7 +254,7 @@ def _medir(tarefas: list[dict]) -> dict:
     # existe em snapshot coletado depois de 14/08/26 — sem ele o KPI sai de fora
     # do score em vez de mentir um 100.
     tem_flag = any("isMilestone" in t for t in tarefas)
-    marco_dur = {str(t["id"]) for t in tarefas
+    marco_dur = {str(t["id"]) for t in ativas
                  if t.get("isMilestone") and not t.get("marco")} if tem_flag else set()
 
     # Duração que não é número inteiro de dias. Depende de `duracaoTxt`, a
@@ -290,6 +313,7 @@ def _medir(tarefas: list[dict]) -> dict:
 
     return {
         "base": len(folhas),
+        "inativas": len(inativas),
         "tem_flag_marco": tem_flag,
         # KPI que depende de campo que o snapshot ainda não tem sai de fora do
         # score, com o motivo escrito. Ficar dentro seria anunciar um 100 que
@@ -401,6 +425,10 @@ def analisar(tarefas: list[dict], nome: str = "", pid: str = "",
         "id": pid, "nome": nome,
         "score": score, "faixa": faixa, "cor": cor,
         "tarefas": len(tarefas), "folhas": base,
+        # Quantas linhas ficaram fora por estarem inativas no Project. A tela
+        # diz o número: score que ignora parte do cronograma calado é score que
+        # o leitor não tem como conferir contra o que vê no Project.
+        "inativas": m["inativas"],
         "total_defeitos": total_defeitos,
         "kpis": kpis,
     }
@@ -419,6 +447,7 @@ def resumo(tarefas: list[dict], nome: str = "", pid: str = "") -> dict:
     avaliados = [k for k in notas if k["nota"] is not None]
     return {"id": a["id"], "nome": a["nome"], "score": a["score"],
             "faixa": a["faixa"], "cor": a["cor"], "folhas": a["folhas"],
+            "inativas": a["inativas"],
             "total_defeitos": a["total_defeitos"],
             "notas": notas,
             "limpos": sum(1 for k in avaliados if k["qtd"] == 0),

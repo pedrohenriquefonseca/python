@@ -2544,8 +2544,13 @@ async function carregarSaudeProjeto(id) {
 function renderSaude(d) {
   document.getElementById('saude-hero-vazio').style.display = 'none';
   document.getElementById('saude-hero').style.display = '';
+  // As inativas saem da medição inteira, então o número vai escrito: sem ele o
+  // leitor soma as linhas no Project e não fecha com a base do score.
+  const inativas = d.inativas
+    ? ` · ${d.inativas} inativa${d.inativas > 1 ? 's' : ''} fora da conta`
+    : '';
   document.getElementById('saude-meta').textContent =
-    `${d.tarefas} linhas · ${d.folhas} tarefas de trabalho · ${d.total_defeitos} apontamento(s)`;
+    `${d.tarefas} linhas · ${d.folhas} tarefas de trabalho${inativas} · ${d.total_defeitos} apontamento(s)`;
 
   const cor = SD_CORES[d.cor] || SD_CORES.vermelho;
   const num = document.getElementById('saude-score');

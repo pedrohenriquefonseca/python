@@ -640,7 +640,7 @@ def fetch_projects() -> list[dict]:
 # inteira de cada tarefa e de cada atribuição — o grosso do tempo do fetcher.
 _TASK_FIELDS = (
     "Id,Name,Start,Finish,BaselineStart,BaselineFinish,"
-    "OutlineLevel,PercentComplete,IsCritical,IsMilestone,Duration"
+    "OutlineLevel,PercentComplete,IsCritical,IsMilestone,IsActive,Duration"
 )
 _LINK_FIELDS = "PredecessorTaskId,SuccessorTaskId,DependencyType,LinkLag"
 _PST_FIELDS = (
@@ -813,6 +813,11 @@ def fetch_tasks(project_id: str) -> list[dict]:
             # marco. Divergir de `marco` (duração zero) é o defeito que a
             # Análise de Saúde aponta — marco que não tem duração zero.
             "isMilestone":  bool(t.get("IsMilestone", False)),
+            # Tarefa inativa do Project: continua na lista, mas não é agendada
+            # nem propaga atraso pela rede. A Análise de Saúde a descarta — o
+            # default True cobre o servidor que não devolva o campo, para nenhum
+            # cronograma sumir da conta por ausência de dado.
+            "ativa":        bool(t.get("IsActive", True)),
             # Rede de dependências, usada pelo comparador
             "preds":        _extract_preds(t),
             # Aliases pt-BR para compatibilidade.
