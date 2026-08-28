@@ -233,13 +233,18 @@ def _bloco_resumo(AA, CC, DD, EE):
 
       AA término atual              CC término da linha de base
       DD duração da linha de base   EE duração atual
+
+    DD e EE chegam como o vão entre as duas datas. O +1 é o dia de início, que
+    conta como dia de projeto: um trabalho que começa e termina no mesmo dia
+    dura um dia, não zero. Ele vai nas DUAS linhas — antes só a tendência o
+    recebia, e o desvio que o leitor calculava de cabeça saía um dia maior do
+    que era. A mesma conta está em comparador._dur_projeto.
     """
-    dur_atual = EE + 1          # +1 como sempre foi: o dia de início conta
     return [
         f'- Conclusão do Projeto - Linha de Base: {CC}.',
         f'- Conclusão do Projeto - Tendência: {AA}.',
-        f'- Duração do Projeto - Linha de Base: {DD} dias corridos.',
-        f'- Duração do Projeto - Tendência: {dur_atual} dias corridos.',
+        f'- Duração do Projeto - Linha de Base: {DD + 1} dias corridos.',
+        f'- Duração do Projeto - Tendência: {EE + 1} dias corridos.',
     ]
 
 

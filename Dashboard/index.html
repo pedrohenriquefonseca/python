@@ -2225,12 +2225,15 @@ function onProjectSelect() {
       if (lvl0) {
         const ini = fmtDate(lvl0.start);
         const fim = fmtDate(lvl0.end);
-        // Duração atual em dias corridos (calendário), calculada entre Início e Término atuais
+        // Duração atual em dias corridos (calendário), calculada entre Início e Término atuais.
+        // O `days` do backend já conta o dia de início (_calendar_days soma 1);
+        // o fallback tem de somar também, senão o card mostra um dia a menos
+        // que o report semanal para o mesmo projeto.
         let dur = '—';
         if (lvl0.days != null) {
           dur = lvl0.days + ' dias';
         } else if (lvl0.start && lvl0.end) {
-          const d = Math.round((new Date(lvl0.end) - new Date(lvl0.start)) / 86400000);
+          const d = Math.round((new Date(lvl0.end) - new Date(lvl0.start)) / 86400000) + 1;
           if (!isNaN(d)) dur = d + ' dias';
         }
         const iniEl = document.querySelector('#proj-meta-inicio-plan span:last-child');

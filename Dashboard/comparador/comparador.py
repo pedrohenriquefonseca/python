@@ -156,6 +156,19 @@ def _dias(a: str | None, b: str | None) -> int | None:
         return None
 
 
+def _dur_projeto(inicio: str | None, termino: str | None) -> int | None:
+    """Duração do projeto em dias corridos, contando o dia de início.
+
+    O vão entre as duas datas mais um: um projeto que começa e termina no mesmo
+    dia dura um dia, não zero. É a mesma conta do bloco RESUMO
+    (Report._bloco_resumo) — as duas seções do report falam da mesma duração e
+    precisam dar o mesmo número. Sem o +1 aqui, esta seção anunciava um total
+    um dia menor que o do resumo, logo acima dela.
+    """
+    d = _dias(inicio, termino)
+    return None if d is None else d + 1
+
+
 def dias_txt(n: int, unidade: str = "corrido") -> str:
     """`10 dias corridos` / `1 dia útil` — magnitude, sem sinal.
 
@@ -294,8 +307,8 @@ def comparar(anterior: list[dict], atual: list[dict],
         "projeto": {
             "termino_ant": raiz_a.get("termino"), "termino_atu": raiz_b.get("termino"),
             "saldo":       saldo,
-            "duracao_ant": _dias(raiz_a.get("inicio"), raiz_a.get("termino")),
-            "duracao_atu": _dias(raiz_b.get("inicio"), raiz_b.get("termino")),
+            "duracao_ant": _dur_projeto(raiz_a.get("inicio"), raiz_a.get("termino")),
+            "duracao_atu": _dur_projeto(raiz_b.get("inicio"), raiz_b.get("termino")),
         },
         "reconciliacao": {"removidas": p["removidas"], "inseridas": p["inseridas"]},
         "causa":   causa,
