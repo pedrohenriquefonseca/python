@@ -768,6 +768,16 @@ tbody tr:hover td{background:#f8fafc;}
 .ferias-obs-proximo{margin-top:10px;}
 .ferias-busca-group{margin-bottom:20px;}
 .ferias-table td,.ferias-table th{white-space:nowrap;}
+.ferias-desc-group{margin-bottom:20px;}
+/* Descrição quebra linha: é texto livre, e numa linha só empurraria a tabela
+   para fora do painel. */
+.ferias-table td.ferias-cell-desc{white-space:normal;min-width:200px;cursor:text;line-height:1.45;}
+.ferias-desc-vazia{color:#c4c4c4;font-size:11.5px;}
+.ferias-table tbody tr:hover .ferias-desc-vazia{color:#888;}
+.ferias-input-desc{
+  padding:6px 8px;border:1.5px solid #2c2c2c;background:#fff;width:100%;
+  font-size:12.5px;font-family:inherit;color:#2c2c2c;outline:none;
+}
 </style>
 </head>
 <body>
@@ -1254,6 +1264,11 @@ tbody tr:hover td{background:#f8fafc;}
                 <label>Total de Dias</label>
                 <span id="ferias-dias-count" class="ferias-dias-count">—</span>
               </div>
+            </div>
+            <div class="gui-form-group ferias-desc-group">
+              <label for="ferias-descricao">Descrição</label>
+              <input type="text" id="ferias-descricao" class="ferias-input-nome" maxlength="500" autocomplete="off"
+                     placeholder="Como o período foi utilizado — ex.: viagem de fim de ano, recesso escolar…">
             </div>
             <button type="button" id="btn-ferias" class="btn-gui">
               <span class="btn-text">Registrar Férias</span>
@@ -4131,7 +4146,8 @@ document.getElementById('btn-ferias').addEventListener('click', async () => {
   const fim      = document.getElementById('ferias-fim').value;
   const admissao = document.getElementById('ferias-admissao').value;
   if (!nome || !inicio || !fim) { guiShowStatus('ferias','Preencha nome, início e fim das férias.',true); return; }
-  const body = { nome, inicio, fim };
+  const descricao = document.getElementById('ferias-descricao').value.trim();
+  const body = { nome, inicio, fim, descricao };
   if (admissao) body.admissao = admissao;
   guiSetLoading('ferias', true);
   try {
@@ -4143,6 +4159,7 @@ document.getElementById('btn-ferias').addEventListener('click', async () => {
     document.getElementById('ferias-admissao').value = '';
     document.getElementById('ferias-inicio').value   = '';
     document.getElementById('ferias-fim').value      = '';
+    document.getElementById('ferias-descricao').value = '';
     document.getElementById('ferias-dias-count').textContent = '—';
     document.getElementById('ferias-dias-count').classList.remove('ferias-dias-ok');
     _feriasHistorico = data.ferias_tiradas || [];
@@ -4199,19 +4216,67 @@ function feriasRenderizar(saldo, historico, proximo) {
     histWrap.innerHTML = `
       <h3 class="ferias-section-title ferias-section-title--hist">Histórico de Férias</h3>
       <table class="ferias-table"><thead><tr>
-        <th>Início</th><th>Fim</th><th>Dias</th><th>Períodos Debitados</th><th></th>
+        <th>Início</th><th>Fim</th><th>Dias</th><th>Períodos Debitados</th><th>Descrição</th><th></th>
       </tr></thead><tbody>
         ${lista.map(ft => `<tr>
           <td>${ft.inicio}</td><td>${ft.fim}</td>
           <td class="ferias-cell-num">${ft.dias}</td>
           <td class="ferias-cell-debitos">${ft.debitos.map(d=>`Ano ${d.periodo_ano}: ${d.dias}d`).join(' + ')}</td>
+          <td class="ferias-cell-desc" data-id="${ft.id}" title="Clique para editar">${feriasDescHtml(ft.descricao)}</td>
           <td class="ferias-cell-acao"><button class="ferias-btn-cancelar" data-id="${ft.id}" title="Remover">✕</button></td>
         </tr>`).join('')}
       </tbody></table>`;
     histWrap.querySelectorAll('.ferias-btn-cancelar').forEach(btn =>
       btn.addEventListener('click', () => feriasCancelar(btn.dataset.id))
     );
+    histWrap.querySelectorAll('.ferias-cell-desc').forEach(td =>
+      td.addEventListener('click', () => feriasEditarDescricao(td))
+    );
   }
+}
+
+function feriasEsc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function feriasDescHtml(txt) {
+  return txt ? feriasEsc(txt) : '<span class="ferias-desc-vazia">+ descrever</span>';
+}
+
+/* A descrição se edita no próprio histórico, porque os registros anteriores ao
+   campo também precisam dela. Enter ou sair do campo grava; Esc desiste. */
+function feriasEditarDescricao(td) {
+  if (td.querySelector('input')) return;
+  const id    = td.dataset.id;
+  const atual = (_feriasHistorico.find(ft => ft.id === id) || {}).descricao || '';
+  td.innerHTML = '<input type="text" class="ferias-input-desc" maxlength="500">';
+  const inp = td.querySelector('input');
+  inp.value = atual;
+  inp.focus();
+
+  let fechado = false;
+  const fechar = async gravar => {
+    if (fechado) return;
+    fechado = true;
+    const nova = inp.value.trim();
+    if (!gravar || nova === atual) { td.innerHTML = feriasDescHtml(atual); return; }
+    td.innerHTML = feriasDescHtml(nova);
+    try {
+      const res  = await fetch('/api/ferias/descrever', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nome:_feriasNome, id, descricao:nova }) });
+      const data = await res.json();
+      if (data.erro) throw new Error(data.erro);
+      _feriasHistorico = data.ferias_tiradas || _feriasHistorico;
+      guiShowStatus('ferias', 'Descrição salva.');
+    } catch(err) {
+      td.innerHTML = feriasDescHtml(atual);
+      guiShowStatus('ferias', `Descrição não salva: ${err.message}`, true);
+    }
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); fechar(true); }
+    if (e.key === 'Escape') { e.preventDefault(); fechar(false); }
+  });
+  inp.addEventListener('blur', () => fechar(true));
 }
 
 /* Carrega lista de férias quando a view é aberta */

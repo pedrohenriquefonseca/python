@@ -370,9 +370,12 @@ def secao_semanal(r: dict, data_ant: str) -> str:
                  % (dias_txt(d_ant), dias_txt(d_atu)))
 
     # ── Ofensores ────────────────────────────────────────────────────────────
-    # A seção só existe para explicar um desvio de prazo. Sem desvio ela vira um
+    # A seção só existe para explicar um AUMENTO de prazo. Sem desvio ela vira um
     # cabeçalho vermelho seguido de "não existem tarefas" — alarme sem conteúdo.
-    if saldo:
+    # Com o prazo reduzido, também sai: ofensor é quem atrasou o término, e um
+    # término que andou para trás não tem culpado a apontar — a sirene sobre uma
+    # boa notícia só faria o leitor procurar o problema que não há.
+    if saldo > 0:
         ger = (causa or {}).get("geradores") or []
         sd = r.get("sem_duracao") or {}
         n_sem, n_troca = sd.get("sem_campo") or 0, sd.get("mudou_unidade") or 0

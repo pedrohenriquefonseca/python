@@ -575,9 +575,20 @@ def api_ferias_registrar():
     inicio   = data.get("inicio", "").strip()
     fim      = data.get("fim", "").strip()
     admissao = (data.get("admissao", "") or "").strip() or None
+    descricao = data.get("descricao", "") or ""
     if not all([nome, inicio, fim]):
         return jsonify({"erro": "Nome, início e fim são obrigatórios."}), 400
-    return jsonify(ferias_mod.registrar_ferias(nome, inicio, fim, admissao))
+    return jsonify(ferias_mod.registrar_ferias(nome, inicio, fim, admissao, descricao))
+
+
+@app.route("/api/ferias/descrever", methods=["POST"])
+def api_ferias_descrever():
+    data     = request.get_json(silent=True) or {}
+    nome     = data.get("nome", "").strip()
+    entry_id = data.get("id", "").strip()
+    if not all([nome, entry_id]):
+        return jsonify({"erro": "Nome e id são obrigatórios."}), 400
+    return jsonify(ferias_mod.descrever_ferias(nome, entry_id, data.get("descricao", "") or ""))
 
 
 @app.route("/api/ferias/cancelar", methods=["POST"])

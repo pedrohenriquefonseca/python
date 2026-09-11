@@ -6,6 +6,9 @@ Regras:
   - O período aquisitivo começa na data de admissão e se renova a cada 12 meses.
   - Os dias são debitados sempre do período mais antigo com saldo disponível (FIFO).
   - Dias = (fim - início).days + 1  (ambas as datas inclusivas, corridos).
+  - Cada registro leva uma descrição livre de como as férias foram usadas. Ela
+    pode ser escrita no registro ou depois, no histórico; datas e débitos não se
+    editam — para corrigir o período, remove-se o registro e registra-se de novo.
 """
 import json
 import os
@@ -13,6 +16,8 @@ import uuid
 from datetime import date, timedelta
 
 DB_PATH: str = ''   # definido pelo app.py após importação
+
+LIMITE_DESCRICAO = 500
 
 
 # ── helpers internos ─────────────────────────────────────────────────────────
@@ -136,8 +141,12 @@ def consultar_funcionario(nome: str) -> dict:
     }
 
 
+def _limpar_descricao(texto) -> str:
+    return (texto or '').strip()[:LIMITE_DESCRICAO]
+
+
 def registrar_ferias(nome: str, inicio_str: str, fim_str: str,
-                     admissao_str=None) -> dict:
+                     admissao_str=None, descricao: str = '') -> dict:
     db   = _load()
     nome = nome.strip()
 
@@ -214,6 +223,7 @@ def registrar_ferias(nome: str, inicio_str: str, fim_str: str,
         'fim':           fim_str,
         'dias':          dias_solicitados,
         'debitos':       debitos,
+        'descricao':     _limpar_descricao(descricao),
         'registrado_em': date.today().isoformat(),
     }
 
@@ -226,6 +236,28 @@ def registrar_ferias(nome: str, inicio_str: str, fim_str: str,
         'saldo':   calcular_saldo(func),
         'ferias_tiradas': func['ferias_tiradas'],
     }
+
+
+def descrever_ferias(nome: str, entry_id: str, descricao: str) -> dict:
+    """Troca a descrição de um registro já feito — inclusive dos anteriores ao
+    campo existir, que ficam sem a chave até alguém escrever nela."""
+    db   = _load()
+    func = db['funcionarios'].get(nome.strip())
+
+    if not func:
+        return {'erro': 'Funcionário não encontrado.'}
+
+    for ft in func.get('ferias_tiradas', []):
+        if ft.get('id') == entry_id:
+            ft['descricao'] = _limpar_descricao(descricao)
+            _save(db)
+            return {
+                'sucesso':        True,
+                'entry':          ft,
+                'ferias_tiradas': func['ferias_tiradas'],
+            }
+
+    return {'erro': 'Registro não encontrado.'}
 
 
 def cancelar_ferias(nome: str, entry_id: str) -> dict:

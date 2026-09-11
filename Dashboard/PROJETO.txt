@@ -978,6 +978,12 @@ Cabecalho e emoji + caixa alta, como as demais secoes, mais a marca de negrito
 como texto puro (colado em e-mail/WhatsApp) e "##" apareceria cru. Sem linha em
 branco entre o cabecalho e o primeiro item.
 
+PRINCIPAIS OFENSORES SO APARECE QUANDO O PRAZO AUMENTOU. Com a Previsao de
+Conclusao mantida ou reduzida em relacao ao report anterior, o bloco nao sai
+(regra do usuario, 11/09/26). Ate entao ele saia em qualquer desvio, inclusive
+de reducao — um cabecalho vermelho sobre uma boa noticia, que faz o leitor
+procurar um culpado que nao existe. O "O QUE MUDOU" continua dizendo a reducao.
+
 Ate 3 tarefas, da que mais esticou para a que menos esticou.
 
 O numero da linha e o AUMENTO DE DURACAO, nao a variacao do termino: parte do

@@ -41,6 +41,23 @@ predecessora não se moveu.
 
 ---
 
+## Feito em 11/09/26 — ofensores só quando o prazo aumenta
+
+Regra do usuário: com a Previsão de Conclusão mantida ou reduzida em relação ao
+report anterior, o report semanal não exibe PRINCIPAIS OFENSORES. Antes a seção
+saía em qualquer desvio, inclusive de redução. A linha "A Previsão de Conclusão
+mudou de X para Y, redução de N" continua no O QUE MUDOU. Condição em
+`comparador.secao_semanal` (`saldo > 0`).
+
+## Feito em 11/09/26 — descrição de uso nas férias
+
+A Anotação de Férias guardava só datas e débitos; não havia onde dizer como o
+período foi usado. Cada registro ganhou uma descrição livre (até 500
+caracteres), preenchida no formulário ou depois, clicando na coluna Descrição do
+histórico — assim os registros anteriores ao campo também podem ser descritos.
+Datas e débitos seguem sem edição: para corrigir o período, remove-se o registro
+e registra-se de novo. Rota nova: `POST /api/ferias/descrever`.
+
 ## Feito em 11/09/26 — e-mail do Report Fornecedores refeito para o Word
 
 Colado no Outlook, o e-mail saía desmontado: cada iniciativa era uma tabela com
