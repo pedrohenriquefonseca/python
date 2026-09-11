@@ -289,6 +289,98 @@ select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
 
 .sd-empty{padding:40px;text-align:center;color:var(--muted);font-size:.85rem;}
 
+/* REPORT FORNECEDORES */
+/* Uma cor por card, e só uma: a régua do topo e o ponto ao lado do nome, que
+   dizem de quem é o bloco — a mesma cor que o fornecedor já tem nos gantts de
+   alocação. Dentro dele tudo é escala de cinza: a hierarquia sai do peso do
+   texto, do recuo e de fios finos, não de fundos alternados. A única exceção é
+   o atraso, que precisa saltar. */
+#repfor-corpo{display:flex;flex-direction:column;gap:22px;}
+.card.rf-topo{padding:13px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.rf-topo-lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);white-space:nowrap;}
+.rf-topo-sep{width:1px;height:22px;background:var(--border);}
+.rf-topo-meta{font-size:.72rem;color:var(--muted);margin-left:auto;}
+.rf-pills{display:flex;gap:5px;flex-wrap:wrap;}
+.rf-pill{padding:4px 12px;border-radius:999px;font-size:.73rem;font-weight:600;
+  cursor:pointer;border:1px solid var(--border);background:transparent;
+  color:var(--muted);transition:all .15s;font-family:inherit;}
+.rf-pill.on{background:#1e2433;border-color:#1e2433;color:#fff;}
+.card.rf-forn{padding:0;overflow:hidden;border-top:3px solid var(--forn);}
+.rf-forn-head{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:16px 24px 15px;border-bottom:1px solid #e7ecf3;}
+.rf-forn-id{display:flex;align-items:baseline;gap:10px;}
+.rf-forn-dot{width:7px;height:7px;border-radius:50%;background:var(--forn);flex-shrink:0;}
+.rf-forn-nome{font-size:.98rem;font-weight:700;letter-spacing:-.012em;}
+.rf-forn-sub{font-size:.7rem;color:var(--muted);margin-top:5px;}
+.rf-forn-sub b{color:#334155;font-weight:700;}
+.rf-btn-mail{background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;
+  font:600 .72rem 'Segoe UI',system-ui;color:#1e293b;padding:6px 13px;white-space:nowrap;
+  flex-shrink:0;transition:background .15s,color .15s,border-color .15s;}
+.rf-btn-mail:hover{background:#1e2433;border-color:#1e2433;color:#fff;}
+.rf-btn-mail.ok{background:#1e2433;border-color:#1e2433;color:#fff;}
+.rf-tabela{width:100%;border-collapse:collapse;font-size:.75rem;table-layout:fixed;}
+.rf-tabela th{text-align:left;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
+  color:#a3aec0;font-weight:700;padding:9px 16px 8px;border-bottom:1px solid #e7ecf3;
+  white-space:nowrap;}
+.rf-tabela th:first-child{padding-left:40px;}
+.rf-tabela th:nth-child(2){width:92px;}
+.rf-tabela th:nth-child(3){width:100px;}
+.rf-tabela th:nth-child(4){width:126px;}
+.rf-tabela th:nth-child(5){width:150px;}
+.rf-tabela td{padding:9px 16px;vertical-align:top;background:#fff;}
+.rf-item td{border-bottom:1px solid #f2f5f9;}
+.rf-item:hover td{background:#fafbfd;}
+/* Os três níveis se separam por peso, em ordem decrescente — iniciativa 800,
+   disciplina 700, nome de arquivo 400 — apoiados por tamanho, cor e recuo. A
+   contagem que acompanha cada título é sempre 400 em cinza-claro: é nota, não
+   título. Disciplina e arquivos nascem na mesma coluna (40px); a iniciativa fica
+   16px à esquerda dos dois. */
+.rf-ini-row td{padding:21px 24px 3px;}
+.rf-ini-row:first-child td{padding-top:14px;}
+.rf-ini-nome{font-size:.74rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+  color:#0f172a;border-bottom:1px solid #0f172a;padding-bottom:5px;}
+.rf-ini-n{font-size:.67rem;color:#a3aec0;font-weight:400;letter-spacing:0;
+  text-transform:none;margin-left:9px;}
+.rf-disc-row td{padding:15px 24px 2px 40px;font-size:.68rem;font-weight:700;
+  color:#334155;letter-spacing:.1em;text-transform:uppercase;}
+.rf-disc-n{font-weight:400;color:#a3aec0;margin-left:9px;letter-spacing:0;
+  text-transform:none;font-size:.66rem;}
+/* `.rf-tabela td` é mais específico que `.rf-docs-td` e o `padding` de lá
+   apagaria este recuo. */
+.rf-tabela .rf-docs-td{padding-left:40px;}
+.rf-docs{font-size:.72rem;font-weight:400;color:#475569;line-height:1.5;
+  font-variant-numeric:tabular-nums;}
+.rf-mais{color:#a3aec0;font-size:.67rem;}
+.rf-etapa{white-space:nowrap;color:#64748b;}
+.rf-qtd{font-size:.66rem;color:#a3aec0;margin-top:3px;}
+.rf-data{white-space:nowrap;font-variant-numeric:tabular-nums;color:#64748b;}
+.rf-data b{color:#0f172a;font-weight:700;}
+.rf-prazo{font-size:.66rem;color:#a3aec0;font-weight:400;}
+.rf-atraso{color:#b91c1c;font-weight:700;}
+.rf-sit{white-space:nowrap;}
+.rf-sit-nome{font-size:.72rem;font-weight:700;color:#0f172a;}
+.rf-sit-abrir{font-size:.72rem;color:#a3aec0;}
+.rf-medida{display:flex;align-items:center;gap:7px;margin-top:5px;
+  font-size:.65rem;color:#94a3b8;font-variant-numeric:tabular-nums;}
+.rf-barra{width:62px;height:3px;border-radius:2px;background:#e7ecf3;overflow:hidden;}
+.rf-barra i{display:block;height:100%;background:#64748b;}
+.rf-legenda{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:22px;font-size:.7rem;
+  color:var(--muted);background:#fff;border:1px solid var(--border);
+  border-radius:var(--radius);padding:13px 18px;line-height:1.55;}
+.rf-legenda b{color:#0f172a;font-weight:700;}
+.rf-aviso{font-size:.7rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;
+  border-radius:var(--radius);padding:11px 16px;line-height:1.55;}
+.rf-nota{font-size:.7rem;color:var(--muted);line-height:1.6;}
+/* Os KPIs daqui não têm semáforo: número escuro, régua neutra. Quando houver
+   atraso de verdade é ele que ganha a única cor da faixa. */
+#view-repfor .kpi{border-top-color:#cbd5e1;}
+#view-repfor .kpi-lbl{letter-spacing:.1em;color:#a3aec0;}
+#view-repfor .kpi-val{color:#0f172a;font-weight:700;font-size:1.72rem;}
+#view-repfor .kpi-sub{color:#94a3b8;}
+#view-repfor .kpi.atrasado{border-top-color:#b91c1c;}
+#view-repfor .kpi.atrasado .kpi-val{color:#b91c1c;}
+
 /* CARDS */
 .card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;}
 .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
@@ -736,7 +828,7 @@ tbody tr:hover td{background:#f8fafc;}
       <span class="nav-icon">🩺</span><span class="nav-label">Saúde dos Cronogramas</span>
     </div>
     <div class="nav-item" id="nav-report"     onclick="showView('report')"><span class="nav-icon">▤</span><span class="nav-label">Report Semanal</span></div>
-    <div class="nav-item" id="nav-entregas"   onclick="showView('entregas')"><span class="nav-icon">👷</span><span class="nav-label">Entregas de Fornecedores</span></div>
+    <div class="nav-item" id="nav-repfor"     onclick="showView('repfor')"><span class="nav-icon">▧</span><span class="nav-label">Report Fornecedores</span></div>
     <div class="nav-item" id="nav-desembolso" onclick="showView('desembolso')"><span class="nav-icon">↗</span><span class="nav-label">Curva de Desembolso</span></div>
     <div class="nav-item" id="nav-cronograma" onclick="showView('cronograma')"><span class="nav-icon">▦</span><span class="nav-label">Cronogramas de Alocação</span></div>
     <div class="nav-item" id="nav-ferias"     onclick="showView('ferias')"><span class="nav-icon">⛱</span><span class="nav-label">Anotação de Férias</span></div>
@@ -1060,26 +1152,23 @@ tbody tr:hover td{background:#f8fafc;}
       </div>
     </div>
 
-    <!-- TOOL: ENTREGAS DE FORNECEDORES DE PROJETO -->
-    <div class="view" id="view-entregas">
-      <div class="tool-hero">
-        <div class="tool-panel active" id="panel-entregas">
-          <h2 class="panel-title">Relatório de Entregas de Fornecedores de Projeto</h2>
-          <form id="form-entregas" class="tool-form" autocomplete="off">
-            <div class="gui-form-group">
-              <label for="proj-entregas">Projeto</label>
-              <select id="proj-entregas" class="fselect" style="font-size:.84rem;font-weight:600;width:100%;"></select>
-            </div>
-            <p class="form-obs-gui">Obs.: sai o que cada fornecedor tem em desenvolvimento e, nos documentos
-              que ainda não começaram, a próxima etapa dele. Documento parado em análise do cliente fica de fora.</p>
-            <button type="submit" class="btn-gui" id="btn-entregas">
-              <span class="btn-text">Gerar Relatório</span>
-              <span class="btn-loading hidden">Processando…</span>
-            </button>
-          </form>
-          <p class="gui-status" id="status-entregas"></p>
+    <!-- REPORT FORNECEDORES -->
+    <div class="view" id="view-repfor">
+      <div class="card rf-topo">
+        <span class="rf-topo-lbl">Projeto</span>
+        <select id="repfor-proj" class="fselect" style="font-size:.84rem;font-weight:600;min-width:280px;"
+          onchange="carregarRepFor()"></select>
+        <div class="rf-topo-sep"></div>
+        <span class="rf-topo-lbl">Situação</span>
+        <div class="rf-pills" id="repfor-situacao">
+          <button type="button" class="rf-pill on" data-sit="tudo">Tudo</button>
+          <button type="button" class="rf-pill" data-sit="andamento">Só em andamento</button>
+          <button type="button" class="rf-pill" data-sit="a_iniciar">Só a iniciar</button>
         </div>
+        <span class="rf-topo-meta" id="repfor-meta"></span>
       </div>
+
+      <div id="repfor-corpo"><div class="sd-empty">Selecione um projeto.</div></div>
     </div>
 
     <!-- TOOL: CURVA DE DESEMBOLSO -->
@@ -1773,14 +1862,14 @@ const VIEW_META = {
   saude:      { title:'Saúde dos Cronogramas',    sub:'Qualidade estrutural da rede de dependências' },
   saudeproj:  { title:'Saúde do Cronograma',      sub:'Análise de um projeto' },
   report:     { title:'Report Semanal',           sub:'' },
-  entregas:   { title:'Relatório de Entregas de Fornecedores de Projeto', sub:'' },
+  repfor:     { title:'Report Fornecedores',      sub:'Próximas entregas por disciplina' },
   desembolso: { title:'Curva de Desembolso',      sub:'' },
   cronograma: { title:'Cronogramas de Alocação',  sub:'' },
   ferias:     { title:'Anotação de Férias',        sub:'' },
 };
 
 // A barra de filtros (cliente/coordenador) não se aplica a estas views.
-const TOOL_VIEWS = new Set(['report','entregas','desembolso','cronograma','ferias','saude','saudeproj']);
+const TOOL_VIEWS = new Set(['report','repfor','desembolso','cronograma','ferias','saude','saudeproj']);
 // Views sem item próprio no menu: qual item fica aceso enquanto elas estão abertas.
 const NAV_ALIAS = { saudeproj: 'saude' };
 
@@ -1795,14 +1884,14 @@ function showView(v) {
   document.getElementById('nav-' + (NAV_ALIAS[v] || v)).classList.add('active');
   document.getElementById('view-title').textContent = VIEW_META[v].title;
   if (v === 'report')  { popularSeletorProjetos('proj-report'); mostrarBaseReport(); }
-  if (v === 'entregas')  popularSeletorProjetos('proj-entregas');
+  if (v === 'repfor')  { popularSeletorProjetos('repfor-proj'); carregarRepFor(); }
   if (v === 'saude')     carregarSaudeTodos();
   if (v === 'saudeproj') abrirSaudeProjeto();
   if (!isTool && ALL_PROJECTS.length) renderCurrentView();
 }
 
 /* Popula um seletor de projetos a partir do snapshot já carregado (report semanal,
-   entregas de fornecedores — todos escolhem projeto da mesma lista) */
+   report fornecedores — todos escolhem projeto da mesma lista) */
 function popularSeletorProjetos(selId) {
   const sel = document.getElementById(selId);
   if (!sel) return;
@@ -3510,7 +3599,7 @@ async function decidirHistoricoReport(projectId, salvar) {
 }
 
 /* `historico` é o id do projeto cujo report está pendente de decisão; sem ele o
-   relatório não mexe em base nenhuma (é o caso do de entregas). */
+   relatório é só exibido, sem mexer em base de comparação nenhuma. */
 function mostrarRelatorios(relatorios) {
   guiModalBody.innerHTML = '';
   const decisoes = [];
@@ -3643,29 +3732,244 @@ document.getElementById('form-report').addEventListener('submit', async e => {
   } finally { guiSetLoading('report', false); }
 });
 
-/* Relatório de Entregas de Fornecedores de Projeto — mesmo snapshot do report */
-document.getElementById('form-entregas').addEventListener('submit', async e => {
-  e.preventDefault();
-  const sel  = document.getElementById('proj-entregas');
-  const id   = sel.value;
-  const proj = ALL_PROJECTS.find(p => String(p.id) === id);
-  if (!id || !proj) { guiShowStatus('entregas', 'Selecione um projeto.', true); return; }
-  const nome = proj.name;
-  guiSetLoading('entregas', true);
-  try {
-    const res = await fetch('/api/entregas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: id, nome_projeto: nome }),
-    });
-    const j = await res.json();
-    if (!res.ok || j.error) throw new Error(j.error);
-    mostrarRelatorios([{ nome, content: j.content, filename: j.filename }]);
-    guiShowStatus('entregas', 'Relatório gerado!');
-  } catch(err) {
-    guiShowStatus('entregas', `Erro: ${err.message}`, true);
-  } finally { guiSetLoading('entregas', false); }
+/* ═══════════════════════════════════════════════════════════════
+   REPORT FORNECEDORES
+═══════════════════════════════════════════════════════════════ */
+let REPFOR      = null;      // resposta da API do projeto aberto
+let REPFOR_SIT  = 'tudo';    // filtro de situação em vigor
+// Cronograma grande leva mais de um segundo para voltar. Trocar de projeto duas
+// vezes seguidas deixa duas respostas no ar, e sem este selo a primeira a chegar
+// depois seria desenhada por cima da que o usuário está esperando.
+let REPFOR_REQ  = 0;
+
+const rfBR = iso => {
+  if (!iso) return '—';
+  const [a, m, d] = iso.split('-');
+  return `${d}/${m}/${a.slice(2)}`;
+};
+const rfEsc = t => String(t).replace(/[&<>"]/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+document.getElementById('repfor-situacao').addEventListener('click', e => {
+  const btn = e.target.closest('.rf-pill');
+  if (!btn) return;
+  REPFOR_SIT = btn.dataset.sit;
+  document.querySelectorAll('#repfor-situacao .rf-pill')
+          .forEach(b => b.classList.toggle('on', b === btn));
+  desenharRepFor();
 });
+
+async function carregarRepFor() {
+  const id   = document.getElementById('repfor-proj').value;
+  const alvo = document.getElementById('repfor-corpo');
+  const meta = document.getElementById('repfor-meta');
+  if (!id) { alvo.innerHTML = '<div class="sd-empty">Selecione um projeto.</div>'; return; }
+  alvo.innerHTML = '<div class="sd-empty">Lendo o cronograma…</div>';
+  meta.textContent = '';
+  const req = ++REPFOR_REQ;
+  try {
+    const res = await fetch(`/api/report-fornecedores/${id}`);
+    const j   = await res.json();
+    if (req !== REPFOR_REQ) return;          // já houve outra troca de projeto
+    if (!res.ok || j.error) throw new Error(j.error || 'Falha ao ler o snapshot.');
+    REPFOR = j;
+    meta.textContent = `Posição de ${rfBR(j.hoje)}`;
+    desenharRepFor();
+  } catch (err) {
+    if (req !== REPFOR_REQ) return;
+    REPFOR = null;
+    alvo.innerHTML = `<div class="sd-empty">Erro: ${rfEsc(err.message)}</div>`;
+  }
+}
+
+/* O filtro de situação corta as linhas e recalcula o que sobra: um fornecedor
+   sem nenhuma linha do tipo escolhido sai da tela em vez de aparecer vazio. */
+function repforFiltrado() {
+  if (REPFOR_SIT === 'tudo') return REPFOR.fornecedores;
+  const fs = [];
+  REPFOR.fornecedores.forEach(f => {
+    const inis = [];
+    f.iniciativas.forEach(ini => {
+      const discs = [];
+      ini.disciplinas.forEach(d => {
+        const linhas = d.linhas.filter(l => l.estado === REPFOR_SIT);
+        if (linhas.length) discs.push({ ...d, linhas,
+          documentos: linhas.reduce((n, l) => n + l.documentos.length, 0) });
+      });
+      if (discs.length) inis.push({ ...ini, disciplinas: discs,
+        documentos: discs.reduce((n, d) => n + d.documentos, 0) });
+    });
+    if (inis.length) fs.push({ ...f, iniciativas: inis,
+      documentos: inis.reduce((n, i) => n + i.documentos, 0),
+      disciplinas: new Set(inis.flatMap(i => i.disciplinas.map(d => d.nome))).size });
+  });
+  return fs;
+}
+
+function repforSituacao(l) {
+  if (l.estado !== 'andamento') return '<div class="rf-sit-abrir">A iniciar</div>';
+  return `<div class="rf-sit-nome">Em andamento</div>
+    <div class="rf-medida"><span class="rf-barra"><i style="width:${l.pct}%"></i></span>${l.pct}%</div>`;
+}
+
+function repforPrazo(l) {
+  if (l.dias === null || l.dias === undefined) return '';
+  if (l.atrasada) return `<span class="rf-prazo rf-atraso">${-l.dias} d em atraso</span>`;
+  const txt = l.estado === 'andamento' ? `entrega em ${l.dias} d` : `começa em ${l.dias} d`;
+  return `<span class="rf-prazo">${txt}</span>`;
+}
+
+function repforDocs(l, limite = 4) {
+  let txt = l.documentos.slice(0, limite).map(rfEsc).join(' · ');
+  if (l.documentos.length > limite)
+    txt += ` <span class="rf-mais">+${l.documentos.length - limite}</span>`;
+  return txt;
+}
+
+function desenharRepFor() {
+  if (!REPFOR) return;
+  const alvo = document.getElementById('repfor-corpo');
+  const k    = REPFOR.kpis;
+  const fs   = repforFiltrado();
+
+  if (!REPFOR.fornecedores.length) {
+    alvo.innerHTML = `<div class="sd-empty">Nenhum fornecedor de projeto com tarefa
+      neste cronograma. Ou tudo está com a Horizontes, ou os documentos em aberto
+      estão em análise do cliente.</div>`;
+    return;
+  }
+
+  const kpi = (rot, val, sub, cls = '') =>
+    `<div class="kpi ${cls}"><div class="kpi-lbl">${rot}</div>
+       <div class="kpi-val">${val}</div><div class="kpi-sub">${sub}</div></div>`;
+
+  const partes = [`<div class="kpi-grid">
+      ${kpi('Fornecedores no radar', k.fornecedores, `${k.disciplinas} disciplinas cobertas`)}
+      ${kpi('Em andamento', k.andamento, `documentos · ${k.fornecedoresAndamento} fornecedores`)}
+      ${kpi('Entrega em até 7 dias', k.vence7, 'documentos vencendo')}
+      ${kpi('Em atraso', k.atrasados,
+            k.atrasados ? 'documentos com o término vencido' : 'nenhuma etapa estourada',
+            k.atrasados ? 'atrasado' : '')}
+      ${kpi('A iniciar', k.aIniciar, `próxima largada em ${rfBR(k.proximaLargada)}`)}
+    </div>`];
+
+  if (REPFOR.desconhecidos.length) {
+    partes.push(`<div class="rf-aviso"><b>${REPFOR.desconhecidos.length} recurso(s) sem
+      grupo definido</b> — ${REPFOR.desconhecidos.map(rfEsc).join(' · ')}. Enquanto não
+      forem classificados em Cronogramas de Alocação, ficam de fora deste relatório.</div>`);
+  }
+
+  partes.push(`<div class="rf-legenda">
+      <span><b>Agrupamento:</b> fornecedor › iniciativa › disciplina › entregas, com
+      iniciativas e disciplinas na ordem do arquivo do Project.</span>
+      <span><b>Critério:</b> o que o fornecedor tem em desenvolvimento agora; se nada
+      estiver, a próxima etapa dele. Fora: tarefas do Cliente e documentos parados em
+      análise dele.</span>
+      <span><b>Linha:</b> documentos da mesma disciplina que andam na mesma revisão e
+      nas mesmas datas.</span>
+    </div>`);
+
+  if (!fs.length) {
+    partes.push('<div class="sd-empty">Nenhuma entrega nessa situação.</div>');
+    alvo.innerHTML = partes.join('');
+    return;
+  }
+
+  fs.forEach((f, n) => {
+    const resumo = [
+      f.andamento ? `<b>${f.andamento}</b> em andamento`
+                  : `próxima largada em <b>${rfBR(f.proxima)}</b>`,
+      `<b>${f.documentos}</b> documentos`,
+      `<b>${f.iniciativas.length}</b> iniciativas`,
+      `<b>${f.disciplinas}</b> disciplinas`,
+    ].join(' · ');
+
+    const corpo = [];
+    f.iniciativas.forEach(ini => {
+      corpo.push(`<tr class="rf-ini-row"><td colspan="5">
+        <span class="rf-ini-nome">${rfEsc(ini.nome)}</span>
+        <span class="rf-ini-n">${ini.documentos} documentos · ${ini.disciplinas.length}
+        disciplina${ini.disciplinas.length > 1 ? 's' : ''}</span></td></tr>`);
+      ini.disciplinas.forEach(d => {
+        corpo.push(`<tr class="rf-disc-row"><td colspan="5">${rfEsc(d.nome)}
+          <span class="rf-disc-n">${d.documentos} documento${d.documentos > 1 ? 's' : ''}</span></td></tr>`);
+        d.linhas.forEach(l => {
+          corpo.push(`<tr class="rf-item">
+            <td class="rf-docs-td"><div class="rf-docs">${repforDocs(l)}</div></td>
+            <td class="rf-etapa">rev. ${rfEsc(l.etapa)}
+              <div class="rf-qtd">${l.documentos.length} doc</div></td>
+            <td class="rf-data">${rfBR(l.inicio)}</td>
+            <td class="rf-data"><b>${rfBR(l.termino)}</b><div>${repforPrazo(l)}</div></td>
+            <td class="rf-sit">${repforSituacao(l)}</td></tr>`);
+        });
+      });
+    });
+
+    partes.push(`<div class="card rf-forn" style="--forn:${rfEsc(f.cor)}">
+        <div class="rf-forn-head">
+          <div class="rf-forn-id">
+            <span class="rf-forn-dot"></span>
+            <div>
+              <div class="rf-forn-nome">${rfEsc(f.nome)}</div>
+              <div class="rf-forn-sub">${resumo}</div>
+            </div>
+          </div>
+          <button class="rf-btn-mail" onclick="copiarOutlook(${n}, this)">
+            ✉ Copiar para o Outlook</button>
+        </div>
+        <table class="rf-tabela">
+          <thead><tr><th>Documentos</th><th>Etapa</th><th>Início</th><th>Término</th>
+            <th>Situação</th></tr></thead>
+          <tbody>${corpo.join('')}</tbody>
+        </table>
+      </div>`);
+  });
+
+  partes.push(`<p class="rf-nota">${k.documentos} documentos no radar, agrupados em
+    ${k.linhas} linhas · fornecedores ordenados por quem tem trabalho em andamento,
+    depois por quem larga antes.</p>`);
+
+  alvo.innerHTML = partes.join('');
+  // O e-mail sempre sai completo, independente do filtro de situação da tela: o
+  // fornecedor precisa da lista inteira dele, não do recorte que o PMO está vendo.
+  REPFOR_VISIVEIS = fs.map(f => REPFOR.fornecedores.find(o => o.nome === f.nome));
+}
+
+let REPFOR_VISIVEIS = [];
+
+/* Cola no Outlook como HTML rico. O text/plain vai junto como rede de segurança
+   para quem colar em campo sem formatação. */
+function rfCopiarLegado(h) {
+  const d = document.createElement('div');
+  d.contentEditable = 'true';
+  d.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+  d.innerHTML = h;
+  document.body.appendChild(d);
+  const r = document.createRange(); r.selectNodeContents(d);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) {}
+  s.removeAllRanges(); d.remove();
+  return ok;
+}
+
+async function copiarOutlook(n, btn) {
+  const f = REPFOR_VISIVEIS[n];
+  if (!f) return;
+  const tmp = document.createElement('div'); tmp.innerHTML = f.email;
+  let ok = false;
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':  new Blob([f.email],   { type: 'text/html'  }),
+      'text/plain': new Blob([tmp.innerText], { type: 'text/plain' }),
+    })]);
+    ok = true;
+  } catch (e) { ok = rfCopiarLegado(f.email); }
+  const antes = btn.innerHTML;
+  btn.innerHTML = ok ? '✓ Copiado' : '✕ Não deu';
+  btn.classList.toggle('ok', ok);
+  setTimeout(() => { btn.innerHTML = antes; btn.classList.remove('ok'); }, 2200);
+}
 
 /* Curva de Desembolso */
 document.getElementById('form-desembolso').addEventListener('submit', async e => {

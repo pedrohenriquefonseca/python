@@ -41,6 +41,33 @@ predecessora não se moveu.
 
 ---
 
+## Feito em 11/09/26 — e-mail do Report Fornecedores refeito para o Word
+
+Colado no Outlook, o e-mail saía desmontado: cada iniciativa era uma tabela com
+as colunas numa largura, títulos colados no cabeçalho, códigos quebrados no hífen
+e cinzas que sumiam. A causa é o editor do Outlook, que é o Word e remonta o HTML
+com as regras dele. Refeito como uma tabela só, com larguras fixas, fonte em cada
+célula, faixa cinza por iniciativa, cabeçalho uma vez, um código por linha e um
+resumo no topo. Conferido colando no Word via COM (Sede 2, Maira Crivellari, 74
+documentos); as regras estão em PROJETO.txt, seção 18.
+
+## Feito em 10/09/26 — Report Fornecedores no lugar de Entregas de Fornecedores
+
+A aba antiga devolvia um texto em Markdown num modal, agrupado por
+fornecedor › iniciativa › disciplina e incluindo a Horizontes. Virou tela, com
+agrupamento fornecedor › **iniciativa** › **disciplina** › entregas, filtro de
+situação e um botão por fornecedor que copia o relatório dele pronto para colar
+no corpo de um e-mail do Outlook.
+
+A triagem não mudou — saiu de `entregas/entregas.py` para
+`report_fornecedores/triagem.py` sem alteração de regra. O que mudou foi o
+recorte (só quem está em `Fornecedores` no grupos_recursos.json; a Horizontes
+ficou de fora, porque o relatório é sobre terceiros) e a unidade da linha:
+documentos da mesma disciplina que andam na mesma revisão e nas mesmas datas
+viram uma linha só. Palhano: 149 documentos em 39 linhas. Sede 2: 306 em 81.
+
+`entregas/`, a rota `POST /api/entregas` e a aba correspondente foram removidas.
+
 ## Feito em 18/08/26 — marco não é trabalho
 
 Regra do usuário: tarefa de duração zero pode estar fora do 4º nível e pode não

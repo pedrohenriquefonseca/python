@@ -41,13 +41,13 @@ sys.path.insert(0, str(_HERE_DIR / 'ferias'))
 # `import comparador` acharia primeiro a pasta, como namespace package vazio.
 sys.path.insert(0, str(_HERE_DIR / 'comparador'))
 sys.path.insert(0, str(_HERE_DIR / 'saude'))
-sys.path.insert(0, str(_HERE_DIR / 'entregas'))
+sys.path.insert(0, str(_HERE_DIR / 'report_fornecedores'))
 
 from Report import gerar_relatorio_web_json
 import comparador
 import report_base
 import saude
-import entregas
+import report_fornecedores
 from gantt_projetos import gerar_para_web_json as _gerar_projetos_web_json
 from gantt_clientes import (
     gerar_para_web_json as _gerar_equipe_web_json,
@@ -278,7 +278,11 @@ def refresh():
 # ── Ferramentas (GUI integrado) ───────────────────────────────────────────────
 
 def _secao_comparativa(project_id: str, tarefas: list):
-    """Seção "O que mudou desde X?" do report. Devolve (markdown, info).
+    """O que o comparador tem a dizer. Devolve (markdown, ressalvas, info).
+
+    São duas saídas porque entram em lugares diferentes do relatório: a seção
+    "O que mudou desde X?" logo depois do resumo, e as ressalvas no tópico que
+    fecha o report, junto com as que o próprio Report apura.
 
     A base é o cronograma de quando o último report saiu. Não existe escolha de
     data: ou há base gravada, ou este é o primeiro report do projeto e a seção
@@ -286,16 +290,17 @@ def _secao_comparativa(project_id: str, tarefas: list):
     """
     base = report_base.carregar(project_id)
     if base is None:
-        return None, {"aviso": "Primeiro report deste projeto — o comparativo "
-                               "aparece a partir do próximo."}
+        return None, [], {"aviso": "Primeiro report deste projeto — o comparativo "
+                                   "aparece a partir do próximo."}
     try:
-        return comparador.secao_desde_base(base, tarefas), \
-               {"desde": report_base.data(base)}
+        secao, ressalvas = comparador.secao_desde_base(base, tarefas)
+        return secao, ressalvas, {"desde": report_base.data(base)}
     except Exception as exc:
         # Comparativo é acessório: se ele falhar, o report sai sem a seção em
-        # vez de o usuário ficar sem relatório nenhum.
+        # vez de o usuário ficar sem relatório nenhum. As ressalvas do próprio
+        # Report continuam saindo — elas não dependem da comparação.
         log.warning("Comparativo indisponível para %s: %s", project_id[:8], exc)
-        return None, {"aviso": f"Comparativo indisponível: {exc}"}
+        return None, [], {"aviso": f"Comparativo indisponível: {exc}"}
 
 
 # Cronograma do último report gerado de cada projeto, à espera da decisão do
@@ -331,8 +336,8 @@ def api_report_json():
         if not nome:
             nome = (match or {}).get("name", "") or "Projeto"
 
-        secao, info = _secao_comparativa(project_id, tarefas)
-        conteudo, nome_arq = gerar_relatorio_web_json(tarefas, nome, secao)
+        secao, ressalvas, info = _secao_comparativa(project_id, tarefas)
+        conteudo, nome_arq = gerar_relatorio_web_json(tarefas, nome, secao, ressalvas)
         # Só depois de o relatório existir: pendência deixada por um report que
         # falhou ao ser montado engoliria o período seguinte se fosse salva.
         _BASE_PENDENTE[project_id] = {
@@ -401,33 +406,24 @@ def api_report_base_info(project_id: str):
     })
 
 
-@app.route("/api/entregas", methods=["POST"])
-def api_entregas():
-    """Relatório de Entregas de Fornecedores de Projeto.
+@app.route("/api/report-fornecedores/<project_id>")
+def api_report_fornecedores(project_id: str):
+    """Report Fornecedores — próximas entregas por disciplina, por fornecedor.
 
-    Mesma porta do report semanal — {project_id, nome_projeto} e o snapshot já
-    baixado —, mas sem efeito colateral: este relatório só lê o cronograma, não
-    grava base de comparação nenhuma.
+    Diferente do relatório de entregas, que devolve um texto pronto, aqui sai o
+    JSON da tela: a triagem é a mesma, mas quem desenha é o browser, e cada
+    fornecedor vem com uma versão do próprio relatório pronta para o Outlook.
     """
+    tarefas = _read_json(DATA_DIR / f"tasks_{project_id}.json", None)
+    if tarefas is None:
+        return jsonify({"error": "Tarefas não disponíveis para esse projeto no snapshot."}), 404
+    projetos = _read_json(DATA_DIR / "projects.json", []) or []
+    nome = next((p.get("name", "") for p in projetos
+                 if str(p.get("id")) == project_id), "") or "Projeto"
     try:
-        data       = request.get_json(silent=True) or {}
-        project_id = (data.get("project_id") or "").strip()
-        nome       = (data.get("nome_projeto") or "").strip()
-        if not project_id:
-            return jsonify({"error": "Selecione um projeto."}), 400
-        tarefas = _read_json(DATA_DIR / f"tasks_{project_id}.json", None)
-        if tarefas is None:
-            return jsonify({"error": "Tarefas não disponíveis para esse projeto no snapshot."}), 404
-
-        if not nome:
-            projetos = _read_json(DATA_DIR / "projects.json", []) or []
-            nome = next((p.get("name", "") for p in projetos
-                         if str(p.get("id")) == project_id), "") or "Projeto"
-
-        conteudo, nome_arq = entregas.gerar(tarefas, nome)
-        return jsonify({"success": True, "content": conteudo, "filename": nome_arq})
+        return jsonify(report_fornecedores.analisar(tarefas, nome))
     except Exception as exc:
-        log.exception("Erro no relatório de entregas de %s:", project_id[:8])
+        log.exception("Erro no Report Fornecedores de %s:", project_id[:8])
         return jsonify({"error": str(exc)}), 500
 
 

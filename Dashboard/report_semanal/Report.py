@@ -125,39 +125,70 @@ def filtrar_tarefas_sem_recurso(df):
         return pd.DataFrame()
 
 
-# Teto de linhas da nota. Existe cronograma nosso com 196 tarefas sem recurso —
-# listadas uma a uma, a nota fica maior que o relatório inteiro. O total não se
-# perde: vai na linha de excedente.
+# Teto de linhas da lista de tarefas sem recurso. Existe cronograma nosso com
+# 196 delas — listadas uma a uma, a lista fica maior que o relatório inteiro. O
+# total não se perde: vai na linha de excedente.
 LIMITE_SEM_RECURSO = 15
 
+CABECALHO_RESSALVAS = '⚠️ RESSALVAS:'
 
-def montar_nota_sem_recurso(tarefas_df, df_principal, hoje):
-    """Nota de rodapé com as tarefas órfãs de recurso.
 
-    Some do relatório quando não há nenhuma: nota de pendência sem pendência é
-    ruído semanal. As demais seções sempre aparecem porque descrevem o projeto;
-    esta só existe quando há algo a corrigir no cronograma.
+def montar_secao_ressalvas(ressalvas_comparativo, tarefas_sem_recurso,
+                           df_principal, hoje):
+    """A crítica ao cronograma, num tópico só.
+
+    As demais seções falam do PROJETO — o que vem por aí, o que está com o
+    cliente, o que mudou desde o último report. Esta fala do CRONOGRAMA: tarefa
+    de trabalho sem ninguém responsável, tarefa que trocou de dias úteis para
+    corridos entre um report e outro, comparação que não pôde ser feita. É outro
+    assunto e outro leitor — quem vai corrigir o cronograma, e não quem quer
+    saber do projeto —, e por isso fecha o relatório, depois das tarefas a cargo
+    do cliente.
+
+    Antes cada nota dessas ficava onde tinha sido calculada: as do comparador
+    dentro de PRINCIPAIS OFENSORES (que só aparece quando o prazo se mexe, de
+    modo que cronograma defeituoso e prazo parado não rendiam ressalva nenhuma)
+    e a das tarefas sem recurso como nota solta no pé.
+
+    `ressalvas_comparativo` são as frases prontas de comparador.ressalvas(), que
+    vem vazia quando o report é o primeiro do projeto.
+
+    A seção some inteira quando não há o que ressalvar: as outras sempre
+    aparecem porque descrevem o projeto, esta só existe quando há o que corrigir.
     """
-    if tarefas_df.empty:
+    linhas = list(ressalvas_comparativo or [])
+    n_sem_recurso = len(tarefas_sem_recurso)
+    if n_sem_recurso == 1:
+        linhas.append('1 tarefa de trabalho está sem recurso atribuído — ninguém '
+                      'responde por ela, e por isso não aparece nas seções acima:')
+    elif n_sem_recurso:
+        linhas.append(f'{n_sem_recurso} tarefas de trabalho estão sem recurso atribuído '
+                      '— ninguém responde por elas, e por isso não aparecem nas seções '
+                      'acima:')
+    if not linhas:
         return ''
 
-    nota = montar_secao_markdown(
-        '📝 TAREFAS SEM RECURSO ATRIBUÍDO:',
-        tarefas_df.head(LIMITE_SEM_RECURSO), df_principal, hoje, 'sem_recurso'
-    )
-    excedente = len(tarefas_df) - LIMITE_SEM_RECURSO
-    if excedente == 1:
-        nota += '- ... e outra tarefa sem recurso atribuído\n'
-    elif excedente > 1:
-        nota += f'- ... e outras {excedente} tarefas sem recurso atribuído\n'
-    return nota
+    secao_md = f'\n{negrito(CABECALHO_RESSALVAS)}\n'
+    secao_md += ''.join(f'- {linha}\n' for linha in linhas)
+    if n_sem_recurso:
+        # As tarefas vêm listadas embaixo da própria ressalva, na mesma linha das
+        # emissões: sem o caminho e a data, o número não dá o que fazer a ninguém.
+        secao_md += _renderizar_grupos(_agrupar_linhas(
+            tarefas_sem_recurso.head(LIMITE_SEM_RECURSO), df_principal, hoje,
+            'sem_recurso'))
+        excedente = n_sem_recurso - LIMITE_SEM_RECURSO
+        if excedente == 1:
+            secao_md += '- ... e outra tarefa sem recurso atribuído\n'
+        elif excedente > 1:
+            secao_md += f'- ... e outras {excedente} tarefas sem recurso atribuído\n'
+    return secao_md
 
 
 def _caminho_tarefa(avo, pai, nome):
     """'avô - pai - **Nome**', pulando os níveis que não existem.
 
     Tarefa pendurada direto no projeto não tem avô nem pai, e o caminho fixo em
-    três partes saía como '-  -  - Nome'. Isso só aparece agora porque a nota de
+    três partes saía como '-  -  - Nome'. Isso só aparece agora porque a lista de
     tarefas sem recurso alcança níveis rasos, que as outras seções não pegavam.
 
     O negrito é só no nome da tarefa: os ancestrais existem para situar, e quem
@@ -167,24 +198,20 @@ def _caminho_tarefa(avo, pai, nome):
     return ' - '.join(parte for parte in (avo, pai, negrito(nome)) if parte)
 
 
-def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
-    #Monta uma seção em Markdown com as tarefas especificadas.
-    # O negrito entra aqui, e não em cada chamada: cabeçalho de seção é sempre
-    # cabeçalho de seção, e a decisão vale para todas de uma vez.
-    secao_md = f'\n{negrito(titulo)}'
-    if tarefas_df.empty:
-        # O \n é daqui, não do título: no caminho com tarefas quem quebra a linha
-        # é o cabeçalho do grupo, que também separa um grupo do outro.
-        secao_md += '\n- Não existem tarefas que cumpram os critérios desta seção\n'
-        return secao_md
+def _agrupar_linhas(tarefas_df, df_principal, hoje, tipo_secao):
+    """As linhas de tarefa da seção, agrupadas pelo bisavô (a etapa).
 
+    Separado da montagem porque duas seções o usam: as seções inteiras e a
+    lista de tarefas sem recurso, que hoje mora dentro das ressalvas e não tem
+    cabeçalho próprio para pendurar.
+    """
     grupos = {}
     for idx, row in tarefas_df.iterrows():
         bisavo, avo, pai = buscar_hierarquia(df_principal, idx)
         chave = bisavo if bisavo else 'Sem categoria'
         caminho = _caminho_tarefa(avo, pai, row['Nome'])
 
-        # A nota de tarefas sem recurso usa a mesma linha das emissões: o
+        # A lista de tarefas sem recurso usa a mesma linha das emissões: o
         # caminho da tarefa e a data em que ela está programada.
         if tipo_secao in ('emissoes', 'sem_recurso'):
             linha = f'{caminho}: Programado para {row.get("Término", "N/A")}'
@@ -198,14 +225,32 @@ def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
             linha = f'{caminho}: A cargo do cliente desde {row.get("Início", "N/A")} ({dias_analise} dias)'
 
         grupos.setdefault(chave, []).append(linha)
+    return grupos
 
+
+def _renderizar_grupos(grupos):
+    """Cabeçalho da etapa e as linhas dela, em markdown."""
+    md = ''
     for bisavo, tarefas in grupos.items():
         if bisavo:
-            secao_md += f'\n{bisavo}:\n'
+            md += f'\n{bisavo}:\n'
         for tarefa in tarefas:
-            secao_md += f'- {tarefa}\n'
+            md += f'- {tarefa}\n'
+    return md
 
-    return secao_md
+
+def montar_secao_markdown(titulo, tarefas_df, df_principal, hoje, tipo_secao):
+    #Monta uma seção em Markdown com as tarefas especificadas.
+    # O negrito entra aqui, e não em cada chamada: cabeçalho de seção é sempre
+    # cabeçalho de seção, e a decisão vale para todas de uma vez.
+    secao_md = f'\n{negrito(titulo)}'
+    if tarefas_df.empty:
+        # O \n é daqui, não do título: no caminho com tarefas quem quebra a linha
+        # é o cabeçalho do grupo, que também separa um grupo do outro.
+        secao_md += '\n- Não existem tarefas que cumpram os critérios desta seção\n'
+        return secao_md
+    return secao_md + _renderizar_grupos(
+        _agrupar_linhas(tarefas_df, df_principal, hoje, tipo_secao))
 
 #Valida se as colunas necessárias existem no DataFrame.
 def validar_colunas_necessarias(df):
@@ -248,7 +293,7 @@ def _bloco_resumo(AA, CC, DD, EE):
     ]
 
 
-def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
+def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None, ressalvas=None):
     """Montagem do relatório: recebe um DataFrame já com as colunas canônicas e
     as colunas de data no formato de exibição '%d/%m/%y', e devolve
     (conteudo_md, nome_arquivo)."""
@@ -275,7 +320,8 @@ def _montar_relatorio_md(df, nome_projeto, secao_comparativo=None):
         (f'\n{secao_comparativo}\n' if secao_comparativo else ''),
         montar_secao_markdown('📅 PRÓXIMAS EMISSÕES DE PROJETO:', filtro_emissoes, df, hoje, 'emissoes'),
         montar_secao_markdown('🔎 TAREFAS A CARGO DO CLIENTE:', filtro_cliente, df, hoje, 'analise'),
-        montar_nota_sem_recurso(filtrar_tarefas_sem_recurso(df), df, hoje),
+        # Fecha o relatório: a crítica ao cronograma, e não ao projeto.
+        montar_secao_ressalvas(ressalvas, filtrar_tarefas_sem_recurso(df), df, hoje),
     ]
     conteudo_md = ''.join(partes)
     nome_arquivo = f'Relatório Semanal - {nome_projeto}.md'
@@ -292,13 +338,19 @@ def _iso_para_br(valor):
         return None
 
 
-def gerar_relatorio_web_json(tarefas, nome_projeto, secao_comparativo=None):
+def gerar_relatorio_web_json(tarefas, nome_projeto, secao_comparativo=None,
+                             ressalvas=None):
     """Gera o relatório semanal a partir da lista de tarefas do JSON do PWA
     (mesmo formato de data/tasks_<id>.json usado pelos dashboards) — única porta
     de entrada do módulo. Retorna (conteudo_md, nome_arquivo).
 
     As chaves do JSON são traduzidas aqui para o vocabulário de colunas que o
-    relatório usa, herdado das planilhas exportadas do Project."""
+    relatório usa, herdado das planilhas exportadas do Project.
+
+    `secao_comparativo` e `ressalvas` chegam prontos do comparador — são as
+    duas metades do que ele tem a dizer, e cada uma entra num lugar do
+    relatório. Sem comparativo (primeiro report do projeto) a seção de
+    ressalvas ainda sai, com o que este módulo mesmo apura."""
     linhas = []
     for t in tarefas:
         nivel = t.get('level')
@@ -321,4 +373,4 @@ def gerar_relatorio_web_json(tarefas, nome_projeto, secao_comparativo=None):
     df = pd.DataFrame(linhas)
     if df.empty:
         raise ValueError('Projeto sem tarefas disponíveis no snapshot do PWA.')
-    return _montar_relatorio_md(df, nome_projeto, secao_comparativo)
+    return _montar_relatorio_md(df, nome_projeto, secao_comparativo, ressalvas)

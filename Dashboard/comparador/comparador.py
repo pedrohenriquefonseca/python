@@ -22,8 +22,9 @@ o 7 de setembro e o Finados de 2026 renderam ofensores inventados no 2525 e na
 (`18d`, `11dd`), então aqui não se adivinha nem se consulta calendário.
 
 Quando a conta não pode ser feita — base velha demais, ou tarefa que trocou de
-unidade —, a seção diz isso numa ressalva. Não há segunda conta de reserva: as
-duas falhas que este comparador já produziu foram degradações silenciosas, uma
+unidade —, isso é dito por escrito: `ressalvas()` devolve as frases e o report as
+imprime na seção RESSALVAS, ao fim do relatório. Não há segunda conta de reserva:
+as duas falhas que este comparador já produziu foram degradações silenciosas, uma
 caindo no vão do calendário e outra tratando duração estourada como zero.
 
 Marcos (duração zero) ficam fora da lista: não têm duração para esticar nem
@@ -403,37 +404,67 @@ def secao_semanal(r: dict, data_ant: str) -> str:
             # delas fora da conta, a conclusão não está disponível — o que há é
             # a ausência de ofensor entre as que deu para medir.
             L.append("- Nenhuma das tarefas comparadas aumentou de duração na cadeia que "
-                     "leva ao término, mas nem todas puderam ser comparadas — veja a "
-                     "ressalva abaixo.")
+                     "leva ao término, mas nem todas puderam ser comparadas — veja as "
+                     "Ressalvas ao fim do relatório.")
         else:
             L.append("- Nenhuma tarefa aumentou de duração na cadeia que leva ao término: "
                      "o desvio veio de replanejamento, não de atraso de tarefa.")
 
-        # O que ficou fora da conta é dito, não omitido: a lista acima só enxerga
-        # quem teve a duração comparada, e quem não teve sairia dela sem deixar
-        # rastro. Uma linha a mais é mais barata que um ofensor que não aparece.
-        if n_sem:
-            L.append("- Ressalva: %d tarefa(s) ficaram fora da comparação de duração "
-                     "porque o report anterior é mais antigo que o campo Duração do "
-                     "Project. Some sozinho no próximo report salvo no histórico."
-                     % n_sem)
-        if n_troca:
-            L.append("- Ressalva: %d tarefa(s) trocaram de dias úteis para dias corridos "
-                     "(ou o contrário) entre os dois reports. A duração delas mudou, mas "
-                     "as duas unidades não se subtraem — confira no Project."
-                     % n_troca)
-
     return "\n".join(L)
+
+
+def _plural(n: int, singular: str, plural: str) -> str:
+    """`1 tarefa ficou` / `4 tarefas ficaram` — sujeito e verbo concordando.
+
+    Enquanto eram duas linhas soltas dentro dos ofensores, o "tarefa(s)"
+    passava. Num tópico que o leitor abre para saber o que há de errado no
+    cronograma, ele é a primeira coisa que se lê.
+    """
+    return f"{n} {singular}" if n == 1 else f"{n} {plural}"
+
+
+def ressalvas(r: dict) -> list[str]:
+    """Frases da análise de duração para a seção RESSALVAS do report: o que a
+    comparação não pôde fazer, e por quê.
+
+    Sai de dentro de PRINCIPAIS OFENSORES, e com isso deixa de depender de haver
+    desvio de prazo. Aquele bloco só existe quando o término do projeto se mexeu
+    — cronograma com tarefa trocando de unidade e prazo parado não dizia nada,
+    embora o defeito seja o mesmo e valha ser dito no report em que aparece.
+
+    Devolve as frases sem marcador de lista: quem monta a lista é o report.
+    """
+    sd = r.get("sem_duracao") or {}
+    n_sem, n_troca = sd.get("sem_campo") or 0, sd.get("mudou_unidade") or 0
+    out: list[str] = []
+    if n_sem:
+        out.append("%s fora da comparação de duração porque o report anterior é mais "
+                   "antigo que o campo Duração do Project. Some sozinho no próximo "
+                   "report salvo no histórico."
+                   % _plural(n_sem, "tarefa ficou", "tarefas ficaram"))
+    if n_troca:
+        out.append("%s de dias úteis para dias corridos (ou o contrário) entre os dois "
+                   "reports. A duração mudou de verdade, mas as duas unidades não se "
+                   "subtraem — confira no Project."
+                   % _plural(n_troca, "tarefa trocou", "tarefas trocaram"))
+    return out
 
 
 # ── Construtor de alto nível ──────────────────────────────────────────────────
 
-def secao_desde_base(base: dict, tarefas_atuais: list[dict]) -> str:
-    """Seção comparando o cronograma do último report com o de agora.
+def secao_desde_base(base: dict, tarefas_atuais: list[dict]) -> tuple[str, list[str]]:
+    """Compara o cronograma do último report com o de agora e devolve as duas
+    partes que o report imprime em lugares diferentes:
+
+      - a seção "O que mudou desde X?", logo depois do resumo;
+      - as ressalvas, que o report junta às dele na seção RESSALVAS, no fim.
+
+    São duas saídas de uma comparação só: refazer `comparar()` para colher as
+    ressalvas custaria a caminhada inteira pela rede de dependências.
 
     `base` é o que report_base.carregar() devolve.
     """
     import report_base
     r = comparar(de_base(base["tarefas"]), de_snapshot(tarefas_atuais),
                  brutos_atu=tarefas_atuais)
-    return secao_semanal(r, br(report_base.data(base)[:10]))
+    return secao_semanal(r, br(report_base.data(base)[:10])), ressalvas(r)

@@ -366,6 +366,9 @@ C:\Apps Python\Repos\Python\Dashboard\
 │   └── Report.py        — Monta o report semanal em Markdown
 ├── saude/
 │   └── saude.py         — Analise de saude estrutural dos cronogramas (KPIs + score)
+├── report_fornecedores/
+│   ├── report_fornecedores.py — Proximas entregas por fornecedor (tela + e-mail)
+│   └── triagem.py       — Quais tarefas entram: em andamento, senao a proxima
 ├── cronograma_alocacao/ — Gantts de projetos, equipe interna e fornecedores
 ├── desembolso/          — Curva de desembolso
 ├── ferias/              — Controle de férias
@@ -894,9 +897,14 @@ Duas situacoes nao tem resposta, e NENHUMA delas vira outra conta:
                  duracao mudou de verdade, mas as unidades nao se subtraem.
 
 Nos dois casos a tarefa sai da lista de ofensores (que so admite ddur > 0), e e
-por isso que a secao imprime uma RESSALVA contando quantas ficaram de fora. Sem
+por isso que o report imprime uma RESSALVA contando quantas ficaram de fora. Sem
 ela o report diria "o desvio veio de replanejamento, nao de atraso de tarefa" —
 uma conclusao que depende de ter comparado a cadeia inteira.
+
+Ate 02/09/26 essas duas linhas saiam DENTRO de PRINCIPAIS OFENSORES, que so
+existe quando o termino do projeto se mexeu: cronograma com tarefa trocando de
+unidade e prazo parado nao dizia nada. Hoje elas vem de comparador.ressalvas() e
+vao para a secao RESSALVAS, que nao depende de haver desvio de prazo.
 
 Isso e regra, nao detalhe: as duas falhas que este comparador ja produziu foram
 degradacoes silenciosas. Uma caindo no vao do calendario quando faltava o campo,
@@ -953,6 +961,11 @@ A SECAO DO REPORT SEMANAL
 -------------------------
 Entra logo depois do resumo, via Report._montar_relatorio_md(secao_comparativo).
 
+comparador.secao_desde_base() devolve DUAS coisas desde 02/09/26: esta secao e a
+lista de frases de comparador.ressalvas(), que o report imprime la no fim, na
+secao RESSALVAS (ver o topico abaixo). Sao duas saidas de UMA comparacao — colher
+as ressalvas por fora custaria a caminhada inteira pela rede.
+
     🤔 O QUE MUDOU DESDE O ULTIMO REPORT(07/08/26)?
     - A Previsao de Conclusao mudou de ... para ..., aumento de N dias corridos.
     - A Duracao total do projeto mudou de ... para ...
@@ -981,6 +994,42 @@ cronograma e as outras secoes do report. Saiu junto a funcao
 comparador.responsavel() e o enriquecimento `g["termino"]` da cadeia, que so
 existiam para essa linha.
 
+A SECAO ⚠️ RESSALVAS (02/09/26)
+-----------------------------
+O ULTIMO topico do report, depois de TAREFAS A CARGO DO CLIENTE. Montada por
+Report.montar_secao_ressalvas().
+
+    **⚠️ RESSALVAS:**
+    - N tarefas ficaram fora da comparacao de duracao porque o report anterior e
+      mais antigo que o campo Duracao do Project. ...
+    - N tarefas trocaram de dias uteis para dias corridos (ou o contrario) ...
+    - N tarefas de trabalho estao sem recurso atribuido — ninguem responde por
+      elas, e por isso nao aparecem nas secoes acima:
+
+    <bisavo>:
+    - <avo - pai - **nome**>: Programado para dd/mm/aa
+
+As demais secoes falam do PROJETO; esta fala do CRONOGRAMA. E outro assunto e
+outro leitor — quem vai corrigir o cronograma —, e por isso fecha o relatorio.
+
+Junta o que antes estava espalhado por onde tinha sido calculado:
+
+  - as duas ressalvas de duracao, que ficavam dentro de PRINCIPAIS OFENSORES e
+    so apareciam quando o prazo se mexia (comparador.ressalvas());
+  - a nota de rodape "📝 TAREFAS SEM RECURSO ATRIBUIDO", que era secao propria no
+    pe do report (Report.filtrar_tarefas_sem_recurso()).
+
+A lista de tarefas sem recurso vem embaixo da propria ressalva, com o caminho e a
+data de termino — a mesma linha das proximas emissoes: sem elas o numero nao da o
+que fazer a ninguem. Teto de LIMITE_SEM_RECURSO = 15 linhas, com o excedente numa
+linha "... e outras N"; ha cronograma nosso com 196 tarefas sem recurso.
+
+A SECAO SOME INTEIRA quando nao ha nada a ressalvar. As outras sempre aparecem,
+mesmo vazias, porque descrevem o projeto; esta so existe quando ha o que
+corrigir. Report continua apurando a parte dele mesmo sem comparativo (primeiro
+report do projeto, ou comparador que falhou): app._secao_comparativa devolve
+lista vazia de ressalvas nos dois casos.
+
 NEGRITO (desde 24/08/26)
 -----------------------
 Tres coisas ficam em negrito no report semanal, e nada mais: o titulo, os
@@ -994,7 +1043,8 @@ report, inverter a dependencia por causa de uma funcao de uma linha nao paga).
 Marcam:
 
     Report._montar_relatorio_md   titulo e "📌 RESUMO:"
-    Report.montar_secao_markdown  cabecalho de toda secao, inclusive a nota
+    Report.montar_secao_markdown  cabecalho de toda secao
+    Report.montar_secao_ressalvas cabecalho da secao RESSALVAS
     Report._caminho_tarefa        o nome da tarefa em emissoes/cliente/nota
     comparador.secao_semanal      "O QUE MUDOU..." e "PRINCIPAIS OFENSORES"
     comparador.rotulo             o nome da tarefa nas linhas de ofensor
@@ -1194,3 +1244,97 @@ MARCO: DUAS COISAS DIFERENTES
 de ser marco. O defeito e a divergencia: marcado como marco, mas com duracao.
 O flag entrou no snapshot em 14/08/26 (pwa_client.py); em snapshot anterior o
 KPI sai como indisponivel e os pesos sao renormalizados, em vez de mentir 100.
+
+
+================================================================================
+  18. REPORT FORNECEDORES
+================================================================================
+
+Responde a uma pergunta so: o que cada fornecedor de projeto tem na mao agora, e
+o que vem em seguida. Substituiu a aba "Entregas de Fornecedores" em 10/09/26 —
+mesma triagem, tela no lugar de um texto em Markdown, e um botao por fornecedor
+que copia o relatorio dele pronto para colar no Outlook.
+
+Motor: report_fornecedores/report_fornecedores.py. Rota: GET
+/api/report-fornecedores/<id>, que devolve o JSON da tela ja arranjado.
+
+TRIAGEM (report_fornecedores/triagem.py)
+----------------------------------------
+Corre dentro de cada tarefa pai — o documento, com as etapas em fila (a, Analise
+01, 0, b...). De cada documento sai o ponto em que a fila esta: as etapas em
+desenvolvimento e, nos documentos que ainda nao comecaram, a proxima etapa. Sem
+nenhuma em andamento vale a mais perto de hoje NAS DUAS DIRECOES — etapa atrasada
+e tao a proxima quanto a que comeca amanha — e datas empatadas entram juntas.
+
+Documento com uma analise do Cliente EM CURSO sai inteiro: a bola nao e nossa, e
+anunciar a etapa seguinte cobraria alguem por trabalho travado.
+
+RECORTE
+-------
+Só quem esta em `Fornecedores` no cronograma_alocacao/grupos_recursos.json.
+Horizontes fica de fora — este relatorio e sobre terceiros. Recurso fora do mapa
+NAO entra e volta em `desconhecidos`, para a tela avisar que falta classificar
+alguem: chutar que todo desconhecido e fornecedor poria gente da casa aqui.
+O recurso literal "Horizontes" (a empresa, nao uma pessoa) e tratado a parte —
+ele nunca esta no mapa, e sem isso apareceria como pendente em todo projeto.
+
+A cor de cada fornecedor vem de cores_fornecedores.json, o mesmo arquivo dos
+gantts de alocacao: mesma pessoa, mesma cor em todo o dashboard. Os dois arquivos
+sao lidos so para leitura — quem escreve neles e a tela de alocacao.
+
+ARRANJO
+-------
+fornecedor > iniciativa > disciplina > entregas. Iniciativas e disciplinas na
+ordem do arquivo do Project; fornecedores por quem tem trabalho em andamento
+primeiro, depois por quem larga antes.
+
+A UNIDADE DA LINHA E O LOTE, NAO O DOCUMENTO
+--------------------------------------------
+Documentos da mesma disciplina que andam na mesma revisao e nas mesmas datas
+viram uma linha so. Um pacote de projeto anda em bloco: no Palhano isso reduz
+149 documentos a 39 linhas, e no Sede 2, 306 a 81. E a diferenca entre uma tela
+que se le e uma lista que se rola.
+
+A VERSAO DE E-MAIL SAI DO PYTHON, NAO DO BROWSER
+------------------------------------------------
+O corpo do e-mail no Outlook e o editor do Word, e colar HTML nele nao e abrir
+uma pagina: o Word remonta tudo. Por isso o HTML do e-mail nao reaproveita nada
+do CSS da tela — sao duas linguagens diferentes, e manter as duas no mesmo
+modulo evita que uma mude sem a outra.
+
+O primeiro desenho (um <div> de titulo e uma tabela por iniciativa) saiu
+desmontado quando colado de verdade no Word. Refeito em 11/09/26 com regras
+tiradas de cada defeito visto:
+  - UMA tabela so, 640 px, com a largura de cada coluna fixa. Tabelas separadas
+    saem cada uma com as colunas numa largura e o e-mail perde o alinhamento.
+  - Fonte declarada em CADA celula: o Word nao leva o font-family de um <div>
+    para dentro da tabela.
+  - Nada de margem ou borda em <div>, que some. Respiro e linha de altura fixa;
+    a faixa da iniciativa e bgcolor na celula.
+  - Maiuscula escrita no texto; nada de letter-spacing ou text-transform.
+  - Um codigo de documento por linha: na mesma linha o Word quebra o codigo no
+    hifen.
+  - Cinza nunca mais claro que #6b7280 — o #94a3b8 sumia.
+  - Cabecalho uma vez so, no topo. Disciplina com o mesmo nome da iniciativa nao
+    aparece, porque so repetiria a faixa logo acima.
+No topo, um resumo: documentos, em andamento, a iniciar.
+
+Como conferir sem Outlook: por o HTML no clipboard como CF_HTML (o formato que
+o Chrome grava), colar num documento do Word via COM e exportar a pagina
+(Pages(n).EnhMetaFileBits → PNG). E o mesmo motor que monta o corpo do e-mail.
+
+O e-mail sai sempre COMPLETO, com todos os codigos de documento e independente do
+filtro de situacao da tela: o fornecedor precisa da lista inteira dele, nao do
+recorte que o PMO esta olhando.
+
+A tela copia com navigator.clipboard.write (text/html + text/plain) e cai para
+execCommand('copy') sobre um div contentEditable oculto se o browser recusar.
+
+DESENHO
+-------
+Uma cor por card, e so uma: a regua de 3px no topo e o ponto ao lado do nome.
+Dentro do card e tudo escala de cinza — a hierarquia sai do peso do texto
+(iniciativa 800, disciplina 700, nome de arquivo 400), do recuo (disciplina e
+arquivos na mesma coluna, iniciativa 16px a esquerda) e de fios finos. Nenhuma
+linha de entrega e destacada: quem informa o que esta em andamento e a coluna
+Situacao. A unica outra cor e o vermelho do atraso.

@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Relatório de Entregas de Fornecedores de Projeto.
-
-O que cada fornecedor tem na mão agora, lido do mesmo snapshot do PWA que
-alimenta os dashboards (data/tasks_<id>.json).
+"""Quem tem o quê na mão, lido da estrutura de tópicos do cronograma.
 
 A triagem corre dentro de cada tarefa pai — o documento, com suas etapas em fila
 (a, Análise 01, 0, b...). De cada documento sai o ponto em que a fila está: as
@@ -10,9 +7,8 @@ etapas nossas em desenvolvimento e, nos documentos que ainda não começaram, a
 próxima etapa nossa. Documento parado em análise do Cliente não aparece: a bola
 não é nossa, e anunciar a etapa seguinte cobraria alguém por trabalho travado.
 
-O resultado sai agrupado por recurso, depois por iniciativa e depois por
-disciplina, com iniciativas, disciplinas e tarefas na ordem do arquivo do
-Project — a lista do snapshot vem na ordem da estrutura de tópicos.
+Este módulo só decide *quais* tarefas entram e de quem é a parentela delas. Quem
+recorta por fornecedor, agrupa e escreve é o report_fornecedores.
 """
 import datetime
 
@@ -71,11 +67,6 @@ def _data(v):
         return datetime.date.fromisoformat(str(v)[:10])
     except (ValueError, TypeError):
         return None
-
-
-def br(v):
-    d = _data(v)
-    return d.strftime("%d/%m/%y") if d else "—"
 
 
 # ── Triagem ───────────────────────────────────────────────────────────────────
@@ -152,96 +143,3 @@ def escolher(itens, hoje, travados=frozenset()):
     return sorted(escolhidas, key=lambda x: (x["inicio"] or datetime.date.max,
                                              x["termino"] or datetime.date.max,
                                              x["ordem"]))
-
-
-# ── Montagem ──────────────────────────────────────────────────────────────────
-
-def caminho(x):
-    """O que sobra do caminho depois dos títulos: documento › etapa.
-
-    Iniciativa e disciplina são cabeçalho de grupo. Separador '›' porque os nomes
-    do cronograma já usam ' / ' e ' - ' dentro de si ('ELÉTRICA / ILUMINAÇÃO
-    PÚBLICA', '08 - REVISÃO QUINTINO'): com eles não dá para saber onde termina
-    um nível e começa o outro.
-    """
-    partes = [p for p in (x["pai"], x["nome"]) if p]
-    return " › ".join(partes)
-
-
-def linha(x):
-    """Uma tarefa por linha: caminho, início e término."""
-    return f"{caminho(x)}: Início: {br(x['inicio'])} · Término: {br(x['termino'])}"
-
-
-def _primeira_linha(no):
-    """Menor ID de tarefa abaixo de um nó da árvore, seja ele lista ou dict."""
-    if isinstance(no, dict):
-        return min(_primeira_linha(v) for v in no.values())
-    return min(y["ordem"] for y in no)
-
-
-def arvore(tarefas, hoje):
-    """[(recurso, [(iniciativa, [(disciplina, [tarefas])])])].
-
-    Recurso em ordem alfabética; iniciativa, disciplina e tarefas na ordem do
-    arquivo do Project.
-
-    Todo recurso que não seja o Cliente entra, Horizontes inclusive: em boa parte
-    dos cronogramas ele é o recurso de quase tudo, e tirá-lo deixaria o relatório
-    vazio nesses projetos.
-    """
-    itens = candidatos(tarefas)
-    escolhidas = escolher(itens, hoje, pais_na_mao_do_cliente(tarefas))
-
-    grupos = {}
-    for x in escolhidas:
-        (grupos.setdefault(x["recurso"], {})
-               .setdefault(x["bisavo"] or "—", {})
-               .setdefault(x["avo"] or "—", []).append(x))
-
-    def por_linha(kv):          # o grupo entra na ordem da primeira linha dele
-        return _primeira_linha(kv[1])
-
-    saida = []
-    for recurso in sorted(grupos):
-        iniciativas = []
-        for ini, discs in sorted(grupos[recurso].items(), key=por_linha):
-            iniciativas.append((ini, [(d, sorted(ls, key=lambda y: y["ordem"]))
-                                      for d, ls in sorted(discs.items(), key=por_linha)]))
-        saida.append((recurso, iniciativas))
-    return saida
-
-
-def gerar(tarefas, nome_projeto, hoje=None):
-    """(conteudo_md, nome_arquivo) — única porta de entrada do módulo.
-
-    `tarefas` é a lista do snapshot do PWA, a mesma que o report semanal recebe.
-    """
-    if not tarefas:
-        raise ValueError('Projeto sem tarefas disponíveis no snapshot do PWA.')
-    hoje = hoje or datetime.date.today()
-
-    L = [f"RELATÓRIO DE ENTREGAS DE FORNECEDORES DE PROJETO - "
-         f"{str(nome_projeto).upper()} - {hoje:%d/%m/%y}",
-         "Tarefas do Cliente fora do relatório · iniciativas, disciplinas e "
-         "tarefas na ordem do arquivo do Project", ""]
-
-    # Os três níveis se distinguem por marcador, não por recuo: o modal do
-    # dashboard mostra o relatório como texto com <br>, e HTML come o espaço da
-    # margem esquerda — a hierarquia toda viraria uma coluna só.
-    grupos = arvore(tarefas, hoje)
-    for recurso, iniciativas in grupos:
-        L.append(f"👷 {recurso.upper()}")
-        for iniciativa, disciplinas in iniciativas:
-            L.append(f"📍 {iniciativa}")
-            for disciplina, tarefas_disc in disciplinas:
-                L.append(f"{disciplina}:")
-                L += [f"- {linha(x)}" for x in tarefas_disc]
-            L.append("")
-        L.append("")
-
-    if not grupos:
-        L.append("- Nenhum fornecedor com tarefa em desenvolvimento ou a iniciar "
-                 "neste cronograma.")
-
-    return "\n".join(L), f"Entregas de Fornecedores - {nome_projeto}.md"
