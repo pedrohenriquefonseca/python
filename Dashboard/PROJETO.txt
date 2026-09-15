@@ -301,6 +301,27 @@ antes de arredondar — "0,2d" arredonda para zero e viraria marco sem ser.
 Para dias corridos (calendário): diferença em dias entre Start e Finish. É outra
 medida, e não substitui a duração — ver a seção do comparador.
 
+RESTRIÇÃO: O ENUM DO REST VEM SOMADO DE 1 (15/09/26)
+----------------------------------------------------
+`ConstraintType` e `ConstraintStartEnd` entraram no $select e viram `restricao`
+(o número cru) e `restricaoData` no snapshot. A documentação do CSOM diz
+0 = O Mais Breve Possível ... 7 = Não Terminar Depois De, mas o REST deste
+tenant devolve o mesmo enum somado de 1:
+
+    1 O Mais Breve Possível     5 Não Iniciar Antes De
+    2 O Mais Tarde Possível     6 Não Iniciar Depois De
+    3 Deve Iniciar Em           7 Não Terminar Antes De
+    4 Deve Terminar Em          8 Não Terminar Depois De
+
+A prova está nos próprios dados, nas 5.620 tarefas dos 12 projetos: o código 1
+aparece em 5.457 tarefas, e nenhuma delas tem data de restrição. O código 5
+começa na data da restrição ou depois dela em 122 de 124 casos, e as 2 exceções
+já foram iniciadas. Só ocorrem os códigos 1, 5 e 7. Os três foram conferidos
+pelo usuário no Project, tarefa a tarefa, no MPPA Alves Ribeiro.
+
+`restricao` também é marcador de formato no fetcher: snapshot sem ele é recoletado
+mesmo sem republicação.
+
 
 ================================================================================
   10. NOMES DOS RECURSOS POR TAREFA
@@ -1132,7 +1153,7 @@ DUAS TELAS
                   barra de concentracao dos defeitos e mapa de calor
                   projetos x indicadores. Tudo clicavel.
   view-saudeproj  Analise de um projeto: seletor, medidor, diagnostico em texto,
-                  os 7 cards de KPI com o porque e a acao corretiva, e a lista
+                  os 8 cards de KPI com o porque e a acao corretiva, e a lista
                   de apontamentos (abaixo).
                   Nao tem item de menu — NAV_ALIAS mantem "Saude" aceso.
 
@@ -1179,15 +1200,45 @@ que diria mais sobre o tamanho do projeto do que sobre a qualidade dele. O score
 final e a media das notas ponderada pelos pesos.
 
   KPI                              peso  limite   o que conta
-  Dependencias ligadas a resumo      30    10%    pred e resumo, ou resumo com pred
-  Tarefas sem sucessora              20    25%    tarefa que nao empurra ninguem
-  Tarefas sem predecessora           15    25%    tarefa sem nada antes
-  Tarefas nivel 4 sem recurso        10    10%    nivel 4, fora marcos, sem recurso
-  Marcos com duracao                 10     5%    IsMilestone com duracao > 0
-  Duracoes fracionadas                5     5%    duracao com casa decimal
-  Trabalho fora do nivel 4           10    30%    trabalho em nivel != 4, fora marcos
+  Dependencias ligadas a resumo      24    10%    pred e resumo, ou resumo com pred
+  Tarefas sem sucessora              16    25%    tarefa que nao empurra ninguem
+  Tarefas sem predecessora           12    25%    tarefa sem nada antes
+  Tarefas com restricao de data      20     5%    restricao != ASAP, fora marco SNET
+  Tarefas nivel 4 sem recurso         8    10%    nivel 4, fora marcos, sem recurso
+  Marcos com duracao                  8     5%    IsMilestone com duracao > 0
+  Duracoes fracionadas                4     5%    duracao com casa decimal
+  Trabalho fora do nivel 4            8    30%    trabalho em nivel != 4, fora marcos
 
 Faixas: 90 Excelente · 75 Bom · 60 Regular · 40 Ruim · abaixo disso Critico.
+
+TAREFAS COM RESTRICAO DE DATA (15/09/26)
+----------------------------------------
+Regra do usuario: no cronograma so fica restricao em MARCO, e so do tipo Nao
+Iniciar Antes De. Todo o resto fica em O Mais Breve Possivel. A data externa
+(contrato, OS, entrega do cliente) entra na rede por um marco, e quem depende
+dela anda pelos vinculos. Tarefa com duracao presa a uma data e movida pelo
+calendario: a busca do ofensor chega nela e nao acha causa na rede — o caso que
+a secao do comparador ja registrava como "o que nao se resolve por codigo".
+
+Conta tarefa ativa de qualquer nivel, resumo inclusive (a restricao nele prende
+as filhas); a base continua sendo as folhas. Marco aqui e duracao zero
+(`marco`), como nos outros KPIs. O motivo de cada linha diz o tipo, a data e se
+o erro e o tipo (marco com outra restricao) ou o lugar (tarefa com duracao).
+Codigos do REST em pwa_client (secao 9); nomes em saude.RESTRICOES.
+
+Peso 20, tirado de todos os outros na mesma proporcao (cada um ficou com 80%),
+para a ordem entre eles nao mudar. Com peso 10 ninguem saia de Excelente: a
+carteira ja estava perto de 100 no resto. Limite de 5%, porque o alvo e zero.
+
+Efeito na carteira no dia: MPPA Alves Ribeiro, Edson Pisani e Vila Gilda de 100
+para 80 (Bom); BM Prodemge 84 e Pompeia 86,1 (Bom); Protótipos 90,7, Corrego do
+Feijao 93, Palhano 98,1. Sede 2, Pirajucara e Rota Roxa sem restricao fora da
+regra. Das 52 apontadas, 25 sao Nao Iniciar Antes De em tarefa com duracao, 26
+Nao Terminar Antes De (16 no Pompeia) e 1 e marco com Nao Terminar Antes De.
+Os 48 marcos com Nao Iniciar Antes De passam.
+
+Snapshot sem `restricao` deixa o KPI indisponivel, como os de marco e duracao —
+o fetcher recoleta esses snapshots sozinho.
 
 DURACOES FRACIONADAS (26/08/26)
 -------------------------------

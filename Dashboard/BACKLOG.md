@@ -41,6 +41,21 @@ predecessora não se moveu.
 
 ---
 
+## Feito em 15/09/26 — restrição de data vira KPI da Análise de Saúde
+
+Parte do item 2 que dá para medir: restrição de data aparece no snapshot
+(`restricao`, `restricaoData`) e a Análise de Saúde aponta toda tarefa fora da
+regra — só marco com Não Iniciar Antes De. Peso 20, limite 5%. Arrastar tarefa na
+mão continua fora do alcance: não deixa marca no Project.
+
+52 tarefas apontadas na carteira; Alves Ribeiro, Edson Pisani e Vila Gilda caem de
+100 para 80. Detalhe em `PROJETO.txt`, seção 17.
+
+## Feito em 11/09/26 — sai "Configurações" da barra lateral
+
+O item ficava na seção Sistema sem tela nem ação por trás: clicar não levava a
+lugar nenhum. Removido do `index.html`; nada mais o referenciava.
+
 ## Feito em 11/09/26 — ofensores só quando o prazo aumenta
 
 Regra do usuário: com a Previsão de Conclusão mantida ou reduzida em relação ao

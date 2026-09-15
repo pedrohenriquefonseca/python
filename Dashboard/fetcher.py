@@ -131,18 +131,22 @@ def _save_state(projects: dict) -> None:
 # unidade antiga (8h, com um dia corrido valendo 3) e estourada nas tarefas
 # longas. Reaproveitar um snapshot desses seria comparar duas escalas diferentes
 # sem que nada acusasse, então ele é recoletado mesmo sem republicação.
-_MARCADOR_FORMATO = '"duracaoUn"'
+#
+# `restricao` (15/09/26) entrou pelo mesmo caminho: snapshot sem ele deixaria o
+# KPI de restrição da Análise de Saúde sem dado até o projeto ser republicado.
+_MARCADORES_FORMATO = ('"duracaoUn"', '"restricao"')
 
 
 def _formato_atual(caminho: Path) -> bool:
-    """O snapshot em disco já tem a duração no formato novo?
+    """O snapshot em disco já tem todos os campos do formato atual?
 
-    Procura a chave no texto cru em vez de desserializar: o maior snapshot tem
+    Procura as chaves no texto cru em vez de desserializar: o maior snapshot tem
     2,7 MB e 2860 tarefas, e isso roda uma vez por projeto a cada coleta.
     Arquivo ilegível conta como formato velho — a recoleta o conserta.
     """
     try:
-        return _MARCADOR_FORMATO in caminho.read_text(encoding="utf-8")
+        texto = caminho.read_text(encoding="utf-8")
+        return all(m in texto for m in _MARCADORES_FORMATO)
     except Exception as exc:
         log.warning("Não foi possível ler %s (%s) — recoletando.", caminho.name, exc)
         return False
@@ -157,7 +161,7 @@ def _precisa_coletar(p: dict, state: dict, forcar: bool) -> tuple[bool, str]:
     if not snapshot.exists():
         return True, "sem snapshot local"
     if not _formato_atual(snapshot):
-        return True, "snapshot sem o campo de duração novo"
+        return True, "snapshot sem os campos do formato atual"
     publicado = p.get("publicadoEm")
     if not publicado:
         # Sem carimbo de publicação não há como detectar mudança — na dúvida,

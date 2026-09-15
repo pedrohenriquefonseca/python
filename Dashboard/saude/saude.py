@@ -35,9 +35,14 @@ import rede
 # caminhada por completo, então pesa mais; tarefa fora do nível 4 é padronização,
 # não quebra nada, então pesa menos. Somam 100 — os 5 pontos de duração
 # fracionada saíram de `fora_nivel4`, que era o outro KPI de padronização.
+#
+# Os 20 pontos de `restricao` (15/09/26) saíram de todos os outros na mesma
+# proporção (cada um ficou com 80% do que tinha), para a ordem entre eles não
+# mudar. Com peso 10 a regra não tirava ninguém de Excelente, porque a carteira
+# já estava perto de 100 no resto; com 20, nota zero nela leva a 80.
 KPIS = [
     {
-        "id": "dep_resumo", "peso": 30, "limite": 0.10,
+        "id": "dep_resumo", "peso": 24, "limite": 0.10,
         "nome": "Dependências ligadas a resumo",
         "desc": "Tarefa cuja predecessora é um resumo, ou resumo que tem predecessora.",
         "porque": "É o que trava a busca do ofensor: o resumo não tem variação própria, "
@@ -45,7 +50,7 @@ KPIS = [
         "acao": "Criar tarefa de término de etapa (duração zero) e ligar o vínculo nela.",
     },
     {
-        "id": "sem_sucessora", "peso": 20, "limite": 0.25,
+        "id": "sem_sucessora", "peso": 16, "limite": 0.25,
         "nome": "Tarefas sem sucessora",
         "desc": "Tarefa que não empurra ninguém e não termina junto com o projeto, fora uma tolerada por cronograma.",
         "porque": "Ponta solta: se ela atrasar, o atraso não chega ao término do projeto "
@@ -53,7 +58,7 @@ KPIS = [
         "acao": "Ligar à próxima tarefa da sequência ou ao término da etapa.",
     },
     {
-        "id": "sem_predecessora", "peso": 15, "limite": 0.25,
+        "id": "sem_predecessora", "peso": 12, "limite": 0.25,
         "nome": "Tarefas sem predecessora",
         "desc": "Tarefa sem nada antes dela, fora a primeira do cronograma e uma tolerada por cronograma.",
         "porque": "Sem predecessora a tarefa é uma ilha: nada explica a data dela, e ela "
@@ -61,7 +66,18 @@ KPIS = [
         "acao": "Ligar à tarefa que a antecede de fato.",
     },
     {
-        "id": "sem_recurso", "peso": 10, "limite": 0.10,
+        "id": "restricao", "peso": 20, "limite": 0.05,
+        "nome": "Tarefas com restrição de data",
+        "desc": "Tarefa com restrição diferente de O Mais Breve Possível. Só marco com "
+                "Não Iniciar Antes De é aceito.",
+        "porque": "Tarefa presa a uma data não anda pela predecessora: quem a move é o "
+                  "calendário. A busca do ofensor chega nela e não acha causa na rede, "
+                  "e o atraso fica sem dono.",
+        "acao": "Voltar a tarefa para O Mais Breve Possível e amarrar a data num marco "
+                "com Não Iniciar Antes De.",
+    },
+    {
+        "id": "sem_recurso", "peso": 8, "limite": 0.10,
         "nome": "Tarefas nível 4 sem recurso",
         "desc": "Tarefa de nível 4, fora marcos, sem nenhum recurso atribuído.",
         "porque": "A triagem do report é pelo recurso: sem ele a tarefa não é emissão "
@@ -70,7 +86,7 @@ KPIS = [
         "acao": "Atribuir o recurso responsável pela tarefa no Project.",
     },
     {
-        "id": "marco_com_duracao", "peso": 10, "limite": 0.05,
+        "id": "marco_com_duracao", "peso": 8, "limite": 0.05,
         "nome": "Marcos com duração",
         "desc": "Tarefa marcada como marco no Project mas com duração maior que zero.",
         "porque": "Marco de duração zero a análise atravessa para achar a causa atrás dele. "
@@ -79,7 +95,7 @@ KPIS = [
         "acao": "Zerar a duração do marco.",
     },
     {
-        "id": "duracao_fracionada", "peso": 5, "limite": 0.05,
+        "id": "duracao_fracionada", "peso": 4, "limite": 0.05,
         "nome": "Durações fracionadas",
         "desc": "Tarefa cuja duração não é um número inteiro de dias "
                 "(ex.: 33,38 dias corridos).",
@@ -90,7 +106,7 @@ KPIS = [
         "acao": "Lançar a duração em dias inteiros no Project.",
     },
     {
-        "id": "fora_nivel4", "peso": 10, "limite": 0.30,
+        "id": "fora_nivel4", "peso": 8, "limite": 0.30,
         "nome": "Trabalho fora do nível 4",
         "desc": "Tarefa de trabalho em nível diferente de 4, fora marcos.",
         "porque": "Quebra a padronização da EAP: o trabalho deveria estar todo no mesmo "
@@ -98,6 +114,21 @@ KPIS = [
         "acao": "Reposicionar a tarefa na estrutura ou criar os níveis que faltam.",
     },
 ]
+
+# Tipo de restrição como o REST do PWA devolve em `restricao`: o enum do CSOM
+# somado de 1 (ver PROJETO.txt, seção 9).
+RESTRICOES = {
+    1: "O Mais Breve Possível",
+    2: "O Mais Tarde Possível",
+    3: "Deve Iniciar Em",
+    4: "Deve Terminar Em",
+    5: "Não Iniciar Antes De",
+    6: "Não Iniciar Depois De",
+    7: "Não Terminar Antes De",
+    8: "Não Terminar Depois De",
+}
+SEM_RESTRICAO = 1           # O Mais Breve Possível
+RESTRICAO_DE_MARCO = 5      # Não Iniciar Antes De — a única aceita, e só em marco
 
 NIVEL_TRABALHO = 4          # nível em que o trabalho deve estar
 TOLERANCIA_PONTA = 1        # pontas soltas perdoadas por projeto, em cada lado
@@ -163,6 +194,22 @@ def _por_extenso(dur_txt: str | None) -> str:
                         else ("útil", "úteis"))
     um = num.replace(".", "").replace(",", ".") in ("1", "1.0")
     return "%s dia %s" % (num, singular) if um else "%s dias %s" % (num, plural)
+
+
+def _motivo_restricao(t: dict) -> str:
+    """`restrição "Não Terminar Antes De" em 21/08/2026 numa tarefa com duração`.
+
+    O motivo diz o que está fora da regra — o tipo, ou o tipo certo na tarefa
+    errada —, porque a correção é diferente: marco só troca o tipo; tarefa com
+    duração perde a restrição e a data vai para um marco antes dela.
+    """
+    codigo = t.get("restricao")
+    nome = RESTRICOES.get(codigo, "código %s" % codigo)
+    data = t.get("restricaoData")
+    txt = 'restrição "%s"%s' % (nome, " em %s" % _data_br(data) if data else "")
+    if t.get("marco"):
+        return txt + ' num marco: marco só aceita "%s"' % RESTRICOES[RESTRICAO_DE_MARCO]
+    return txt + " numa tarefa com duração: a data dela vem do calendário, não da predecessora"
 
 
 def _tolerar(ids: set[str], por_id: dict, campo: str, isentas: int = 0) -> set[str]:
@@ -279,6 +326,22 @@ def _medir(tarefas: list[dict]) -> dict:
                    and not por_id[x].get("marco")
                    and not (por_id[x].get("resources") or "").strip()}
 
+    # Restrição de data. O cronograma bem montado deixa tudo em O Mais Breve
+    # Possível e prende as datas externas (contrato, OS, entrega do cliente) em
+    # marcos com Não Iniciar Antes De: a data entra na rede por um ponto só, e
+    # quem depende dela anda pelos vínculos. Qualquer outra combinação é tarefa
+    # que o calendário move, e aí a busca do ofensor não acha causa na rede.
+    #
+    # Conta resumo também (a restrição nele prende as filhas do mesmo jeito);
+    # a linha 0, a do projeto, não tem o campo. `restricao` só existe em
+    # snapshot coletado depois de 15/09/26 — sem ele o KPI fica indisponível.
+    tem_restricao = any("restricao" in t for t in tarefas)
+    restricao = {
+        str(t["id"]) for t in ativas
+        if t.get("level") and t.get("restricao") not in (None, SEM_RESTRICAO)
+        and not (t.get("restricao") == RESTRICAO_DE_MARCO and t.get("marco"))
+    } if tem_restricao else set()
+
     caminhos = _caminhos(tarefas)
     ofensores = {
         "dep_resumo": {x: "; ".join(dict.fromkeys(motivos_resumo.get(x, [])))
@@ -289,6 +352,7 @@ def _medir(tarefas: list[dict]) -> dict:
         "sem_predecessora": {
             x: "nada antes dela na rede: começa em %s sem que ninguém a libere"
                % _data_br(por_id[x].get("start")) for x in sem_pred},
+        "restricao": {x: _motivo_restricao(por_id[x]) for x in restricao},
         "sem_recurso": {
             x: 'campo Recursos vazio: fica fora das duas seções do report e cai na '
                'nota de pendências'
@@ -327,6 +391,10 @@ def _medir(tarefas: list[dict]) -> dict:
                 "duracao_fracionada":
                     None if tem_dur_txt else
                     "A duração passou a vir do campo Duração do Project. Este KPI "
+                    "aparece após a próxima coleta deste cronograma.",
+                "restricao":
+                    None if tem_restricao else
+                    "O tipo de restrição entrou no snapshot em 15/09/26. Este KPI "
                     "aparece após a próxima coleta deste cronograma.",
             }.items() if v},
         "contagens": {k: len(v) for k, v in ofensores.items()},

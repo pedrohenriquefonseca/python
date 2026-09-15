@@ -842,7 +842,6 @@ tbody tr:hover td{background:#f8fafc;}
     <div class="nav-item" id="nav-desembolso" onclick="showView('desembolso')"><span class="nav-icon">↗</span><span class="nav-label">Curva de Desembolso</span></div>
     <div class="nav-item" id="nav-cronograma" onclick="showView('cronograma')"><span class="nav-icon">▦</span><span class="nav-label">Cronogramas de Alocação</span></div>
     <div class="nav-item" id="nav-ferias"     onclick="showView('ferias')"><span class="nav-icon">⛱</span><span class="nav-label">Anotação de Férias</span></div>
-    <div class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">Configurações</span></div>
     <div class="nav-section" style="margin-top:8px;">Links Úteis</div>
     <a class="nav-item" href="https://horizontesarq.sharepoint.com/sites/pwa/Projects.aspx" target="_blank" style="text-decoration:none;color:inherit;">
       <span class="nav-icon">🔗</span><span class="nav-label">PWA Horizontes</span>
@@ -2848,7 +2847,7 @@ const SD_ABREV = {
   dep_resumo:'Dep. em resumo', sem_sucessora:'Sem sucessora',
   sem_predecessora:'Sem predec.', sem_recurso:'Sem recurso',
   marco_com_duracao:'Marcos', fora_nivel4:'Fora do nível 4',
-  duracao_fracionada:'Duração quebrada',
+  duracao_fracionada:'Duração quebrada', restricao:'Restrição',
 };
 const SD_FAIXAS = [
   { nome:'Excelente', min:90, cor:'#16a34a' },
@@ -3116,6 +3115,8 @@ function prosaPior(p, inds) {
     duracao_fracionada: `${pior.qtd} tarefas têm duração com casa decimal, e o report fala
       em dias inteiros: cada uma é arredondada para caber na frase, e uma edição pequena
       no Project pode virar um dia inteiro de variação no comparativo`,
+    restricao: `${pior.qtd} tarefas estão presas a uma data por restrição, então quem as move
+      é o calendário e não a predecessora: a busca do ofensor chega nelas e não acha causa na rede`,
   };
   const CORRECAO = {
     dep_resumo: 'criar tarefas de término de etapa com duração zero e passar esses vínculos para elas',
@@ -3125,6 +3126,7 @@ function prosaPior(p, inds) {
     marco_com_duracao: 'zerar a duração desses marcos',
     fora_nivel4: 'reposicionar essas tarefas na estrutura ou criar os níveis que faltam',
     duracao_fracionada: 'lançar a duração dessas tarefas em dias inteiros no Project',
+    restricao: 'voltar essas tarefas para O Mais Breve Possível e amarrar cada data num marco com Não Iniciar Antes De',
   };
 
   let txt = `Em <b>${p.folhas} tarefas</b> o cronograma acumula

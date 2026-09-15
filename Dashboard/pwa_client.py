@@ -640,7 +640,8 @@ def fetch_projects() -> list[dict]:
 # inteira de cada tarefa e de cada atribuição — o grosso do tempo do fetcher.
 _TASK_FIELDS = (
     "Id,Name,Start,Finish,BaselineStart,BaselineFinish,"
-    "OutlineLevel,PercentComplete,IsCritical,IsMilestone,IsActive,Duration"
+    "OutlineLevel,PercentComplete,IsCritical,IsMilestone,IsActive,Duration,"
+    "ConstraintType,ConstraintStartEnd"
 )
 _LINK_FIELDS = "PredecessorTaskId,SuccessorTaskId,DependencyType,LinkLag"
 _PST_FIELDS = (
@@ -818,6 +819,14 @@ def fetch_tasks(project_id: str) -> list[dict]:
             # default True cobre o servidor que não devolva o campo, para nenhum
             # cronograma sumir da conta por ausência de dado.
             "ativa":        bool(t.get("IsActive", True)),
+            # Tipo de restrição, COMO O REST DEVOLVE. Não bate com o enum da
+            # documentação do CSOM (0 = O Mais Breve Possível): aqui o mesmo
+            # enum vem somado de 1. Levantamento de 15/09/26 nas 5.620 tarefas
+            # dos 12 projetos: só ocorrem 1 (5.457, todas sem data de
+            # restrição), 5 e 7. O snapshot guarda o número cru; dar nome a
+            # cada código é com quem consome.
+            "restricao":    t.get("ConstraintType"),
+            "restricaoData": _parse_date(t.get("ConstraintStartEnd")),
             # Rede de dependências, usada pelo comparador
             "preds":        _extract_preds(t),
             # Aliases pt-BR para compatibilidade.
