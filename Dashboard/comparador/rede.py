@@ -27,6 +27,26 @@ cronograma inteiro ser um CPM conectado.
 Ofensor é quem AUMENTOU A DURAÇÃO dentro dessa cadeia. Tarefa que só foi
 deslocada por inteiro herdou o atraso, não o produziu.
 
+Empates entram inteiros
+-----------------------
+A caminhada segue UMA predecessora por passo, mas o cronograma nem sempre tem
+uma só culpada: no Edson Pisani, as sete disciplinas do `Atendimento a
+Comentários e Documentação` correm em paralelo, começam no mesmo dia, esticaram
+os mesmos 25 dias úteis e entram todas no mesmo `1o Ciclo`. Escolher a maior
+entre elas é sortear, porque não há maior — o `sort` devolvia a primeira da lista
+de predecessoras do Project, e o report acusava uma disciplina e absolvia seis
+idênticas.
+
+Por isso `empurrador` devolve, junto da vencedora, as predecessoras que TERMINAM
+NO MESMO DIA que ela: são as que fixam o início da sucessora, logo são
+responsáveis na mesma medida. Elas entram na cadeia como ofensoras, mas a
+caminhada continua só pela vencedora — seguir todas fanaria a busca e, no caso
+real, as sete compartilham a mesma predecessora de qualquer forma.
+
+O empate é medido pela data de término, não pelo deslocamento: é ela que a
+sucessora enxerga, e comparar datas não precisa da tolerância que comparar
+deslocamentos precisa.
+
 Tolerância de dias
 ------------------
 As datas são de calendário e os vínculos são em dias úteis. Um empurrão de 5
@@ -132,13 +152,27 @@ def _condutora(sid: str, deltas: dict[str, dict], idx: dict) -> tuple[str, dict]
 
 # ── Causalidade ───────────────────────────────────────────────────────────────
 
+def _empatadas(vencedora: dict, candidatas: list) -> list[str]:
+    """Ids das outras candidatas que terminam no mesmo dia da vencedora.
+
+    Quem termina junto com ela fixa o início da sucessora na mesma data: são
+    causas paralelas e indistinguíveis, e apontar uma só seria sorteio. Vale a
+    data de término, e não o deslocamento, porque é ela que a sucessora enxerga.
+    """
+    fim = vencedora.get("end")
+    if not fim:
+        return []
+    return [pid for _, pid, p, _ in candidatas[1:] if p.get("end") == fim]
+
+
 def empurrador(tid: str, deltas: dict[str, dict], idx: dict,
                _saltos: int = 0) -> dict | None:
     """Qual predecessora empurrou esta tarefa.
 
     Candidata é a predecessora cujo término se deslocou no mesmo sentido e com
     magnitude parecida à do início desta tarefa, ligada por vínculo respeitado.
-    Entre as compatíveis, vence a de maior deslocamento.
+    Entre as compatíveis, vence a de maior deslocamento — e `empates` traz as que
+    terminam no mesmo dia da vencedora, que são responsáveis junto com ela.
     """
     v = deltas.get(tid)
     if not v or not v.get("dini"):
@@ -175,7 +209,19 @@ def empurrador(tid: str, deltas: dict[str, dict], idx: dict,
         if atras:
             return atras
     return {"id": pid, "nome": p.get("name"), "recurso": p.get("resources") or "",
-            "dfim": dv["dfim"], "ddur": dv.get("ddur"), "marco": bool(p.get("marco"))}
+            "dfim": dv["dfim"], "ddur": dv.get("ddur"), "marco": bool(p.get("marco")),
+            "empates": _empatadas(p, candidatas)}
+
+
+def _no(tid: str, idx: dict, deltas: dict[str, dict]) -> dict | None:
+    """A entrada da cadeia para uma tarefa, ou None se ela não tem delta."""
+    t, v = idx["por_id"].get(tid), deltas.get(tid)
+    if not t or not v:
+        return None
+    return {"id": tid, "nome": t.get("name"), "recurso": t.get("resources") or "",
+            "marco": bool(t.get("marco")),
+            "ddur": v.get("ddur"), "dini": v.get("dini"),
+            "dfim": v.get("dfim"), "unidade": v.get("unidade")}
 
 
 def causa_do_prazo(saldo: int | None, fim_atual: str | None,
@@ -207,15 +253,23 @@ def causa_do_prazo(saldo: int | None, fim_atual: str | None,
     while atual and str(atual["id"]) not in vistos:
         tid = str(atual["id"])
         vistos.add(tid)
-        v = deltas.get(tid)
-        if v:
-            cadeia.append({"id": tid, "nome": atual.get("name"),
-                           "recurso": atual.get("resources") or "",
-                           "marco": bool(atual.get("marco")),
-                           "ddur": v.get("ddur"), "dini": v.get("dini"),
-                           "dfim": v.get("dfim"), "unidade": v.get("unidade")})
+        no = _no(tid, idx, deltas)
+        if no:
+            cadeia.append(no)
         emp = empurrador(tid, deltas, idx)
-        atual = idx["por_id"].get(emp["id"]) if emp else None
+        if not emp:
+            break
+        # As empatadas da vencedora entram na cadeia aqui, e não são seguidas: a
+        # caminhada continua por uma só. Entram antes dela porque a vencedora é
+        # anexada no topo do próximo giro — entre paralelas a ordem não diz nada.
+        for par in emp.get("empates") or []:
+            if par in vistos:
+                continue
+            vistos.add(par)
+            no_par = _no(par, idx, deltas)
+            if no_par:
+                cadeia.append(no_par)
+        atual = idx["por_id"].get(emp["id"])
 
     # Maior aumento primeiro. No empate vence quem está mais atrás na cadeia:
     # entre duas contribuições iguais, a de montante é a origem.

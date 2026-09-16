@@ -46,7 +46,7 @@ from __future__ import annotations
 
 from datetime import date
 
-TOPO_OFENSORES = 3   # tarefas em Principais Ofensores
+TOPO_OFENSORES = 3   # tarefas em Principais Ofensores (empate no corte entra inteiro)
 
 
 # ── Normalização ──────────────────────────────────────────────────────────────
@@ -381,7 +381,7 @@ def secao_semanal(r: dict, data_ant: str) -> str:
         n_sem, n_troca = sd.get("sem_campo") or 0, sd.get("mudou_unidade") or 0
         L += ["", negrito("🚨PRINCIPAIS OFENSORES")]
         if ger:
-            for g in ger[:TOPO_OFENSORES]:
+            for g in _topo(ger):
                 # O número é o AUMENTO DE DURAÇÃO, não a variação do término: parte
                 # do deslocamento é herdada, e só o que a tarefa acrescentou de
                 # duração é responsabilidade dela. E é a variação do campo Duração
@@ -414,6 +414,30 @@ def secao_semanal(r: dict, data_ant: str) -> str:
                      "o desvio veio de replanejamento, não de atraso de tarefa.")
 
     return "\n".join(L)
+
+
+def _topo(geradores: list[dict]) -> list[dict]:
+    """Os TOPO_OFENSORES maiores aumentos — mas sem partir um empate ao meio.
+
+    A lista chega ordenada por aumento decrescente. Cortar em 3 no seco resolvia
+    enquanto os aumentos eram diferentes entre si: quem esticou mais está na
+    frente, e o resto é ruído. Só que tarefas paralelas esticam o mesmo tanto —
+    as sete disciplinas do Edson Pisani esticaram 25 dias úteis cada uma —, e aí
+    o corte escolhia três das sete pela ordem em que o Project as devolveu,
+    absolvendo quatro tão responsáveis quanto as que ficaram.
+
+    Então o corte se estende enquanto o próximo tiver o mesmo aumento do último
+    que entrou. Com aumentos distintos o resultado é o de antes, três linhas.
+    """
+    topo = geradores[:TOPO_OFENSORES]
+    if not topo:
+        return topo
+    corte = topo[-1].get("ddur")
+    for g in geradores[len(topo):]:
+        if g.get("ddur") != corte:
+            break
+        topo.append(g)
+    return topo
 
 
 def _plural(n: int, singular: str, plural: str) -> str:

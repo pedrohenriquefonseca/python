@@ -41,6 +41,34 @@ predecessora não se moveu.
 
 ---
 
+## Feito em 16/09/26 — causas paralelas entram todas nos ofensores
+
+O Edson Pisani atrasou 39 dias corridos e o report apontou UMA ofensora. Sete
+disciplinas do `Atendimento a Comentários e Documentação` (Estabilidade de
+Taludes, Estruturas de Concreto, Estruturas Metálicas, Hidrossanitário,
+Elétricas e SPDA, CFTV, Cabeamento) começam no mesmo dia, esticaram os mesmos 25
+dias úteis, terminam no mesmo dia e entram no mesmo `1o Ciclo`. Não há maior
+entre elas: `empurrador` montava as sete como candidatas, ordenava por
+deslocamento e ficava com a primeira da lista de predecessoras do Project
+(`rede.py`, `candidatas[0]`). O report acusava uma disciplina e absolvia seis
+idênticas.
+
+Agora `empurrador` devolve, em `empates`, as candidatas que **terminam no mesmo
+dia** da vencedora — é o término que fixa o início da sucessora, então elas são
+responsáveis na mesma medida. Todas entram na cadeia e viram ofensoras; a
+caminhada segue só pela vencedora, sem fanar a busca. Empate medido por data, não
+por deslocamento: datas não precisam da tolerância de `TOL_DIAS`.
+
+`TOPO_OFENSORES` continua 3, mas o corte não parte empate ao meio
+(`comparador._topo`): estende enquanto o próximo tiver o mesmo aumento do último
+que entrou. Com aumentos distintos o resultado é o de antes, três linhas. No
+Edson Pisani saem as sete. Os outros 11 projetos da carteira não mudaram — o
+Pompéia segue com uma ofensora, e os demais não tiveram aumento de prazo.
+
+Fora do escopo por decisão: as sete linhas repetem "25 dias úteis" cada uma, e
+somadas dariam 175 contra um atraso de 39. São paralelas, não sequenciais. O
+report não avisa isso.
+
 ## Feito em 15/09/26 — restrição de data vira KPI da Análise de Saúde
 
 Parte do item 2 que dá para medir: restrição de data aparece no snapshot
