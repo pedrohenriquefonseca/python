@@ -293,9 +293,8 @@ select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
 /* Uma cor por card, e só uma: a régua do topo e o ponto ao lado do nome, que
    dizem de quem é o bloco — a mesma cor que o fornecedor já tem nos gantts de
    alocação. Dentro dele tudo é escala de cinza: a hierarquia sai do peso do
-   texto, do recuo e de fios finos, não de fundos alternados. A única exceção é
-   o atraso, que precisa saltar. */
-#repfor-corpo{display:flex;flex-direction:column;gap:22px;}
+   texto, do recuo e de fios finos, não de fundos alternados. */
+#repfor-corpo{display:flex;flex-direction:column;gap:14px;}
 .card.rf-topo{padding:13px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
 .rf-topo-lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;
   color:var(--muted);white-space:nowrap;}
@@ -307,8 +306,19 @@ select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
   color:var(--muted);transition:all .15s;font-family:inherit;}
 .rf-pill.on{background:#1e2433;border-color:#1e2433;color:#fff;}
 .card.rf-forn{padding:0;overflow:hidden;border-top:3px solid var(--forn);}
+/* O card abre e fecha pelo cabeçalho, e a página nasce com todos fechados: a
+   tela de entrada é a lista de fornecedores, e cada um se abre quando for a vez
+   dele. O botão do Outlook fica dentro do cabeçalho e não pode disparar o
+   toggle — daí o `closest` no handler. */
 .rf-forn-head{display:flex;align-items:center;justify-content:space-between;gap:14px;
-  padding:16px 24px 15px;border-bottom:1px solid #e7ecf3;}
+  padding:12px 24px 11px;border-bottom:1px solid #e7ecf3;cursor:pointer;
+  user-select:none;}
+.rf-forn-head:hover{background:#fafbfd;}
+.rf-forn:not(.rf-aberto) .rf-forn-head{border-bottom:none;}
+.rf-forn:not(.rf-aberto) .rf-tabela{display:none;}
+.rf-seta{font-size:.6rem;color:#94a3b8;transition:transform .15s;flex-shrink:0;
+  line-height:1;}
+.rf-forn.rf-aberto .rf-seta{transform:rotate(90deg);}
 .rf-forn-id{display:flex;align-items:baseline;gap:10px;}
 .rf-forn-dot{width:7px;height:7px;border-radius:50%;background:var(--forn);flex-shrink:0;}
 .rf-forn-nome{font-size:.98rem;font-weight:700;letter-spacing:-.012em;}
@@ -320,57 +330,127 @@ select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
 .rf-btn-mail:hover{background:#1e2433;border-color:#1e2433;color:#fff;}
 .rf-btn-mail.ok{background:#1e2433;border-color:#1e2433;color:#fff;}
 .rf-tabela{width:100%;border-collapse:collapse;font-size:.75rem;table-layout:fixed;}
-.rf-tabela th{text-align:left;font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
-  color:#a3aec0;font-weight:700;padding:9px 16px 8px;border-bottom:1px solid #e7ecf3;
-  white-space:nowrap;}
+/* O cabeçalho é a única régua de leitura da tabela e precisa se impor sobre as
+   faixas de iniciativa: fundo próprio, texto escuro e um fio grosso embaixo. */
+.rf-tabela th{text-align:left;font-size:.63rem;text-transform:uppercase;letter-spacing:.1em;
+  color:#334155;font-weight:800;padding:8px 14px 7px;background-color:#f1f5f9;
+  border-bottom:2px solid #cbd5e1;border-top:1px solid #e2e8f0;white-space:nowrap;}
 .rf-tabela th:first-child{padding-left:40px;}
-.rf-tabela th:nth-child(2){width:92px;}
-.rf-tabela th:nth-child(3){width:100px;}
-.rf-tabela th:nth-child(4){width:126px;}
-.rf-tabela th:nth-child(5){width:150px;}
-.rf-tabela td{padding:9px 16px;vertical-align:top;background:#fff;}
+/* LARGURAS FIXAS, CADA UMA TIRADA DO DADO QUE A COLUNA MOSTRA. Medidas em
+   Segoe UI no corpo que o CSS aplica, sobre os 51 fornecedores dos snapshots de
+   18/09/26. Cada <col> leva a largura inteira da coluna — conteúdo + 14px de
+   padding de cada lado (40px à esquerda na primeira, o recuo dos arquivos).
+   - DOCUMENTOS 415 = 40 + 361 + 14. 361px é a lista de até três códigos com o
+     "+N" (a 0,72rem) de 95% das linhas; as 5% mais longas cortam com
+     reticências e têm a lista inteira no title.
+   - VERSÃO 75 = 47 + 28. O dado é quase sempre uma letra ("a", "b"), e quem
+     manda é o cabeçalho "VERSÃO", com 47px. No fornecedor que nomeia a etapa
+     por extenso (30 dos 51, mesma regra da imagem: nome com mais de 4
+     caracteres) a coluna vai a 178 = 150 + 28, onde cabe a etapa mais larga de
+     25 deles; o resto corta com reticências e tem o nome no title.
+   - INÍCIO e TÉRMINO 76 = 48 + 28. O dado são 8 caracteres, dd/mm/aa, 48px a
+     0,75rem. O cabeçalho "TÉRMINO" tem 55px e avança 7px sobre o próprio
+     padding, sem chegar ao fio da coluna seguinte.
+   A régua não tem largura: com `table-layout:fixed` ela fica com a sobra, e é
+   ela que deve crescer quando a tela é larga. */
+.rf-tabela col:nth-child(1){width:415px;}
+.rf-tabela col:nth-child(2){width:75px;}
+.rf-forn.rf-versao-longa .rf-tabela col:nth-child(2){width:178px;}
+.rf-tabela col:nth-child(3),
+.rf-tabela col:nth-child(4){width:76px;}
+/* Um fio fino entre as colunas, do cabeçalho ao fim da tabela: as faixas de
+   iniciativa e de disciplina têm as mesmas cinco células das entregas. */
+.rf-tabela th + th, .rf-tabela td + td{border-left:1px solid #e2e8f0;}
+.rf-tabela td{padding:5px 14px;vertical-align:top;background-color:#fff;}
 .rf-item td{border-bottom:1px solid #f2f5f9;}
-.rf-item:hover td{background:#fafbfd;}
+.rf-item:hover td{background-color:#fafbfd;}
 /* Os três níveis se separam por peso, em ordem decrescente — iniciativa 800,
    disciplina 700, nome de arquivo 400 — apoiados por tamanho, cor e recuo. A
-   contagem que acompanha cada título é sempre 400 em cinza-claro: é nota, não
-   título. Disciplina e arquivos nascem na mesma coluna (40px); a iniciativa fica
-   16px à esquerda dos dois. */
-.rf-ini-row td{padding:21px 24px 3px;}
-.rf-ini-row:first-child td{padding-top:14px;}
+   contagem ao lado da disciplina é 400 em cinza-claro: é nota, não título.
+   Disciplina e arquivos nascem na mesma coluna (40px); a iniciativa fica 16px à
+   esquerda dos dois. */
+/* O nome da faixa cabe na coluna DOCUMENTOS em 113 das 115 iniciativas e 203
+   das 210 disciplinas; o que passar corta com reticências e tem o nome inteiro
+   no title — o fio da coluna não é atravessado por texto. A contagem de
+   documentos da disciplina nunca se corta: quem encolhe é o nome. */
+.rf-ini-row td{padding:13px 14px 2px;}
+.rf-ini-row td:first-child{padding-left:24px;}
+.rf-ini-row:first-child td{padding-top:9px;}
 .rf-ini-nome{font-size:.74rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
-  color:#0f172a;border-bottom:1px solid #0f172a;padding-bottom:5px;}
-.rf-ini-n{font-size:.67rem;color:#a3aec0;font-weight:400;letter-spacing:0;
-  text-transform:none;margin-left:9px;}
-.rf-disc-row td{padding:15px 24px 2px 40px;font-size:.68rem;font-weight:700;
+  color:#0f172a;border-bottom:1px solid #0f172a;padding-bottom:5px;
+  display:inline-block;max-width:100%;vertical-align:bottom;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rf-disc-row td{padding:9px 14px 1px;font-size:.68rem;font-weight:700;
   color:#334155;letter-spacing:.1em;text-transform:uppercase;}
+.rf-disc-row td:first-child{padding-left:40px;}
+.rf-disc{display:flex;align-items:baseline;min-width:0;}
+.rf-disc-nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 .rf-disc-n{font-weight:400;color:#a3aec0;margin-left:9px;letter-spacing:0;
-  text-transform:none;font-size:.66rem;}
+  text-transform:none;font-size:.66rem;flex-shrink:0;white-space:nowrap;}
 /* `.rf-tabela td` é mais específico que `.rf-docs-td` e o `padding` de lá
    apagaria este recuo. */
 .rf-tabela .rf-docs-td{padding-left:40px;}
-.rf-docs{font-size:.72rem;font-weight:400;color:#475569;line-height:1.5;
-  font-variant-numeric:tabular-nums;}
-.rf-mais{color:#a3aec0;font-size:.67rem;}
-.rf-etapa{white-space:nowrap;color:#64748b;}
-.rf-qtd{font-size:.66rem;color:#a3aec0;margin-top:3px;}
+.rf-docs{font-size:.72rem;font-weight:400;color:#475569;line-height:1.45;
+  font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:7px;
+  min-width:0;}
+.rf-docs-lista{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.rf-mais{color:#a3aec0;font-size:.67rem;flex-shrink:0;}
+/* VERSÃO centralizada: o dado é uma letra numa coluna do tamanho do título. */
+.rf-tabela th:nth-child(2){text-align:center;}
+.rf-etapa{text-align:center;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .rf-data{white-space:nowrap;font-variant-numeric:tabular-nums;color:#64748b;}
-.rf-data b{color:#0f172a;font-weight:700;}
-.rf-prazo{font-size:.66rem;color:#a3aec0;font-weight:400;}
-.rf-atraso{color:#b91c1c;font-weight:700;}
-.rf-sit{white-space:nowrap;}
-.rf-sit-nome{font-size:.72rem;font-weight:700;color:#0f172a;}
-.rf-sit-abrir{font-size:.72rem;color:#a3aec0;}
-.rf-medida{display:flex;align-items:center;gap:7px;margin-top:5px;
-  font-size:.65rem;color:#94a3b8;font-variant-numeric:tabular-nums;}
-.rf-barra{width:62px;height:3px;border-radius:2px;background:#e7ecf3;overflow:hidden;}
-.rf-barra i{display:block;height:100%;background:#64748b;}
+/* GANTT SIMPLIFICADO
+   Uma régua por fornecedor, cobrindo só os meses em que ele tem entrega: o que
+   se quer ler aqui é o paralelismo entre as tarefas dele, e uma escala comum a
+   todos espremeria cada card ao tamanho do pior caso.
+
+   Todo mês tem a mesma largura. A diferença entre 28 e 31 dias não muda a
+   leitura, e a régua regular deixa as linhas verticais caírem sozinhas em
+   `calc(100% / var(--gmeses))`, sem uma lista de paradas por card.
+
+   A trilha é absoluta e cobre a célula inteira, inclusive nas faixas de
+   iniciativa e de disciplina — sem isso as linhas do mês se partiriam a cada
+   título. As sobras de 34px nas laterais são onde as datas das pontas
+   escrevem: uma data dd/mm tem 24px a 0,58rem, mais os 6px do padding que a
+   afasta da barra e 4px de folga até o fio. Como o cabeçalho tem a mesma
+   margem, rótulo de mês e linha caem no mesmo x. */
+.rf-tabela .rf-gantt{padding:0;position:relative;}
+.rf-trilha{position:absolute;top:0;bottom:0;left:34px;right:34px;
+  background-image:repeating-linear-gradient(to right,
+    #eef2f7 0 1px, transparent 1px calc(100% / var(--gmeses)));
+  /* Só as divisas ENTRE meses: o início do primeiro mês já é marcado pelo fio
+     da coluna. Recuar a imagem 1px, sem repetir, some com a linha do x=0. */
+  background-position:-1px 0;background-repeat:no-repeat;}
+.rf-bar{position:absolute;top:50%;transform:translateY(-50%);height:13px;
+  border-radius:2px;background:var(--forn);}
+.rf-bar-dt{position:absolute;top:50%;transform:translateY(-50%);font-size:.58rem;
+  color:#a3aec0;white-space:nowrap;font-variant-numeric:tabular-nums;
+  letter-spacing:0;text-transform:none;font-weight:400;}
+.rf-bar-ini{padding-right:6px;}
+.rf-bar-fim{padding-left:6px;}
+/* A única cor de fora do fornecedor na régua, e por isso a data de hoje: é
+   contra ela que se lê se a barra está para trás ou para a frente. A etiqueta
+   sai uma vez só, na primeira faixa do card, que é onde há espaço vazio. */
+.rf-hoje{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;
+  background:var(--red);opacity:.5;pointer-events:none;}
+.rf-hoje-lbl{position:absolute;top:50%;transform:translate(-50%,-50%);
+  background:var(--red);color:#fff;font-size:.55rem;font-weight:700;
+  letter-spacing:.05em;padding:1px 6px 2px;border-radius:3px;white-space:nowrap;
+  text-transform:none;pointer-events:none;}
+.rf-gantt-cab{padding:9px 0 7px !important;}
+.rf-meses{margin:0 34px;display:grid;grid-template-columns:repeat(var(--gmeses),1fr);
+  font-size:.58rem;color:#64748b;letter-spacing:0;text-transform:none;
+  font-weight:600;}
+/* O fio à esquerda de cada mês é a mesma linha que corre pelas entregas abaixo:
+   prende o rótulo à divisa que ele nomeia. */
+.rf-meses span{text-align:center;overflow:hidden;border-left:1px solid #dbe2ea;
+  margin-left:-1px;}
+/* O primeiro mês não tem fio: o da coluna já separa a régua do TÉRMINO. */
+.rf-meses span:first-child{border-left:none;margin-left:0;}
 .rf-legenda{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:22px;font-size:.7rem;
   color:var(--muted);background:#fff;border:1px solid var(--border);
   border-radius:var(--radius);padding:13px 18px;line-height:1.55;}
 .rf-legenda b{color:#0f172a;font-weight:700;}
-.rf-aviso{font-size:.7rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;
-  border-radius:var(--radius);padding:11px 16px;line-height:1.55;}
 .rf-nota{font-size:.7rem;color:var(--muted);line-height:1.6;}
 /* Os KPIs daqui não têm semáforo: número escuro, régua neutra. Quando houver
    atraso de verdade é ele que ganha a única cor da faixa. */
@@ -3764,6 +3844,8 @@ const rfBR = iso => {
   const [a, m, d] = iso.split('-');
   return `${d}/${m}/${a.slice(2)}`;
 };
+// A data nas pontas da barra, sem o ano: ele já está na coluna ao lado.
+const rfDM = iso => iso.split('-').reverse().slice(0, 2).join('/');
 const rfEsc = t => String(t).replace(/[&<>"]/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 
@@ -3823,24 +3905,97 @@ function repforFiltrado() {
   return fs;
 }
 
-function repforSituacao(l) {
-  if (l.estado !== 'andamento') return '<div class="rf-sit-abrir">A iniciar</div>';
-  return `<div class="rf-sit-nome">Em andamento</div>
-    <div class="rf-medida"><span class="rf-barra"><i style="width:${l.pct}%"></i></span>${l.pct}%</div>`;
+/* Clique no botão do Outlook não abre nem fecha o card. */
+function rfAlternarForn(head, ev) {
+  if (ev.type === 'keydown') {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();                       // espaço não rola a página
+  } else if (ev.target.closest('.rf-btn-mail')) {
+    return;
+  }
+  const card = head.closest('.rf-forn');
+  const aberto = card.classList.toggle('rf-aberto');
+  head.setAttribute('aria-expanded', aberto);
 }
 
-function repforPrazo(l) {
-  if (l.dias === null || l.dias === undefined) return '';
-  if (l.atrasada) return `<span class="rf-prazo rf-atraso">${-l.dias} d em atraso</span>`;
-  const txt = l.estado === 'andamento' ? `entrega em ${l.dias} d` : `começa em ${l.dias} d`;
-  return `<span class="rf-prazo">${txt}</span>`;
+const RF_MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out',
+                  'nov','dez'];
+
+/* Os meses que as entregas deste fornecedor ocupam: {ano, mes, n}.
+   Sem nenhuma data utilizável não há régua, e a coluna sai vazia. */
+function rfEscala(f) {
+  let min = null, max = null;
+  f.iniciativas.forEach(i => i.disciplinas.forEach(d => d.linhas.forEach(l => {
+    if (l.inicio  && (!min || l.inicio  < min)) min = l.inicio;
+    if (l.termino && (!max || l.termino > max)) max = l.termino;
+  })));
+  if (!min || !max) return null;
+  const [ay, am] = min.split('-').map(Number);
+  const [by, bm] = max.split('-').map(Number);
+  const n = (by - ay) * 12 + (bm - am) + 1;
+  const t = am - 1 + n - 1;                      // índice do último mês da régua
+  const uy = ay + Math.floor(t / 12), um = (t % 12) + 1;
+  const p2 = v => String(v).padStart(2, '0');
+  return { ano: ay, mes: am, n,
+           de:  `${ay}-${p2(am)}-01`,
+           ate: `${uy}-${p2(um)}-${p2(new Date(uy, um, 0).getDate())}` };
 }
 
-function repforDocs(l, limite = 4) {
-  let txt = l.documentos.slice(0, limite).map(rfEsc).join(' · ');
-  if (l.documentos.length > limite)
-    txt += ` <span class="rf-mais">+${l.documentos.length - limite}</span>`;
-  return txt;
+/* Onde a data cai na régua, de 0 a 1. Uma ponta de término anda até o fim do
+   dia: etapa que fecha no dia 31 fecha no fim do mês, não um dia antes dele. */
+function rfPos(esc, iso, fimDoDia) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const noMes = new Date(y, m, 0).getDate();
+  const i = (y - esc.ano) * 12 + (m - esc.mes) + (fimDoDia ? d : d - 1) / noMes;
+  return Math.max(0, Math.min(1, i / esc.n)) * 100;
+}
+
+/* Rótulo em todo mês só cabe enquanto a régua é curta; passando disso, de dois
+   em dois ou de três em três. As linhas verticais continuam em todos os meses —
+   elas são a escala, e quem rareia é só o nome.
+
+   Cada rótulo ocupa as colunas que o passo pula, e não uma só: centrado numa
+   célula de um mês ele encostaria no vizinho e seria cortado justamente onde a
+   régua fica mais longa. */
+function rfCabecalhoMeses(esc) {
+  if (!esc) return '';
+  const passo = esc.n <= 14 ? 1 : esc.n <= 28 ? 2 : 3;
+  const cels = [];
+  for (let i = 0; i < esc.n; i += passo) {
+    const t = esc.mes - 1 + i;
+    cels.push(`<span style="grid-column:span ${Math.min(passo, esc.n - i)}">`
+      + `${RF_MESES[t % 12]}/${String(esc.ano + Math.floor(t / 12)).slice(2)}</span>`);
+  }
+  return `<div class="rf-meses">${cels.join('')}</div>`;
+}
+
+/* Hoje corre por todas as células da régua, por cima das barras. Fornecedor que
+   só larga mês que vem tem a data fora da própria janela, e aí não há linha:
+   encostada na borda ela diria que o trabalho começa agora. */
+function rfHoje(esc, comRotulo) {
+  if (!esc || REPFOR.hoje < esc.de || REPFOR.hoje > esc.ate) return '';
+  const x = rfPos(esc, REPFOR.hoje, false).toFixed(3);
+  return `<span class="rf-hoje" style="left:${x}%"></span>`
+       + (comRotulo ? `<span class="rf-hoje-lbl" style="left:${x}%">Hoje</span>` : '');
+}
+
+function rfBarra(esc, l) {
+  const hoje = rfHoje(esc, false);
+  if (!esc || !l.inicio || !l.termino) return `<div class="rf-trilha">${hoje}</div>`;
+  const a = rfPos(esc, l.inicio, false);
+  // Etapa de um dia só ainda precisa de um traço com o que ser vista.
+  const w = Math.max(rfPos(esc, l.termino, true) - a, 0.7);
+  return `<div class="rf-trilha">
+      <span class="rf-bar-dt rf-bar-ini" style="right:${(100 - a).toFixed(3)}%">${rfDM(l.inicio)}</span>
+      <span class="rf-bar" style="left:${a.toFixed(3)}%;width:${w.toFixed(3)}%"></span>
+      <span class="rf-bar-dt rf-bar-fim" style="left:${(a + w).toFixed(3)}%">${rfDM(l.termino)}</span>
+      ${hoje}</div>`;
+}
+
+function repforDocs(l, limite = 3) {
+  const resto = l.documentos.length - limite;
+  return `<span class="rf-docs-lista">${l.documentos.slice(0, limite).map(rfEsc).join(' · ')}</span>`
+       + (resto > 0 ? `<span class="rf-mais">+${resto}</span>` : '');
 }
 
 function desenharRepFor() {
@@ -3850,8 +4005,8 @@ function desenharRepFor() {
   const fs   = repforFiltrado();
 
   if (!REPFOR.fornecedores.length) {
-    alvo.innerHTML = `<div class="sd-empty">Nenhum fornecedor de projeto com tarefa
-      neste cronograma. Ou tudo está com a Horizontes, ou os documentos em aberto
+    alvo.innerHTML = `<div class="sd-empty">Ninguém com entrega em aberto neste
+      cronograma — nem fornecedor, nem a Horizontes. Os documentos que restam
       estão em análise do cliente.</div>`;
     return;
   }
@@ -3870,18 +4025,12 @@ function desenharRepFor() {
       ${kpi('A iniciar', k.aIniciar, `próxima largada em ${rfBR(k.proximaLargada)}`)}
     </div>`];
 
-  if (REPFOR.desconhecidos.length) {
-    partes.push(`<div class="rf-aviso"><b>${REPFOR.desconhecidos.length} recurso(s) sem
-      grupo definido</b> — ${REPFOR.desconhecidos.map(rfEsc).join(' · ')}. Enquanto não
-      forem classificados em Cronogramas de Alocação, ficam de fora deste relatório.</div>`);
-  }
-
   partes.push(`<div class="rf-legenda">
       <span><b>Agrupamento:</b> fornecedor › iniciativa › disciplina › entregas, com
       iniciativas e disciplinas na ordem do arquivo do Project.</span>
-      <span><b>Critério:</b> o que o fornecedor tem em desenvolvimento agora; se nada
-      estiver, a próxima etapa dele. Fora: tarefas do Cliente e documentos parados em
-      análise dele.</span>
+      <span><b>Critério:</b> por documento, o que está em desenvolvimento agora mais a
+      etapa seguinte; se nada estiver em curso, só a próxima etapa. Fora: tarefas do
+      Cliente, marcos de cronograma e tarefas inativas no Project.</span>
       <span><b>Linha:</b> documentos da mesma disciplina que andam na mesma revisão e
       nas mesmas datas.</span>
     </div>`);
@@ -3901,42 +4050,64 @@ function desenharRepFor() {
       `<b>${f.disciplinas}</b> disciplinas`,
     ].join(' · ');
 
+    const esc = rfEscala(f);
+    let primeira = true;
+    const vazia = () => {
+      const h = rfHoje(esc, primeira);
+      primeira = false;
+      return `<td class="rf-gantt"><div class="rf-trilha">${h}</div></td>`;
+    };
+
     const corpo = [];
     f.iniciativas.forEach(ini => {
-      corpo.push(`<tr class="rf-ini-row"><td colspan="5">
-        <span class="rf-ini-nome">${rfEsc(ini.nome)}</span>
-        <span class="rf-ini-n">${ini.documentos} documentos · ${ini.disciplinas.length}
-        disciplina${ini.disciplinas.length > 1 ? 's' : ''}</span></td></tr>`);
+      // As faixas têm as cinco células de uma entrega, e não uma de colspan:
+      // é assim que os fios das colunas atravessam a tabela sem se partir.
+      corpo.push(`<tr class="rf-ini-row"><td>
+        <span class="rf-ini-nome" title="${rfEsc(ini.nome)}">${rfEsc(ini.nome)}</span></td>
+        <td></td><td></td><td></td>${vazia()}</tr>`);
       ini.disciplinas.forEach(d => {
-        corpo.push(`<tr class="rf-disc-row"><td colspan="5">${rfEsc(d.nome)}
-          <span class="rf-disc-n">${d.documentos} documento${d.documentos > 1 ? 's' : ''}</span></td></tr>`);
+        corpo.push(`<tr class="rf-disc-row"><td><div class="rf-disc" title="${rfEsc(d.nome)}">
+          <span class="rf-disc-nome">${rfEsc(d.nome)}</span>
+          <span class="rf-disc-n">${d.documentos} documento${d.documentos > 1 ? 's' : ''}</span></div></td>
+          <td></td><td></td><td></td>${vazia()}</tr>`);
         d.linhas.forEach(l => {
           corpo.push(`<tr class="rf-item">
-            <td class="rf-docs-td"><div class="rf-docs">${repforDocs(l)}</div></td>
-            <td class="rf-etapa">rev. ${rfEsc(l.etapa)}
-              <div class="rf-qtd">${l.documentos.length} doc</div></td>
+            <td class="rf-docs-td"><div class="rf-docs"
+              title="${rfEsc(l.documentos.join(' · '))}">${repforDocs(l)}</div></td>
+            <td class="rf-etapa" title="${rfEsc(l.etapa)}">${rfEsc(l.etapa)}</td>
             <td class="rf-data">${rfBR(l.inicio)}</td>
-            <td class="rf-data"><b>${rfBR(l.termino)}</b><div>${repforPrazo(l)}</div></td>
-            <td class="rf-sit">${repforSituacao(l)}</td></tr>`);
+            <td class="rf-data">${rfBR(l.termino)}</td>
+            <td class="rf-gantt">${rfBarra(esc, l)}</td></tr>`);
         });
       });
     });
 
-    partes.push(`<div class="card rf-forn" style="--forn:${rfEsc(f.cor)}">
-        <div class="rf-forn-head">
+    // A mesma regra da imagem: etapa com mais de 4 caracteres é nome por
+    // extenso, e a coluna VERSÃO abre para ele.
+    const longa = f.iniciativas.some(i => i.disciplinas.some(d =>
+      d.linhas.some(l => String(l.etapa).length > 4)));
+    partes.push(`<div class="card rf-forn${longa ? ' rf-versao-longa' : ''}"
+        style="--forn:${rfEsc(f.cor)};--gmeses:${esc ? esc.n : 1}">
+        <div class="rf-forn-head" onclick="rfAlternarForn(this, event)"
+             onkeydown="rfAlternarForn(this, event)"
+             role="button" tabindex="0" aria-expanded="false">
           <div class="rf-forn-id">
+            <span class="rf-seta">▶</span>
             <span class="rf-forn-dot"></span>
             <div>
               <div class="rf-forn-nome">${rfEsc(f.nome)}</div>
               <div class="rf-forn-sub">${resumo}</div>
             </div>
           </div>
-          <button class="rf-btn-mail" onclick="copiarOutlook(${n}, this)">
+          <button class="rf-btn-mail" onclick="copiarOutlook(${n}, this)"
+                  title="Copia a mensagem como imagem, pronta para colar no corpo do e-mail">
             ✉ Copiar para o Outlook</button>
         </div>
         <table class="rf-tabela">
-          <thead><tr><th>Documentos</th><th>Etapa</th><th>Início</th><th>Término</th>
-            <th>Situação</th></tr></thead>
+          <colgroup><col><col><col><col><col></colgroup>
+          <thead><tr><th>Documentos</th><th>Versão</th><th>Início</th>
+            <th>Término</th>
+            <th class="rf-gantt-cab">${rfCabecalhoMeses(esc)}</th></tr></thead>
           <tbody>${corpo.join('')}</tbody>
         </table>
       </div>`);
@@ -3947,45 +4118,62 @@ function desenharRepFor() {
     depois por quem larga antes.</p>`);
 
   alvo.innerHTML = partes.join('');
-  // O e-mail sempre sai completo, independente do filtro de situação da tela: o
-  // fornecedor precisa da lista inteira dele, não do recorte que o PMO está vendo.
+  // A mensagem sempre sai completa, independente do filtro de situação da tela:
+  // o fornecedor precisa da lista inteira dele, não do recorte que o PMO vê.
   REPFOR_VISIVEIS = fs.map(f => REPFOR.fornecedores.find(o => o.nome === f.nome));
 }
 
 let REPFOR_VISIVEIS = [];
 
-/* Cola no Outlook como HTML rico. O text/plain vai junto como rede de segurança
-   para quem colar em campo sem formatação. */
-function rfCopiarLegado(h) {
-  const d = document.createElement('div');
-  d.contentEditable = 'true';
-  d.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
-  d.innerHTML = h;
-  document.body.appendChild(d);
-  const r = document.createRange(); r.selectNodeContents(d);
-  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
-  let ok = false;
-  try { ok = document.execCommand('copy'); } catch (e) {}
-  s.removeAllRanges(); d.remove();
-  return ok;
-}
+/* O que vai para o Outlook é uma IMAGEM, desenhada no servidor.
 
+   A versão em HTML desta mensagem não sobreviveu ao editor do Outlook, que é o
+   Word: ele remonta a tabela com as regras dele, ignorou a largura das células e
+   quebrou cada código de documento no hífen. Um PNG ele cola como veio.
+
+   O text/plain vai no mesmo ClipboardItem como rede de segurança: quem colar num
+   campo sem formatação recebe a lista em texto, e não um retângulo vazio.
+
+   O índice pedido ao servidor é a posição na lista COMPLETA de fornecedores, e
+   não na filtrada: a mensagem sai inteira, independente do filtro de situação
+   que o PMO esteja olhando na tela. */
 async function copiarOutlook(n, btn) {
   const f = REPFOR_VISIVEIS[n];
-  if (!f) return;
-  const tmp = document.createElement('div'); tmp.innerHTML = f.email;
-  let ok = false;
+  if (!f || !REPFOR) return;
+  const i  = REPFOR.fornecedores.indexOf(f);
+  const id = document.getElementById('repfor-proj').value;
+  if (i < 0 || !id) return;
+
+  const antes = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Desenhando…';
+  let ok = false, png = null;
   try {
+    const res = await fetch(`/api/report-fornecedores/${id}/imagem/${i}`);
+    if (!res.ok) throw new Error('falha ao desenhar');
+    png = await res.blob();
     await navigator.clipboard.write([new ClipboardItem({
-      'text/html':  new Blob([f.email],   { type: 'text/html'  }),
-      'text/plain': new Blob([tmp.innerText], { type: 'text/plain' }),
+      'image/png':  png,
+      'text/plain': new Blob([f.texto || ''], { type: 'text/plain' }),
     })]);
     ok = true;
-  } catch (e) { ok = rfCopiarLegado(f.email); }
-  const antes = btn.innerHTML;
-  btn.innerHTML = ok ? '✓ Copiado' : '✕ Não deu';
+  } catch (e) {
+    // Browser que recusa imagem no clipboard ainda entrega o arquivo: melhor
+    // arrastar um PNG para dentro do e-mail do que ficar sem a mensagem.
+    if (png) rfBaixarPng(png, f.nome);
+  }
+  btn.disabled = false;
+  btn.innerHTML = ok ? '✓ Copiado' : png ? '⬇ Baixado' : '✕ Não deu';
   btn.classList.toggle('ok', ok);
-  setTimeout(() => { btn.innerHTML = antes; btn.classList.remove('ok'); }, 2200);
+  setTimeout(() => { btn.innerHTML = antes; btn.classList.remove('ok'); }, 2400);
+}
+
+function rfBaixarPng(blob, nome) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `entregas-${nome.replace(/[^\w]+/g, '-')}.png`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
 /* Curva de Desembolso */

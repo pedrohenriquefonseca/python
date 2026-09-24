@@ -2,10 +2,13 @@
 """Quem tem o quê na mão, lido da estrutura de tópicos do cronograma.
 
 A triagem corre dentro de cada tarefa pai — o documento, com suas etapas em fila
-(a, Análise 01, 0, b...). De cada documento sai o ponto em que a fila está: as
-etapas nossas em desenvolvimento e, nos documentos que ainda não começaram, a
-próxima etapa nossa. Documento parado em análise do Cliente não aparece: a bola
-não é nossa, e anunciar a etapa seguinte cobraria alguém por trabalho travado.
+(a, Análise 01, 0, b...). De cada documento sai o ponto em que a fila está: o que
+está em andamento agora e a etapa que vem em seguida. Documento parado em análise
+do Cliente continua no relatório: a etapa seguinte já tem data no cronograma, e é
+ela que o fornecedor precisa ver chegando.
+
+Fora de tudo, em qualquer projeto: tarefa do Cliente, tarefa inativa e marco. A
+primeira não é nossa; a segunda o Project nem agenda; a terceira não tem duração.
 
 Este módulo só decide *quais* tarefas entram e de quem é a parentela delas. Quem
 recorta por fornecedor, agrupa e escreve é o report_fornecedores.
@@ -13,6 +16,20 @@ recorta por fornecedor, agrupa e escreve é o report_fornecedores.
 import datetime
 
 RECURSO_CLIENTE = "cliente"          # mesma triagem do report semanal
+
+
+def _inativa(t):
+    """Tarefa desativada no Project.
+
+    O Project não agenda inativa, não deixa ela empurrar ninguém e não a executa:
+    é escopo que existe no arquivo e não existe no trabalho. Cobrar um fornecedor
+    por ela é cobrar por algo que foi tirado do projeto de propósito. Some do
+    relatório inteiro, como já some da Análise de Saúde.
+
+    O campo entrou no snapshot depois dos demais. Onde ele não existe, ninguém é
+    inativa e a triagem sai como sempre saiu — daí o `is False`, e não `not`.
+    """
+    return t.get("ativa") is False
 
 
 # ── Leitura da estrutura de tópicos ───────────────────────────────────────────
@@ -75,12 +92,27 @@ def candidatos(tarefas):
     """Linhas com recurso próprio (nem Cliente, nem vazio), com a parentela.
 
     Recurso vazio já elimina as tarefas-resumo e a linha do projeto: quem recebe
-    recurso é a folha, e é dela que o relatório fala.
+    recurso é a folha, e é dela que o relatório fala. Todo o resto entra — o
+    relatório não pergunta a que grupo o recurso pertence, só se ele não é o
+    Cliente.
+
+    Marco também não entra. Duração zero não é trabalho na mão de ninguém — é a
+    data em que alguma coisa se fecha —, e um relatório de entregas que anuncia
+    "Término da Iniciativa" como próxima tarefa do fornecedor está cobrando dele
+    o calendário, não o desenho. Marco costuma vir sem recurso e cair fora
+    sozinho, mas nos cronogramas em que a própria casa assina esses pontos ele
+    tem recurso e precisa desta linha.
+
+    Inativa também não entra, pelo motivo de `_inativa`.
+
+    A varredura vê a lista inteira, e não só o que passa: a parentela é
+    posicional — o ancestral é a linha anterior mais próxima naquele nível —, e
+    pular linhas aqui remontaria a hierarquia errada.
     """
     saida = []
     for i, t in enumerate(tarefas):
         r = (t.get("resources") or "").strip()
-        if not r or RECURSO_CLIENTE in r.lower():
+        if not r or RECURSO_CLIENTE in r.lower() or t.get("marco") or _inativa(t):
             continue
         anc = hierarquia(tarefas, i)
         saida.append({
@@ -88,57 +120,58 @@ def candidatos(tarefas):
             "bisavo": _nome(tarefas, anc[1]), "avo": _nome(tarefas, anc[2]),
             "pai": _nome(tarefas, anc[3]),
             "inicio": _data(t.get("start")), "termino": _data(t.get("end")),
-            "pct": t.get("pct") or 0, "marco": bool(t.get("marco")), "ordem": i,
+            "pct": t.get("pct") or 0, "ordem": i,
             "pai_idx": _indice_pai(tarefas, i),
         })
     return saida
 
 
-def pais_na_mao_do_cliente(tarefas):
-    """Documentos com uma etapa do Cliente em curso.
+def _mais_proximas(abertas, referencia):
+    """As tarefas que começam mais perto de uma data — todas as que empatam.
 
-    Enquanto a análise está com ele, a bola não é nossa: anunciar a etapa
-    seguinte como próxima tarefa da equipe cobraria alguém por trabalho que ainda
-    não pode começar. O documento inteiro sai do relatório.
+    "Mais perto" vale nas duas direções: etapa que devia ter começado semana
+    passada é tão a próxima quanto a que começa amanhã, e escolher só para a
+    frente esconderia justamente a que está atrasada. Datas iguais entram juntas
+    porque um pacote de projeto anda em bloco — a mesma pessoa toca vários
+    documentos ao mesmo tempo, e separar um do outro seria arbitrário.
     """
-    travados = set()
-    for i, t in enumerate(tarefas):
-        r = (t.get("resources") or "").lower()
-        if RECURSO_CLIENTE in r and 0 < (t.get("pct") or 0) < 100:
-            travados.add(_indice_pai(tarefas, i))
-    return travados
+    if not abertas:
+        return []
+    dia = min(abertas, key=lambda x: (abs((x["inicio"] - referencia).days),
+                                      x["inicio"]))["inicio"]
+    return [x for x in abertas if x["inicio"] == dia]
 
 
-def escolher(itens, hoje, travados=frozenset()):
+def escolher(itens, hoje):
     """As tarefas do relatório, decididas documento a documento.
 
-    Em desenvolvimento manda porque é o que está na mão agora, e vão todas: um
-    pacote de projeto anda em bloco, com a mesma pessoa tocando vários documentos
-    ao mesmo tempo. Sem nenhuma em andamento no documento, vale a próxima etapa
-    nossa — "mais perto de hoje" nas duas direções, que etapa atrasada é tão a
-    próxima quanto a que começa amanhã — e datas empatadas entram juntas.
+    Cada documento mostra o ponto em que sua fila está:
 
-    Etapa do Cliente não é candidata; se estiver em curso, tranca o documento
-    (`travados`) e ele sai inteiro.
+      - com trabalho em andamento, vão todas as etapas em andamento — um pacote
+        anda em bloco — mais a etapa seguinte, a que começa mais perto de quando
+        esse trabalho termina. O fornecedor vê o que tem na mão e o que vem
+        atrás, sem precisar abrir o cronograma;
+      - sem nada em andamento, vai só a etapa seguinte: a que começa mais perto
+        de hoje.
+
+    Com mais de uma etapa em andamento no mesmo documento, a referência é o
+    término mais distante entre elas: a fila só segue depois que a última fecha.
     """
     por_pai = {}
     for x in itens:
-        if x["pai_idx"] in travados:
-            continue
         por_pai.setdefault(x["pai_idx"], []).append(x)
 
     escolhidas = []
     for grupo in por_pai.values():
         andamento = [x for x in grupo if 0 < x["pct"] < 100]
+        abertas = [x for x in grupo if x["pct"] == 0 and x["inicio"]]
+
         if andamento:
             escolhidas += andamento
-            continue
-        abertas = [x for x in grupo if x["pct"] == 0 and x["inicio"]]
-        if not abertas:
-            continue
-        dia = min(abertas, key=lambda x: (abs((x["inicio"] - hoje).days),
-                                          x["inicio"]))["inicio"]
-        escolhidas += [x for x in abertas if x["inicio"] == dia]
+            fins = [x["termino"] for x in andamento if x["termino"]]
+            escolhidas += _mais_proximas(abertas, max(fins) if fins else hoje)
+        else:
+            escolhidas += _mais_proximas(abertas, hoje)
 
     return sorted(escolhidas, key=lambda x: (x["inicio"] or datetime.date.max,
                                              x["termino"] or datetime.date.max,

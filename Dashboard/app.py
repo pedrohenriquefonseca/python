@@ -48,6 +48,7 @@ import comparador
 import report_base
 import saude
 import report_fornecedores
+import imagem as imagem_fornecedores
 from gantt_projetos import gerar_para_web_json as _gerar_projetos_web_json
 from gantt_clientes import (
     gerar_para_web_json as _gerar_equipe_web_json,
@@ -425,6 +426,44 @@ def api_report_fornecedores(project_id: str):
     except Exception as exc:
         log.exception("Erro no Report Fornecedores de %s:", project_id[:8])
         return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/report-fornecedores/<project_id>/imagem/<int:indice>")
+def api_report_fornecedores_imagem(project_id: str, indice: int):
+    """O relatório de um fornecedor como PNG, para o clipboard.
+
+    A versão em HTML desta mensagem não sobreviveu ao editor do Outlook, que é o
+    Word e remonta a tabela com as regras dele. Uma imagem ele cola como veio.
+
+    O índice é a posição do fornecedor na lista que a tela recebeu — a mesma
+    ordem de `analisar`, que é determinística para um mesmo snapshot.
+    """
+    from datetime import date
+    from flask import Response
+
+    tarefas = _read_json(DATA_DIR / f"tasks_{project_id}.json", None)
+    if tarefas is None:
+        return jsonify({"error": "Tarefas não disponíveis para esse projeto no snapshot."}), 404
+    projetos = _read_json(DATA_DIR / "projects.json", []) or []
+    nome = next((p.get("name", "") for p in projetos
+                 if str(p.get("id")) == project_id), "") or "Projeto"
+    try:
+        dados = report_fornecedores.analisar(tarefas, nome)
+        fornecedores = dados["fornecedores"]
+        if not 0 <= indice < len(fornecedores):
+            return jsonify({"error": "Fornecedor fora da lista deste projeto."}), 404
+        png = imagem_fornecedores.desenhar(
+            fornecedores[indice], nome,
+            date.fromisoformat(dados["hoje"]))
+    except Exception as exc:
+        log.exception("Erro na imagem do Report Fornecedores de %s:", project_id[:8])
+        return jsonify({"error": str(exc)}), 500
+
+    nome_arq = "".join(c if c.isalnum() else "-" for c in fornecedores[indice]["nome"])
+    return Response(png, mimetype="image/png", headers={
+        "Content-Disposition": f'inline; filename="entregas-{nome_arq}.png"',
+        "Cache-Control": "no-store",
+    })
 
 
 # ── Análise de Saúde dos Cronogramas ──────────────────────────────────────────

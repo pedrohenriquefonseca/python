@@ -3,14 +3,14 @@
 
 Lê o mesmo snapshot do PWA que alimenta os dashboards (data/tasks_<id>.json) e
 devolve, para a tela, o que cada fornecedor tem na mão: a etapa em
-desenvolvimento agora e, nos documentos que ainda não começaram, a próxima etapa
-dele.
+desenvolvimento agora e a etapa que vem em seguida.
 
 A triagem — quais tarefas entram e de quem é a parentela delas — mora em
 `triagem.py`, ao lado. Este módulo responde pelo recorte e pelo arranjo.
 
-  Recorte:     só quem está em `Fornecedores` no grupos_recursos.json. Horizontes
-               fica de fora, porque este relatório é sobre terceiros.
+  Recorte:     todo recurso do cronograma que não seja o Cliente. Marco e tarefa
+               inativa não entram: uma é data e não entrega, a outra o Project
+               nem agenda (`triagem.py`).
   Arranjo:     fornecedor › iniciativa › disciplina › entregas, com iniciativas e
                disciplinas na ordem do arquivo do Project.
   Agrupamento: documentos da mesma disciplina que andam na mesma revisão e nas
@@ -18,32 +18,25 @@ A triagem — quais tarefas entram e de quem é a parentela delas — mora em
                bloco, e no Palhano isso reduz 149 documentos a 39 linhas — a
                diferença entre uma tela que se lê e uma lista que se rola.
 
-Cada fornecedor sai com uma versão do próprio relatório pronta para colar no
-corpo de um e-mail do Outlook (`email`), gerada aqui e não no browser: o HTML que
-sobrevive ao motor do Word não é o mesmo que a tela usa, e manter os dois lados
-no mesmo lugar evita que um mude sem o outro.
+O que o fornecedor recebe por e-mail é uma imagem, desenhada em `imagem.py` ao
+lado. A versão em HTML que existia aqui morreu colada no Outlook: o Word remonta
+a tabela com as regras dele, ignorou a largura das células e quebrou cada código
+de documento no hífen. A régua — escala e conversão de data em pixel — ficou
+neste módulo, para os dois desenhos lerem o cronograma da mesma maneira.
 """
+import calendar
 import datetime
-import html
 import json
 import os
 
 import triagem
 
-GRUPO_FORNECEDOR = "Fornecedores"
-
-# Em boa parte dos cronogramas a própria casa é o recurso de várias tarefas, com
-# o nome da empresa no lugar do nome de alguém. Ela não está no mapa de grupos —
-# lá só entram pessoas — e sem esta linha apareceria como recurso por classificar
-# em todo projeto.
-CASA = {"horizontes"}
-
-# Recurso→grupo e recurso→cor são do Cronograma de Alocação, e é de lá que este
-# relatório os lê — mesma pessoa, mesma cor e mesmo grupo em todo o dashboard.
-# Só leitura: quem escreve nesses arquivos é a tela de alocação.
+# Recurso→cor é do Cronograma de Alocação, e é de lá que este relatório lê —
+# mesma pessoa e mesma cor em todo o dashboard. Só leitura: quem escreve nesse
+# arquivo é a tela de alocação. O mapa de grupos não entra na conta: o recorte
+# aqui é por recurso, e quem não for o Cliente tem entrega a acompanhar.
 _AQUI      = os.path.dirname(os.path.abspath(__file__))
 _ALOCACAO  = os.path.join(os.path.dirname(_AQUI), "cronograma_alocacao")
-ARQ_GRUPOS = os.path.join(_ALOCACAO, "grupos_recursos.json")
 ARQ_CORES  = os.path.join(_ALOCACAO, "cores_fornecedores.json")
 
 COR_PADRAO = "#64748b"          # fornecedor ainda sem cor no mapa de alocação
@@ -61,27 +54,7 @@ def _iso(d):
     return d.isoformat() if d else None
 
 
-# ── Triagem ───────────────────────────────────────────────────────────────────
-
-def _fornecedores_do_snapshot(itens, grupos):
-    """(itens de fornecedor, recursos sem grupo definido).
-
-    Recurso fora do mapa não entra: chutar que todo desconhecido é fornecedor
-    colocaria gente da casa no relatório de terceiros. Ele volta na resposta
-    para a tela poder avisar que falta classificar alguém.
-    """
-    sim, desconhecidos = [], set()
-    for x in itens:
-        recurso = x["recurso"].strip()
-        if recurso.casefold() in CASA:
-            continue
-        grupo = grupos.get(recurso)
-        if grupo is None:
-            desconhecidos.add(recurso)
-        elif grupo == GRUPO_FORNECEDOR:
-            sim.append(x)
-    return sim, sorted(desconhecidos)
-
+# ── Arranjo ───────────────────────────────────────────────────────────────────
 
 def _linhas(itens, hoje):
     """Agrupa em linhas o que anda junto, e ordena o que está em curso primeiro.
@@ -119,11 +92,8 @@ def _linhas(itens, hoje):
 
 
 def arvore(tarefas, hoje):
-    """(fornecedores, recursos sem grupo) — o relatório inteiro, já arranjado."""
-    itens = triagem.candidatos(tarefas)
-    grupos = _ler_json(ARQ_GRUPOS, {})
-    itens, desconhecidos = _fornecedores_do_snapshot(itens, grupos)
-    escolhidas = triagem.escolher(itens, hoje, triagem.pais_na_mao_do_cliente(tarefas))
+    """O relatório inteiro, já arranjado: um nó por fornecedor."""
+    escolhidas = triagem.escolher(triagem.candidatos(tarefas), hoje)
 
     cores = _ler_json(ARQ_CORES, {})
 
@@ -172,31 +142,17 @@ def arvore(tarefas, hoje):
     # Quem tem trabalho em andamento primeiro; depois quem larga antes. É a ordem
     # em que o PMO precisa olhar: o que já está rodando, e o que vem em seguida.
     saida.sort(key=lambda f: (-f["andamento"], f["proxima"] or "9999", f["nome"]))
-    return saida, desconhecidos
+    return saida
 
 
-# ── Versão para colar no Outlook ──────────────────────────────────────────────
-# O corpo do e-mail no Outlook é o editor do Word, e colar HTML nele não é abrir
-# uma página: o Word remonta tudo com as regras dele. Colado de verdade no Word,
-# o desenho anterior (um <div> de título e uma tabela por iniciativa) saía
-# desmontado. Daí as regras abaixo, cada uma vinda de um defeito visto:
-#
-#   - Uma tabela só, com a largura de cada coluna fixa. Tabelas separadas saem
-#     cada uma com as colunas numa largura, e o e-mail perde o alinhamento.
-#   - Fonte declarada em cada célula. O Word não leva o font-family de um <div>
-#     para dentro da tabela.
-#   - Nada de margem ou borda em <div>: some. Respiro é linha de altura fixa,
-#     faixa é bgcolor na célula.
-#   - Maiúscula escrita no texto e nada de letter-spacing ou text-transform.
-#   - Um código de documento por linha. Na mesma linha o Word quebra o código
-#     no hífen.
-#   - Cinza nunca mais claro que #6b7280: no Outlook o #94a3b8 some.
-#
-# Por isso nada aqui reaproveita o CSS da tela — são duas linguagens diferentes.
+# ── A régua do gantt ──────────────────────────────────────────────────────────
+# A escala e a conversão de data em pixel vivem aqui porque são de quem lê o
+# cronograma, não de quem desenha: a tela as reescreve em JavaScript e o
+# `imagem.py` as importa daqui. Mudar a régua num lugar só é o que impede os dois
+# desenhos de divergirem.
 
-_FONTE    = "font-family:'Segoe UI',Arial,sans-serif;"
-_LARGURAS = (250, 62, 70, 70, 188)        # documentos, etapa, início, término, situação
-_FIO      = "border-bottom:1px solid #e3e7ec;"
+_MESES = ("jan", "fev", "mar", "abr", "mai", "jun",
+          "jul", "ago", "set", "out", "nov", "dez")
 
 
 def _br(iso):
@@ -205,79 +161,73 @@ def _br(iso):
     return datetime.date.fromisoformat(iso).strftime("%d/%m/%y")
 
 
-def _td(conteudo, estilo="", largura=None, colspan=None, fundo=None):
-    attrs = "".join(f' {k}="{v}"' for k, v in
-                    (("width", largura), ("colspan", colspan), ("bgcolor", fundo)) if v)
-    return f'<td valign="top"{attrs} style="{_FONTE}{estilo}">{conteudo}</td>'
+def entregas(forn):
+    """Todas as linhas de um fornecedor, sem a hierarquia."""
+    return [l for i in forn["iniciativas"] for d in i["disciplinas"]
+            for l in d["linhas"]]
 
 
-def _faixa(conteudo, estilo="", fundo=None):
-    """Linha que ocupa a tabela inteira: título, iniciativa, disciplina, rodapé."""
-    return f"<tr>{_td(conteudo, estilo, colspan=len(_LARGURAS), fundo=fundo)}</tr>"
+def escala(forn):
+    """Os meses que as entregas deste fornecedor ocupam — a régua dele.
+
+    Uma régua por fornecedor, cobrindo só os meses em que ele tem entrega. O que
+    se lê nela é o paralelismo entre as tarefas dele, e uma escala comum a todos
+    espremeria cada relatório no tamanho do pior caso.
+    """
+    linhas = entregas(forn)
+    inicios = [l["inicio"] for l in linhas if l["inicio"]]
+    fins    = [l["termino"] for l in linhas if l["termino"]]
+    if not inicios or not fins:
+        return None
+    a = datetime.date.fromisoformat(min(inicios))
+    b = datetime.date.fromisoformat(max(fins))
+    n = (b.year - a.year) * 12 + (b.month - a.month) + 1
+    t = a.month - 1 + n - 1
+    uy, um = a.year + t // 12, t % 12 + 1
+    return {"ano": a.year, "mes": a.month, "n": n,
+            "de":  datetime.date(a.year, a.month, 1),
+            "ate": datetime.date(uy, um, calendar.monthrange(uy, um)[1])}
 
 
-def _respiro(px):
-    return (f'<tr><td colspan="{len(_LARGURAS)}" height="{px}" '
-            f'style="font-size:1px;line-height:1px;">&nbsp;</td></tr>')
+def posicao(esc, d, w, fim_do_dia=False):
+    """Em que pixel de uma régua de `w` px a data cai.
+
+    Todo mês tem a mesma largura: a diferença entre 28 e 31 dias não muda a
+    leitura e deixa as divisas caírem em contas redondas. Uma ponta de término
+    anda até o fim do dia — etapa que fecha no dia 31 fecha no fim do mês, e não
+    um dia antes dele.
+    """
+    dia = d.day if fim_do_dia else d.day - 1
+    i = ((d.year - esc["ano"]) * 12 + (d.month - esc["mes"])
+         + dia / calendar.monthrange(d.year, d.month)[1])
+    return int(round(min(max(i / esc["n"], 0.0), 1.0) * w))
 
 
-def email(forn, nome_projeto, hoje):
-    """HTML de uma mensagem pronta para o corpo de um e-mail do Outlook."""
-    E = html.escape
-    a_iniciar = forn["documentos"] - forn["andamento"]
-    P = [f'<table cellpadding="0" cellspacing="0" border="0" width="{sum(_LARGURAS)}" '
-         f'style="border-collapse:collapse;">',
-         _faixa(f'Próximas entregas &mdash; {E(forn["nome"])}',
-                "font-size:15pt;font-weight:bold;color:#111827;"),
-         _faixa(f'{E(str(nome_projeto))} &nbsp;&middot;&nbsp; posição do cronograma '
-                f'em {hoje:%d/%m/%Y}', "font-size:9pt;color:#4b5563;"),
-         _faixa(f'<b>{forn["documentos"]}</b> documentos &nbsp;&middot;&nbsp; '
-                f'<b>{forn["andamento"]}</b> em andamento &nbsp;&middot;&nbsp; '
-                f'<b>{a_iniciar}</b> a iniciar',
-                "font-size:9pt;color:#111827;padding-top:2pt;"),
-         _respiro(12)]
+# ── A lista em texto puro ───────────────────────────────────────
+# Vai no clipboard junto com a imagem: quem colar num campo sem formatação
+# recebe esta, e não um retangulo vazio.
 
-    cab = ("font-size:7.5pt;font-weight:bold;color:#4b5563;padding:0 6pt 3pt 6pt;"
-           "border-bottom:1.5px solid #111827;")
-    P.append("<tr>" + "".join(_td(t, cab, w) for t, w in zip(
-        ("DOCUMENTOS", "ETAPA", "INÍCIO", "TÉRMINO", "SITUAÇÃO"), _LARGURAS)) + "</tr>")
-
-    celula = "font-size:9pt;color:#111827;padding:4pt 6pt;" + _FIO
-    apagada = celula + "color:#4b5563;"
+def texto(forn, nome_projeto, hoje):
+    """A mesma lista em texto puro, para quem colar num campo sem formatação."""
+    L = [f'Próximas entregas — {forn["nome"]}',
+         f'{nome_projeto} · posição do cronograma em {hoje:%d/%m/%Y}',
+         f'{forn["documentos"]} documentos · {forn["andamento"]} em andamento · '
+         f'{forn["documentos"] - forn["andamento"]} a iniciar', ""]
     for ini in forn["iniciativas"]:
-        P.append(_respiro(10))
-        P.append(_faixa(E(ini["nome"]), "font-size:10pt;font-weight:bold;color:#111827;"
-                        "padding:4pt 6pt;", fundo="#e8ecf1"))
+        L += [ini["nome"].upper(), ""]
         for disc in ini["disciplinas"]:
-            # Disciplina com o nome da iniciativa só repetiria a faixa logo acima.
             if disc["nome"].strip().casefold() != ini["nome"].strip().casefold():
-                P.append(_faixa(E(disc["nome"]), "font-size:8pt;font-weight:bold;"
-                                "color:#374151;padding:8pt 6pt 0 6pt;"))
+                L.append(f'  {disc["nome"]} ({disc["documentos"]} documentos)')
             for l in disc["linhas"]:
-                if l["estado"] == "andamento":
-                    sit = (f'<b>Em andamento</b> <span style="color:#6b7280;">'
-                           f'&middot; {l["pct"]}%</span>')
-                    if l["atrasada"]:
-                        sit += (f'<br><span style="color:#b91c1c;font-weight:bold;">'
-                                f'{-l["dias"]} d em atraso</span>')
-                else:
-                    sit = '<span style="color:#4b5563;">A iniciar</span>'
-                P.append("<tr>"
-                         + _td("<br>".join(E(d) for d in l["documentos"]), celula,
-                               _LARGURAS[0])
-                         + _td(f'rev. {E(l["etapa"])}', apagada, _LARGURAS[1])
-                         + _td(_br(l["inicio"]), apagada, _LARGURAS[2])
-                         + _td(f'<b>{_br(l["termino"])}</b>', celula, _LARGURAS[3])
-                         + _td(sit, celula, _LARGURAS[4])
-                         + "</tr>")
-
-    P.append(_respiro(10))
-    P.append(_faixa("Lista extraída do cronograma publicado no Project Online. Para cada "
-                    "documento consta a etapa em desenvolvimento e, quando nenhuma está "
-                    "em curso, a próxima etapa prevista. Documentos em análise do cliente "
-                    "não entram nesta lista.", "font-size:8pt;color:#6b7280;"))
-    P.append("</table>")
-    return "".join(P)
+                sit = (f'em andamento, {l["pct"]}%' if l["estado"] == "andamento"
+                       else "a iniciar")
+                if l["atrasada"]:
+                    sit += f', {-l["dias"]} d em atraso'
+                L.append(f'    rev. {l["etapa"]} · {_br(l["inicio"])} a '
+                         f'{_br(l["termino"])} · {sit}')
+                L.append(f'      {" · ".join(l["documentos"])}')
+            L.append("")
+    return "\n".join(L)
 
 
 # ── Porta de entrada ──────────────────────────────────────────────────────────
@@ -288,9 +238,11 @@ def analisar(tarefas, nome_projeto, hoje=None):
         raise ValueError("Projeto sem tarefas disponíveis no snapshot do PWA.")
     hoje = hoje or datetime.date.today()
 
-    fornecedores, desconhecidos = arvore(tarefas, hoje)
+    fornecedores = arvore(tarefas, hoje)
+    # A lista em texto acompanha o JSON: é leve, e é ela que vai para o
+    # clipboard junto com a imagem, para quem colar num campo sem formatação.
     for f in fornecedores:
-        f["email"] = email(f, nome_projeto, hoje)
+        f["texto"] = texto(f, nome_projeto, hoje)
 
     todas = [l for f in fornecedores for i in f["iniciativas"]
              for d in i["disciplinas"] for l in d["linhas"]]
@@ -300,7 +252,6 @@ def analisar(tarefas, nome_projeto, hoje=None):
     return {
         "projeto": nome_projeto,
         "hoje":    hoje.isoformat(),
-        "desconhecidos": desconhecidos,
         "fornecedores":  fornecedores,
         "kpis": {
             "fornecedores": len(fornecedores),

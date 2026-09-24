@@ -858,17 +858,24 @@ cadeia critica" produziria numeros que parecem precisos e nao sao.
 O QUE FUNCIONA: A CADEIA DE VINCULOS
 ------------------------------------
 A cobertura de vinculos e alta (89-100% das folhas tem predecessora) e a
-aderencia tambem (86-100% dos FS coerentes com as datas). rede.py caminha do
-termino do projeto para tras, seguindo em cada passo a predecessora cujo
-deslocamento explica o da sucessora (empurrador()), e coleta quem AUMENTOU A
-DURACAO no caminho.
+aderencia tambem (86-100% dos FS coerentes com as datas). rede.causa_do_prazo
+parte de TODAS as folhas que terminam junto com o projeto e sobe por TODOS os
+vinculos que estao empurrando (varredura da rede, nao trilha unica), coletando
+quem AUMENTOU A DURACAO no caminho.
 
-Ofensor e quem aumentou a duracao dentro dessa cadeia. Tarefa que so foi
+Ofensor e quem aumentou a duracao dentro dessa rede. Tarefa que so foi
 deslocada por inteiro herdou o atraso, nao o produziu. Marco (duracao zero)
-nunca e ofensor: empurrador() pula por cima dele para apontar a causa real.
+nunca e ofensor: a varredura atravessa ele.
 
-Tolerancia: datas sao de calendario e vinculos sao em dias uteis, entao o
-casamento de deslocamentos usa folga de 3 dias (rede.TOL_DIAS).
+Vinculo empurrou quando (1) o lado da sucessora que ele governa andou para
+depois, (2) o lado da predecessora que ele le tambem andou, e (3) ele esta
+justo hoje: folga em dias uteis (feriados nacionais descontados, lag incluido)
+de no maximo rede.TOL_UTEIS = 1, que absorve feriado municipal e recesso.
+Vale para FS, SS, FF e SF. Chegando a uma tarefa pelo inicio (SS/SF), a duracao
+dela nao conta. Vinculo com resumo vale para todas as filhas que coincidem com
+ele; vinculo no resumo de cima vale para as filhas. Tarefa nova no caminho
+entra com a duracao inteira; tarefa sem duracao comparavel entra nomeada, sem
+numero. Sem corte: todas as ofensoras saem no report (24/09/26).
 
 DURACAO E O CAMPO DURACAO DO PROJECT, NAO O VAO ENTRE AS DATAS (25/08/26)
 ------------------------------------------------------------------------
@@ -1317,27 +1324,42 @@ Motor: report_fornecedores/report_fornecedores.py. Rota: GET
 
 TRIAGEM (report_fornecedores/triagem.py)
 ----------------------------------------
-Corre dentro de cada tarefa pai — o documento, com as etapas em fila (a, Analise
-01, 0, b...). De cada documento sai o ponto em que a fila esta: as etapas em
-desenvolvimento e, nos documentos que ainda nao comecaram, a proxima etapa. Sem
-nenhuma em andamento vale a mais perto de hoje NAS DUAS DIRECOES — etapa atrasada
-e tao a proxima quanto a que comeca amanha — e datas empatadas entram juntas.
+Refeita em 17/09/26. Corre dentro de cada tarefa pai — o documento, com as etapas
+em fila (a, Analise 01, 0, b...) — e cada documento mostra o ponto em que a fila
+dele esta:
 
-Documento com uma analise do Cliente EM CURSO sai inteiro: a bola nao e nossa, e
-anunciar a etapa seguinte cobraria alguem por trabalho travado.
+  - com trabalho em andamento: TODAS as etapas em andamento, mais a etapa
+    seguinte, a que comeca mais perto de quando esse trabalho termina. Com mais
+    de uma em andamento, a referencia e o termino mais distante entre elas: a
+    fila so segue depois que a ultima fecha;
+  - sem nada em andamento: so a proxima etapa, a que comeca mais perto de hoje.
+
+"Mais perto" vale NAS DUAS DIRECOES — etapa atrasada e tao a proxima quanto a que
+comeca amanha — e datas empatadas entram juntas, porque um pacote de projeto anda
+em bloco.
+
+A regra anterior tirava o documento inteiro enquanto uma analise do Cliente
+estivesse em curso. Saiu: a etapa seguinte ja tem data no cronograma, e e ela que
+o fornecedor precisa ver chegando. Na Revisao Quintino do Sede 2 essa regra
+apagava os dois documentos de GEOMETRIA do Andre Baptista — a Analise 01 estava
+em 73% — embora a etapa `b` dele comecasse no mesmo dia da etapa `a` de
+SINALIZACAO, que aparecia.
 
 RECORTE
 -------
-Só quem esta em `Fornecedores` no cronograma_alocacao/grupos_recursos.json.
-Horizontes fica de fora — este relatorio e sobre terceiros. Recurso fora do mapa
-NAO entra e volta em `desconhecidos`, para a tela avisar que falta classificar
-alguem: chutar que todo desconhecido e fornecedor poria gente da casa aqui.
-O recurso literal "Horizontes" (a empresa, nao uma pessoa) e tratado a parte —
-ele nunca esta no mapa, e sem isso apareceria como pendente em todo projeto.
+Todo recurso do cronograma que NAO seja o Cliente. O mapa de grupos do Cronograma
+de Alocacao saiu da conta em 17/09/26: quem tem tarefa tem entrega a acompanhar,
+seja terceiro, equipe da casa ou recurso ainda por classificar. Com isso sumiram
+`desconhecidos` da resposta e o aviso correspondente na tela, e oito dos doze
+projetos do snapshot — que nao tinham ninguem classificado como `Fornecedores` —
+passaram a ter relatorio.
+
+Fora, em qualquer projeto: tarefa do Cliente, marco (duracao zero nao e trabalho
+na mao de ninguem) e tarefa inativa (o Project nem agenda).
 
 A cor de cada fornecedor vem de cores_fornecedores.json, o mesmo arquivo dos
-gantts de alocacao: mesma pessoa, mesma cor em todo o dashboard. Os dois arquivos
-sao lidos so para leitura — quem escreve neles e a tela de alocacao.
+gantts de alocacao: mesma pessoa, mesma cor em todo o dashboard. Leitura apenas —
+quem escreve nele e a tela de alocacao. Quem nao esta la sai no cinza #64748b.
 
 ARRANJO
 -------
@@ -1352,33 +1374,142 @@ viram uma linha so. Um pacote de projeto anda em bloco: no Palhano isso reduz
 149 documentos a 39 linhas, e no Sede 2, 306 a 81. E a diferenca entre uma tela
 que se le e uma lista que se rola.
 
-A VERSAO DE E-MAIL SAI DO PYTHON, NAO DO BROWSER
-------------------------------------------------
-O corpo do e-mail no Outlook e o editor do Word, e colar HTML nele nao e abrir
-uma pagina: o Word remonta tudo. Por isso o HTML do e-mail nao reaproveita nada
-do CSS da tela — sao duas linguagens diferentes, e manter as duas no mesmo
-modulo evita que uma mude sem a outra.
+O QUE VAI PARA O OUTLOOK E UMA IMAGEM
+-------------------------------------
+Motor: report_fornecedores/imagem.py, em PIL. Rota:
+GET /api/report-fornecedores/<id>/imagem/<indice>, desenhada no clique.
 
-O primeiro desenho (um <div> de titulo e uma tabela por iniciativa) saiu
-desmontado quando colado de verdade no Word. Refeito em 11/09/26 com regras
-tiradas de cada defeito visto:
-  - UMA tabela so, 640 px, com a largura de cada coluna fixa. Tabelas separadas
-    saem cada uma com as colunas numa largura e o e-mail perde o alinhamento.
-  - Fonte declarada em CADA celula: o Word nao leva o font-family de um <div>
-    para dentro da tabela.
-  - Nada de margem ou borda em <div>, que some. Respiro e linha de altura fixa;
-    a faixa da iniciativa e bgcolor na celula.
-  - Maiuscula escrita no texto; nada de letter-spacing ou text-transform.
-  - Um codigo de documento por linha: na mesma linha o Word quebra o codigo no
-    hifen.
-  - Cinza nunca mais claro que #6b7280 — o #94a3b8 sumia.
-  - Cabecalho uma vez so, no topo. Disciplina com o mesmo nome da iniciativa nao
-    aparece, porque so repetiria a faixa logo acima.
-No topo, um resumo: documentos, em andamento, a iniciar.
+O caminho ate aqui importa, porque o beco e facil de repetir. O corpo do e-mail
+no Outlook e o editor do Word, e ele remonta todo HTML colado com as regras dele.
+A mensagem foi HTML por duas rodadas: uma tabela de 640 px com largura fixa em
+cada celula (11/09/26) e depois uma de 720 px com o gantt desenhado em celulas
+de `bgcolor` (17/09/26). A segunda fechava na conta e num renderizador proprio;
+colada de verdade, o Word ignorou a largura das celulas, espremeu a coluna dos
+documentos a um terco e quebrou cada codigo no hifen. NAO HA CSS QUE O CONVENCA,
+e conferir por parser ou por desenho proprio nao substitui colar no alvo.
 
-Como conferir sem Outlook: por o HTML no clipboard como CF_HTML (o formato que
-o Chrome grava), colar num documento do Word via COM e exportar a pagina
-(Pages(n).EnhMetaFileBits → PNG). E o mesmo motor que monta o corpo do e-mail.
+Um PNG ele nao redesenha: cola o que recebeu e, no maximo, reduz para caber na
+pagina. Dai o desenho atual.
+
+  - 700 px FIXOS. O tamanho importa por causa do Outlook: ele encolhe para a
+    largura do corpo da mensagem qualquer imagem maior que ela, e encolher um
+    desenho de texto e o mesmo que apaga-lo — a primeira versao saia com 2200 px,
+    chegava reduzida a um terco e obrigava a abrir o anexo e rolar para ler.
+  - AS COLUNAS DE TEXTO SAO CONSTANTES E A REGUA FICA COM O RESTO: documentos
+    240, versao 52 ou 120, inicio 62, termino 62, e os 252 (ou 184) que sobram
+    vao para a regua. Um fio vertical separa a ultima coluna de texto da regua:
+    dali para a direita e desenho, nao mais texto.
+  - O GANTT E SO MESES, TODOS DA MESMA LARGURA. A area visivel — do fio que o
+    separa da tabela ate a margem direita da imagem — se divide em n partes
+    iguais, uma por mes, e nao sobra coluna vazia em ponta nenhuma. O limite
+    esquerdo e o proprio fio e o direito e a margem da imagem, entao so as
+    divisas internas sao desenhadas. Na Paula Braga do Sede 2 isso da quatro
+    meses de 64 a 65 px, medidos na imagem gerada.
+    Foram tres passadas ate aqui, e vale registrar o que errava em cada uma,
+    porque as tres so aparecem quando se cota o desenho: (1) reservar um valor
+    fixo nas pontas para as datas deixava o vazio maior que os meses; (2) dividir
+    em n + 2 partes media so a coluna da regua, sem os 6 px do fio e sem a margem
+    da imagem, dando pontas de 48 e 58 contra 42; (3) desenhar as divisas so
+    ENTRE os meses fazia a primeira faixa visivel valer sobra mais mes.
+  - TODA BARRA ESCREVE AS DUAS DATAS, em dd/mm (o ano fica so nas colunas da
+    tabela): inicio a esquerda, termino a direita. A ponta que nao tiver espaco
+    sem passar do fio ou da margem junta as duas do lado que tem ("27/08 –
+    23/09"). As datas sao escritas depois do fio de hoje, cada uma num respiro
+    branco, para nao sairem riscadas. (18/09/26; antes a data sem espaco
+    simplesmente nao saia — 17% das barras sem inicio, 28% sem termino.) Na
+    tela, as pontas da barra tambem perderam o ano.
+  - TELA: LARGURAS FIXAS TIRADAS DO DADO (18/09/26). Antes eram 26% / 132 /
+    84 / 84 sem relacao com o conteudo. Agora, medidas em Segoe UI sobre os 51
+    fornecedores: DOCUMENTOS 415 (95% das listas inteiras), VERSAO 75 (o
+    cabecalho; o dado e uma letra) ou 178 no fornecedor de etapa por extenso,
+    INICIO e TERMINO 76 (8 caracteres, 48px). Sobras da regua 34px (dd/mm).
+    Fio fino entre as colunas, continuo: as faixas de iniciativa e disciplina
+    deixaram o colspan e tem as cinco celulas (nome longo corta com
+    reticencias e title). A regua perdeu o fio do primeiro mes — o da coluna ja
+    marca. VERSAO centralizada. A conta de cada numero esta no CSS.
+  - IMAGEM (18/09/26): VERSAO sem o prefixo "rev."; VERSAO, INICIO e TERMINO
+    com titulo e dado centralizados; TERMINO sem negrito; divisa fechando o
+    ultimo mes na margem direita. Larguras = max(titulo, dado) + PAD: VERSAO 52
+    (titulo, 38,5px), INICIO e TERMINO 59 visiveis (titulo "TERMINO", 46px).
+  - O PRECO DOS 700 PX: as datas aparecem duas vezes por linha, nas colunas
+    INICIO/TERMINO e nas pontas da barra. A 1000 px isso era folga; a 700 sobram
+    172 px uteis de regua para quatro meses, e uma etapa de dez dias vira um
+    traco menor que a data escrita ao lado dela. Nos cronogramas que nomeiam a
+    etapa por extenso — 30 dos 50 fornecedores — a coluna da versao tomou o teto
+    de 120 px, com o nome cortado em reticencias, e a regua fica com 104 px
+    uteis. Tirar as colunas INICIO/TERMINO devolveria 124 px a regua sem perder
+    informacao nenhuma, ja que as datas estao nas pontas das barras. Ela e o que se olha primeiro, e espremer a regua para dar
+    espaco a uma lista de codigos troca o desenho pelo inventario.
+    A coluna da versao tem dois tamanhos porque quase todo cronograma nomeia as
+    etapas com uma letra — a, b, c — e 52 px bastam para "rev. a"; em alguns ela
+    tem nome inteiro ("Projeto Legal de Arquitetura"), e ai a coluna abre, o
+    prefixo "rev." sai (nao ha revisao a prefixar) e o que ainda nao couber e
+    cortado com reticencias.
+  - UMA ENTREGA E UMA LINHA. A coluna de documentos mostra os codigos que
+    couberem e conta os outros num +N. A lista completa, quebrada em tantas
+    linhas quantas precisasse, empurrava a disciplina para seis ou oito linhas e
+    afastava a barra da data que ela desenha; quem le a mensagem quer ver o
+    calendario, nao conferir inventario. A lista inteira continua na versao em
+    texto, que vai no mesmo clipboard.
+  - As fontes nao encolhem: 11 px nos dados, 10 px nas notas, que e o piso abaixo
+    do qual a suavizacao come a letra. Margem 16 e respiro de 13 px entre
+    colunas. Desenhada no dobro e reduzida no fim com LANCZOS: o supersampling e
+    o que da o acabamento das letras nesse tamanho. O DPI gravado e 96, para o
+    Word mostrar pixel por pixel em vez de esticar.
+  - NAO HA COLUNA DE SITUACAO. Quem diz em que pe a etapa esta e a propria barra:
+    onde ela cai em relacao ao fio de hoje, e quanto dela ja saiu no tom escuro.
+    A unica coisa que a barra nao dizia sozinha era o atraso, e por isso etapa em
+    curso com o termino vencido ganha um fio vermelho deitado rente a ela — no
+    lugar onde isso se le, e nao numa coluna de texto do outro lado da linha.
+    A situacao escrita continua na lista em texto, que vai no mesmo clipboard.
+  - A grade dos meses e o fio de hoje sao duas linhas continuas, do cabecalho ao
+    rodape da tabela. Em HTML isso era um pedaco por linha, que precisava casar
+    com a altura do texto ao lado para nao se partir.
+  - A BARRA NAO MOSTRA PROGRESSO. Ela e o periodo da etapa, e so. O trecho
+    escuro do percentual executado saiu, e com ele o fio vermelho deitado que
+    marcava atraso: percentual de execucao e conversa de dentro de casa, e
+    mandado ao fornecedor vira discussao sobre o numero em vez da data que ele
+    tem de cumprir. O que sobrou na regua e a data — onde a barra cai em relacao
+    a hoje.
+  - HOJE E UMA ETIQUETA EM PE no alto do fio: branco sobre o mesmo vermelho, 9 px
+    (menor que isso a suavizacao junta as letras), lendo de cima para baixo. Em
+    pe porque deitada cobriria dois meses da regua; no alto porque e de cima que
+    se comeca a ler a tabela e ali ela nao tapa barra nenhuma. PIL nao escreve na
+    vertical: o texto e desenhado deitado numa tira, a tira e girada 270 graus e
+    colada. A caixa sai da metrica real do texto (textbbox), e nao do corpo da
+    fonte — nesse tamanho a sobra de um pixel e a diferenca entre caber e cortar
+    o rabo do "j".
+  - SEM NOTA DE RODAPE. A imagem teve por um tempo um paragrafo embaixo,
+    explicando a regua. Saiu: quem recebe a mensagem le um gantt, nao a legenda
+    de um, e o paragrafo tomava tres linhas ao pe de toda mensagem, inclusive das
+    que cabiam em dez.
+  - Paleta de 128 cores no PNG. O desenho tem meia duzia de cores e o resto e a
+    suavizacao das letras; indexado, o arquivo cai a 40% sem diferenca que se
+    veja lado a lado. Pior caso dos 12 snapshots: 162 KB (Horizontes no Sede 2,
+    41 linhas, 700x2449); altura media de 451 px, e as 50 imagens saem em
+    2,3 s.
+
+O QUE SE PERDE, E O QUE COMPENSA
+--------------------------------
+O que chega ao fornecedor deixou de ser texto: nao da para copiar um codigo de
+documento de dentro da imagem. Por isso o botao poe no clipboard `image/png` E
+`text/plain` no mesmo ClipboardItem — quem colar num campo sem formatacao recebe
+a lista escrita, montada por `report_fornecedores.texto`. Se o browser recusar
+imagem no clipboard, a tela baixa o PNG: melhor arrastar um arquivo para dentro
+do e-mail do que ficar sem a mensagem.
+
+O JSON da tela perdeu o HTML por fornecedor e ganhou esse texto. No Sede 2 a
+resposta caiu de cerca de 1 MB para 71 KB.
+
+A REGUA E COMPARTILHADA
+-----------------------
+`report_fornecedores.escala` (os meses que o fornecedor ocupa) e
+`report_fornecedores.posicao` (a data em pixel) ficam no modulo dos dados, nao no
+de quem desenha: a tela as reescreve em JavaScript e o imagem.py as importa.
+Todo mes tem a mesma largura — a diferenca entre 28 e 31 dias nao muda a leitura
+e deixa as divisas cairem em contas redondas — e uma ponta de termino anda ate o
+fim do dia. A escala e por fornecedor, so os meses em que ele tem entrega; uma
+escala comum a todos espremeria cada mensagem no tamanho do pior caso.
 
 O e-mail sai sempre COMPLETO, com todos os codigos de documento e independente do
 filtro de situacao da tela: o fornecedor precisa da lista inteira dele, nao do
@@ -1389,9 +1520,23 @@ execCommand('copy') sobre um div contentEditable oculto se o browser recusar.
 
 DESENHO
 -------
-Uma cor por card, e so uma: a regua de 3px no topo e o ponto ao lado do nome.
-Dentro do card e tudo escala de cinza — a hierarquia sai do peso do texto
-(iniciativa 800, disciplina 700, nome de arquivo 400), do recuo (disciplina e
-arquivos na mesma coluna, iniciativa 16px a esquerda) e de fios finos. Nenhuma
-linha de entrega e destacada: quem informa o que esta em andamento e a coluna
-Situacao. A unica outra cor e o vermelho do atraso.
+Uma cor por fornecedor, e so uma: o fio de 3px no topo, o ponto ao lado do nome
+na tela e as barras do gantt. O resto e escala de cinza — a hierarquia sai do
+peso do texto (iniciativa 800, disciplina 700, nome de arquivo 400), do recuo
+(disciplina e arquivos na mesma coluna, iniciativa 16px a esquerda) e de fios
+finos. A unica outra cor e o vermelho: o fio de hoje na regua e o atraso.
+
+Iniciativa e disciplina se separam por peso e por fio, nao por fundo. A faixa
+cinza que o e-mail usava competia com o cabecalho da tabela e saiu em 17/09/26,
+para os dois lados desenharem a mesma hierarquia.
+
+COMO CONFERIR O E-MAIL SEM ABRIR NADA
+-------------------------------------
+Toda tabela — a de fora e cada regua — tem de fechar exatamente na largura
+declarada, somando colspan pelas colunas que ele cobre. Um parser de 20 linhas
+sobre o HTML gerado responde isso nos 12 snapshots: 50 fornecedores, nenhuma
+sobra. Para julgar o desenho, um desenhista em PIL do subconjunto que a mensagem
+usa (tabela de largura fixa, td com width/height/bgcolor/colspan, texto com
+font-size/color/font-weight, <br>, <span> e quebra por largura) poe o e-mail num
+PNG e mostra onde a barra cai, se as divisas batem com os rotulos de mes e se o
+fio de hoje corre inteiro. Nenhum dos dois depende do Word.
