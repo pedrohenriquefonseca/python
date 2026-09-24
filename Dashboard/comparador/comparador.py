@@ -46,9 +46,6 @@ from __future__ import annotations
 
 from datetime import date
 
-TOPO_OFENSORES = 3   # tarefas em Principais Ofensores (empate no corte entra inteiro)
-
-
 # ── Normalização ──────────────────────────────────────────────────────────────
 
 def _com_caminho(itens: list[dict]) -> list[dict]:
@@ -291,18 +288,33 @@ def comparar(anterior: list[dict], atual: list[dict],
     causa = None
     if brutos_atu:
         import rede
-        # Marcos entram nos deltas mesmo ficando fora da lista final: a rede
-        # precisa deles como conduíte da propagação.
-        deltas = {v["atu"]["id"]: v for v in variacoes if v["atu"]["id"]}
+        # Deslocamento de TODAS as tarefas pareadas, resumos inclusive: vínculo
+        # que aponta para um resumo só se avalia com as datas do resumo. Marcos
+        # também entram — são conduíte da propagação. Duração só nas folhas.
+        deltas = {b["id"]: {"dini": _dias(a["inicio"], b["inicio"]),
+                            "dfim": _dias(a["termino"], b["termino"])}
+                  for a, b in p["pares"] if b["id"]}
+        for v in variacoes:
+            if v["atu"]["id"]:
+                _, _, motivo = _variacao_duracao(v["ant"], v["atu"])
+                deltas[v["atu"]["id"]].update(ddur=v["ddur"], unidade=v["unidade"],
+                                              motivo=motivo)
+        # Base anterior ao campo Duração: nenhuma tarefa tem medida, e nomear
+        # uma a uma as da rede só repetiria a ressalva geral do fim do report.
+        if not any(a.get("duracaoUn") for a, _ in p["pares"]):
+            for v in deltas.values():
+                v.pop("motivo", None)
+        novas = {t["id"] for t in p["inseridas"] if t["id"]}
         causa  = rede.causa_do_prazo(saldo, raiz_b.get("termino"), deltas,
                                      rede.indexar(brutos_atu),
-                                     ids_folha=rede.folhas(brutos_atu))
+                                     ids_folha=rede.folhas(brutos_atu),
+                                     novas=novas)
         # A rede trabalha com os dicts brutos, que só têm o nome solto; o
         # relatório precisa da grafia hierárquica.
+        por_id = {t["id"]: t for t in atual if t["id"]}
         for g in causa["cadeia"]:
-            v = deltas.get(g["id"])
-            if v:
-                g["rotulo"] = rotulo(v["atu"])
+            if g["id"] in por_id:
+                g["rotulo"] = rotulo(por_id[g["id"]])
 
     return {
         "projeto": {
@@ -381,7 +393,22 @@ def secao_semanal(r: dict, data_ant: str) -> str:
         n_sem, n_troca = sd.get("sem_campo") or 0, sd.get("mudou_unidade") or 0
         L += ["", negrito("🚨PRINCIPAIS OFENSORES")]
         if ger:
-            for g in _topo(ger):
+            # Todas, sem corte: a rede só admite quem empurrou o término, então
+            # não há "resto" que seja ruído. O corte em três escolhia entre
+            # culpadas pela ordem em que o Project as devolvia.
+            for g in ger:
+                nome = g.get("rotulo") or g["nome"]
+                if g.get("tipo") == "nova":
+                    L.append("- %s: Tarefa incluída desde o último report%s."
+                             % (nome, ", com duração de %s"
+                                % dias_txt(g["duracao"], g.get("unidade") or "corrido")
+                                if g.get("duracao") else ""))
+                    continue
+                if g.get("tipo") == "sem_medida":
+                    L.append("- %s: Término deslocado, mas a duração não pôde ser "
+                             "comparada — %s." % (nome, _MOTIVO_TXT.get(g.get("motivo"),
+                                                                         "confira no Project")))
+                    continue
                 # O número é o AUMENTO DE DURAÇÃO, não a variação do término: parte
                 # do deslocamento é herdada, e só o que a tarefa acrescentou de
                 # duração é responsabilidade dela. E é a variação do campo Duração
@@ -397,8 +424,7 @@ def secao_semanal(r: dict, data_ant: str) -> str:
                 # distingue uma linha da outra — e a palavra "Aumento" já está
                 # escrita ali do lado.
                 L.append("- %s: Aumento na duração de %s."
-                         % (g.get("rotulo") or g["nome"],
-                            dias_txt(g["ddur"], g.get("unidade") or "corrido")))
+                         % (nome, dias_txt(g["ddur"], g.get("unidade") or "corrido")))
         elif causa is None:
             L.append("- Sem a rede de dependências não é possível apontar os ofensores.")
         elif n_sem or n_troca:
@@ -416,28 +442,10 @@ def secao_semanal(r: dict, data_ant: str) -> str:
     return "\n".join(L)
 
 
-def _topo(geradores: list[dict]) -> list[dict]:
-    """Os TOPO_OFENSORES maiores aumentos — mas sem partir um empate ao meio.
-
-    A lista chega ordenada por aumento decrescente. Cortar em 3 no seco resolvia
-    enquanto os aumentos eram diferentes entre si: quem esticou mais está na
-    frente, e o resto é ruído. Só que tarefas paralelas esticam o mesmo tanto —
-    as sete disciplinas do Edson Pisani esticaram 25 dias úteis cada uma —, e aí
-    o corte escolhia três das sete pela ordem em que o Project as devolveu,
-    absolvendo quatro tão responsáveis quanto as que ficaram.
-
-    Então o corte se estende enquanto o próximo tiver o mesmo aumento do último
-    que entrou. Com aumentos distintos o resultado é o de antes, três linhas.
-    """
-    topo = geradores[:TOPO_OFENSORES]
-    if not topo:
-        return topo
-    corte = topo[-1].get("ddur")
-    for g in geradores[len(topo):]:
-        if g.get("ddur") != corte:
-            break
-        topo.append(g)
-    return topo
+_MOTIVO_TXT = {
+    "mudou_unidade": "a tarefa trocou de dias úteis para dias corridos (ou o contrário)",
+    "sem_campo":     "o report anterior não tem a duração desta tarefa",
+}
 
 
 def _plural(n: int, singular: str, plural: str) -> str:
