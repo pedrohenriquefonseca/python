@@ -41,6 +41,30 @@ predecessora não se moveu.
 
 ---
 
+## Feito em 30/09/26 — tolerância de um dia só quando ninguém encaixa
+
+O report do Inhotim (atraso de 20 dias) listou a `3a Emissão` da Urbanismo ao
+lado das quatro disciplinas que seguram o término (Geométrico, Terraplanagem,
+Pavimentação, Drenagem). A Análise 03 da Urbanismo termina na sexta 23/10; as
+outras quatro, no sábado 24/10, junto com o marco `Término do Projeto`. A
+Urbanismo tinha um dia de folga real e entrou por dois caminhos: em dia útil,
+sexta e sábado contam como o mesmo ponto, e a tolerância de 1 dia útil aceitava
+o vão de qualquer jeito.
+
+`rede._apertado` virou `rede._folga`, que devolve a folga em vez de sim/não, e
+a varredura agrupa as predecessoras pelo lado que elas governam na sucessora:
+entram as de folga zero; só se nenhuma tiver folga zero entram as que ficam na
+tolerância. Sucessora em dia não útil mede em dias corridos, e marco no FS fica
+no mesmo dia do término da predecessora, sem o -1.
+
+Consultar só o `É Crítico` do Project foi testado e descartado: acerta o
+Inhotim, mas no Palhano (18 dias) não aponta nenhuma ofensora — o Project marca
+como não crítica a Análise do Cliente em dias corridos que termina no sábado, e
+a cadeia crítica se parte ali — e no Cemitério perde a tarefa concluída, que o
+Project nunca marca como crítica.
+
+Nos 12 projetos com base salva só o Inhotim mudou: de 5 para 4 ofensores.
+
 ## Feito em 17/09/26 — o e-mail do Report Fornecedores virou imagem
 
 A tela tinha régua de meses com barras coloridas por fornecedor; o e-mail parava

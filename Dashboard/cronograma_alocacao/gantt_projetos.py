@@ -338,6 +338,13 @@ def extrair_clientes_projetos_json(tarefas):
     for t in tarefas:
         nivel = t.get('outlineLevel')
         nome  = (t.get('name') or '').strip()
+        # Tarefa inativa do Project fica fora (`ativa` ausente conta como ativa).
+        # Cliente inativo zera o cliente atual, para que os projetos abaixo dele
+        # não caiam no cliente anterior.
+        if t.get('ativa') is False:
+            if nivel == 1:
+                cliente_atual = None
+            continue
         if nivel == 1:
             cliente_atual = nome or None
             if cliente_atual and cliente_atual not in clientes_projetos:

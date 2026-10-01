@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Portal de Planejamento de Projetos</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root {
   --bg:#f0f4f8; --white:#fff; --border:#dde3ec;
@@ -90,38 +88,11 @@ a{color:inherit;text-decoration:none;}
 .btn-primary{background:var(--primary);color:#fff;}
 .btn-primary:hover{background:var(--primary-d);}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
-/* Barra de progresso do refresh — faixa fina sob o botão, largura do botão */
-/* Largura fixa: o rótulo troca a cada segundo ("⏳ 42%" → "⏳ 43%") e sem isso
-   o botão — e a barra sob ele — mudariam de tamanho a cada tick. */
-.refresh-wrap{display:flex;flex-direction:column;gap:4px;min-width:140px;}
-.refresh-wrap .btn{width:100%;font-variant-numeric:tabular-nums;}
-.refresh-bar{height:3px;border-radius:2px;background:var(--border);
-  overflow:hidden;opacity:0;transition:opacity .25s;}
-.refresh-bar.on{opacity:1;}
-.refresh-bar-fill{height:100%;width:0;border-radius:2px;
-  background:var(--primary);transition:width .3s ease;}
-.refresh-bar-fill.done{background:var(--green);}
-.refresh-bar-fill.fail{background:var(--red);}
-/* Fase sem denominador conhecido: faixa curta indo e voltando */
-.refresh-bar-fill.indeterminate{width:35%;transition:none;
-  animation:refresh-slide 1.15s ease-in-out infinite;}
-@keyframes refresh-slide{
-  0%{margin-left:-35%;} 100%{margin-left:100%;}
-}
-
 /* FILTER BAR */
 .filter-bar{background:var(--white);border-bottom:1px solid var(--border);
   padding:10px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
-.filter-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap;}
-.filter-pills{display:flex;gap:5px;flex-wrap:wrap;}
-.fpill{padding:4px 12px;border-radius:999px;font-size:.73rem;font-weight:600;
-  cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .15s;}
-.fpill.on{background:var(--primary-lt);border-color:var(--primary);color:var(--primary);}
-.filter-sep{width:1px;height:24px;background:var(--border);}
 select.fselect{padding:5px 10px;border-radius:6px;font-size:.78rem;
   border:1px solid var(--border);background:var(--white);color:var(--text);cursor:pointer;}
-.clear-btn{font-size:.72rem;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:4px;}
-.clear-btn:hover{color:var(--red);background:var(--red-lt);}
 
 /* CONTENT */
 .content{padding:24px 28px;flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:22px;}
@@ -521,11 +492,6 @@ tbody tr:hover td{background:#f8fafc;}
 .client-projects-list{display:flex;flex-direction:column;gap:5px;padding-top:8px;border-top:1px solid var(--border);}
 .client-proj-row{display:flex;align-items:center;justify-content:space-between;font-size:.75rem;}
 
-/* MAP */
-#map-container{height:520px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
-.map-legend{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;font-size:.72rem;color:var(--muted);}
-.map-leg-item{display:flex;align-items:center;gap:6px;}
-
 /* CHARTS */
 .chart-wrap{position:relative;height:200px;}
 .chart-wrap-tall{position:relative;height:260px;}
@@ -910,9 +876,6 @@ tbody tr:hover td{background:#f8fafc;}
     <div class="nav-item" onclick="showView('clientes')" id="nav-clientes">
       <span class="nav-icon">◐</span><span class="nav-label">Por Cliente</span>
     </div>
-    <div class="nav-item" onclick="showView('cidades')" id="nav-cidades">
-      <span class="nav-icon">◫</span><span class="nav-label">Por Cidade</span>
-    </div>
     <div class="nav-section" style="margin-top:8px;">Sistema</div>
     <div class="nav-item" onclick="showView('saude')" id="nav-saude">
       <span class="nav-icon">🩺</span><span class="nav-label">Saúde dos Cronogramas</span>
@@ -950,13 +913,6 @@ tbody tr:hover td{background:#f8fafc;}
         <span id="status-text">Conectando…</span>
       </div>
       <span style="font-size:.72rem;color:var(--muted);" id="last-update"></span>
-      <div class="refresh-wrap">
-        <button class="btn btn-primary" id="refresh-btn" onclick="triggerRefresh()" disabled>↻ Atualizar</button>
-        <div class="refresh-bar" id="refresh-bar" role="progressbar"
-             aria-label="Progresso da atualização do banco de dados" aria-hidden="true">
-          <div class="refresh-bar-fill" id="refresh-bar-fill"></div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -969,13 +925,6 @@ tbody tr:hover td{background:#f8fafc;}
       </div>
       <span class="toggle-label" id="scope-label">Somente correntes</span>
     </div>
-    <div class="filter-sep"></div>
-    <span class="filter-label">Cliente</span>
-    <div class="filter-pills" id="client-filters"></div>
-    <div class="filter-sep"></div>
-    <span class="filter-label">Coordenador</span>
-    <div class="filter-pills" id="coord-filters"></div>
-    <span class="clear-btn" onclick="clearFilters()">✕ Limpar</span>
   </div>
 
   <!-- CONTENT -->
@@ -983,7 +932,6 @@ tbody tr:hover td{background:#f8fafc;}
 
     <!-- VISÃO GERAL -->
     <div class="view active" id="view-overview">
-      <div class="kpi-grid" id="kpi-overview"></div>
       <!-- Linha de Base vs Execução Real — largura total -->
       <div class="card">
         <div class="card-head">
@@ -1061,21 +1009,6 @@ tbody tr:hover td{background:#f8fafc;}
           <div><div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">Variação Média (dias)</div>
             <div class="chart-wrap"><canvas id="chart-client-var"></canvas></div></div>
         </div>
-      </div>
-    </div>
-
-    <!-- POR CIDADE -->
-    <div class="view" id="view-cidades">
-      <div class="kpi-grid" id="kpi-cities" style="grid-template-columns:repeat(4,1fr);"></div>
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <div class="card-title">Distribuição Geográfica de Projetos</div>
-            <div class="card-sub">Tamanho do círculo proporcional ao número de projetos na cidade · Clique para detalhes</div>
-          </div>
-        </div>
-        <div id="map-container"></div>
-        <div class="map-legend" id="map-legend"></div>
       </div>
     </div>
 
@@ -1422,41 +1355,6 @@ tbody tr:hover td{background:#f8fafc;}
 ═══════════════════════════════════════════════════════════════ */
 const API = '';  // Flask corre em localhost:5000, mesmo origin
 
-const CITY_COORDS = {
-  // ── Cidades com projetos Horizontes ────────────────────────────
-  'Belo Horizonte': { lat:-19.9167, lng:-43.9345 },
-  'Brumadinho':     { lat:-20.1417, lng:-44.2017 },
-  'Ourilândia':     { lat:-6.7603,  lng:-51.0806 },  // Ourilândia do Norte – PA
-  'Poços de Caldas':{ lat:-21.7883, lng:-46.5611 },
-  'São Paulo':      { lat:-23.5505, lng:-46.6333 },
-  // ── Outras capitais/cidades (expansão futura) ───────────────────
-  'Porto Alegre':   { lat:-30.0277, lng:-51.2287 },
-  'Florianópolis':  { lat:-27.5954, lng:-48.5480 },
-  'Curitiba':       { lat:-25.4284, lng:-49.2733 },
-  'Rio de Janeiro': { lat:-22.9068, lng:-43.1729 },
-  'Brasília':       { lat:-15.7801, lng:-47.9292 },
-  'Salvador':       { lat:-12.9714, lng:-38.5014 },
-  'Recife':         { lat:-8.0476,  lng:-34.8770 },
-  'Manaus':         { lat:-3.1190,  lng:-60.0217 },
-  'Fortaleza':      { lat:-3.7172,  lng:-38.5434 },
-  'Goiânia':        { lat:-16.6864, lng:-49.2643 },
-  'Vitória':        { lat:-20.3155, lng:-40.3128 },
-  'Belém':          { lat:-1.4558,  lng:-48.5044 },
-  'Campo Grande':   { lat:-20.4697, lng:-54.6201 },
-  'Cuiabá':         { lat:-15.5989, lng:-56.0949 },
-  'Macapá':         { lat:0.0389,   lng:-51.0664 },
-  'Porto Velho':    { lat:-8.7612,  lng:-63.9004 },
-  'Palmas':         { lat:-10.2491, lng:-48.3243 },
-  'Maceió':         { lat:-9.6658,  lng:-35.7350 },
-  'Natal':          { lat:-5.7945,  lng:-35.2110 },
-  'João Pessoa':    { lat:-7.1195,  lng:-34.8450 },
-  'Teresina':       { lat:-5.0919,  lng:-42.8034 },
-  'São Luís':       { lat:-2.5297,  lng:-44.3028 },
-  'Aracaju':        { lat:-10.9472, lng:-37.0731 },
-  'Rio Branco':     { lat:-9.9754,  lng:-67.8249 },
-  'Boa Vista':      { lat:2.8235,   lng:-60.6758 },
-};
-
 const COLOR_PALETTE = [
   { main:'#3b82f6', bg:'#eff6ff', border:'#bfdbfe' },
   { main:'#7c3aed', bg:'#f5f3ff', border:'#ddd6fe' },
@@ -1479,12 +1377,9 @@ const STATUS_CONFIG = {
 let ALL_PROJECTS = [];
 let CLIENT_COLORS = {};
 let _colorIdx = 0;
-let activeClients = new Set();
-let activeCoords  = new Set();
 let activeView = 'overview';
 let onlyActive = true;   // toggle: somente projetos correntes (pctConcluido < 100)
 const charts = {};
-let leafletMap = null;
 let _lastProjData = [];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1641,9 +1536,6 @@ function fmtTimestamp(iso) {
 }
 
 async function loadStatus() {
-  // Enquanto o refresh roda, quem manda no texto é o poll de andamento — senão
-  // o tick de 60 s apagaria o progresso no meio da coleta.
-  if (REFRESH_RUNNING) return;
   try {
     const r = await fetch(API + '/api/status');
     const s = await r.json();
@@ -1663,133 +1555,8 @@ async function loadStatus() {
   } catch (e) { /* ignora */ }
 }
 
-/* ── Refresh com barra de progresso ──────────────────────────────────────────
-   O fetcher publica o andamento em /api/progress a cada avanço; aqui só se
-   desenha. A coleta das tarefas é a única fase com denominador conhecido — nas
-   outras a faixa fica indeterminada. */
-let REFRESH_RUNNING = false;
-const REFRESH_STALL_MS = 180000;   // sem novo andamento por 3 min = travou
-
-function setRefreshBar(mode, pct) {
-  const bar  = document.getElementById('refresh-bar');
-  const fill = document.getElementById('refresh-bar-fill');
-  fill.classList.remove('indeterminate', 'done', 'fail');
-  if (mode === 'off') {
-    bar.classList.remove('on');
-    bar.setAttribute('aria-hidden', 'true');
-    bar.removeAttribute('aria-valuenow');
-    fill.style.width = '0';
-    return;
-  }
-  bar.classList.add('on');
-  bar.setAttribute('aria-hidden', 'false');
-  if (mode === 'indeterminate') {
-    fill.style.width = '';           // devolve a largura ao CSS da animação
-    fill.classList.add('indeterminate');
-    bar.removeAttribute('aria-valuenow');
-    return;
-  }
-  const v = Math.max(0, Math.min(100, Math.round(pct)));
-  fill.style.width = v + '%';
-  bar.setAttribute('aria-valuenow', v);
-  if (mode === 'done') fill.classList.add('done');
-  if (mode === 'fail') fill.classList.add('fail');
-}
-
-function endRefresh(ok, mensagem) {
-  const btn = document.getElementById('refresh-btn');
-  const lu  = document.getElementById('last-update');
-  btn.disabled    = false;
-  btn.textContent = '↻ Atualizar';
-  setRefreshBar(ok ? 'done' : 'fail', 100);
-  lu.textContent  = mensagem;
-  lu.style.color  = ok ? 'var(--green)' : 'var(--red)';
-  if (ok) loadProjects();
-  // Segura o resultado por um instante antes de devolver o topbar ao normal.
-  setTimeout(() => {
-    setRefreshBar('off');
-    REFRESH_RUNNING = false;
-    loadStatus();
-  }, 2500);
-}
-
-async function triggerRefresh() {
-  const btn = document.getElementById('refresh-btn');
-  const lu  = document.getElementById('last-update');
-  btn.disabled    = true;
-  btn.textContent = '⏳ Atualizando…';
-  REFRESH_RUNNING = true;
-  setRefreshBar('indeterminate');
-  lu.textContent = 'Iniciando coleta…';
-  lu.style.color = 'var(--muted)';
-  hideError();
-
-  let runId = null;
-  try {
-    const r = await fetch(API + '/api/refresh', { method: 'POST' });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || r.statusText);
-    runId = j.run_id || null;
-  } catch (e) {
-    showError('Falha ao acionar refresh: ' + e.message);
-    endRefresh(false, 'Não foi possível iniciar a coleta');
-    return;
-  }
-
-  let ultimoAvanco = Date.now();
-  let assinatura   = '';
-  const poll = setInterval(async () => {
-    let p;
-    try {
-      const r = await fetch(API + '/api/progress');
-      p = await r.json();
-    } catch (e) { return; }          // hipo de rede: tenta de novo no próximo tick
-
-    // Andamento de outro run (sobra de uma coleta anterior) não conta.
-    if (runId && p.run_id !== runId) {
-      if (Date.now() - ultimoAvanco > REFRESH_STALL_MS) {
-        clearInterval(poll);
-        endRefresh(false, 'A coleta não deu sinal — confira data/fetcher.log');
-      }
-      return;
-    }
-
-    const nova = `${p.fase}|${p.feito}|${p.total}|${p.atualizado_em || ''}`;
-    if (nova !== assinatura) { assinatura = nova; ultimoAvanco = Date.now(); }
-
-    if (p.fase === 'concluido') {
-      clearInterval(poll);
-      endRefresh(true, p.rotulo || 'Coleta concluída');
-      return;
-    }
-    if (p.fase === 'erro') {
-      clearInterval(poll);
-      showError(p.rotulo || 'A coleta falhou.');
-      endRefresh(false, p.rotulo || 'A coleta falhou');
-      return;
-    }
-
-    if (p.total > 0) {
-      const pct = (p.feito / p.total) * 100;
-      setRefreshBar('determinate', pct);
-      btn.textContent = '⏳ ' + Math.round(pct) + '%';
-    } else {
-      setRefreshBar('indeterminate');
-      btn.textContent = '⏳ Atualizando…';
-    }
-    lu.textContent = p.rotulo || 'Coletando…';
-    lu.style.color = 'var(--muted)';
-
-    if (Date.now() - ultimoAvanco > REFRESH_STALL_MS) {
-      clearInterval(poll);
-      endRefresh(false, 'A coleta parou de responder — confira data/fetcher.log');
-    }
-  }, 1000);
-}
-
 async function loadProjects() {
   setLoading(true, 'Carregando dados…');
-  document.getElementById('refresh-btn').disabled = true;
   setStatus('loading', 'Carregando…');
   hideError();
 
@@ -1798,7 +1565,7 @@ async function loadProjects() {
     if (resp.status === 503) {
       const err = await resp.json();
       setStatus('err', 'Sem dados');
-      showError(err.error || 'Nenhum snapshot disponível. Rode python fetcher.py.');
+      showError(err.error || 'Nenhum cronograma carregado no site.');
       return;
     }
     if (!resp.ok) {
@@ -1821,7 +1588,6 @@ async function loadProjects() {
       scopeLbl.textContent = 'Exibir todos os projetos';
     }
 
-    buildFilterBar();
     setStatus('ok', 'Dados carregados');
     const now = new Date();
     document.getElementById('view-sub').textContent =
@@ -1835,92 +1601,12 @@ async function loadProjects() {
     console.error(err);
   } finally {
     setLoading(false);
-    document.getElementById('refresh-btn').disabled = false;
   }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   FILTER BAR DINÂMICA
+   FILTRO — só o escopo (projetos em andamento ou todos)
 ═══════════════════════════════════════════════════════════════ */
-function buildFilterBar() {
-  const scopeProjects = onlyActive ? ALL_PROJECTS.filter(p => p.pctConcluido < 100) : ALL_PROJECTS;
-  const clients = [...new Set(scopeProjects.map(p => p.client))].sort();
-  const coords  = [...new Set(scopeProjects.map(p => p.coordenador))].sort();
-  // Sincroniza sets ativos com escopo atual
-  activeClients = new Set(clients);
-  activeCoords  = new Set(coords);
-
-  // Pills de clientes (coloridas)
-  document.getElementById('client-filters').innerHTML = clients.map(cl => {
-    const col = clientColor(cl);
-    return `<button class="fpill on" data-client="${cl}" onclick="toggleClient(this)">${cl}</button>`;
-  }).join('');
-  document.querySelectorAll('#client-filters .fpill.on').forEach(b => {
-    const col = clientColor(b.dataset.client);
-    b.style.background  = col.bg;
-    b.style.borderColor = col.main;
-    b.style.color       = col.main;
-  });
-
-  // Pills de coordenadores (estilo neutro)
-  document.getElementById('coord-filters').innerHTML = coords.map(co =>
-    `<button class="fpill on" data-coord="${co}" onclick="toggleCoord(this)">${co}</button>`
-  ).join('');
-  document.querySelectorAll('#coord-filters .fpill.on').forEach(b => {
-    b.style.background  = '#eff6ff';
-    b.style.borderColor = '#3b82f6';
-    b.style.color       = '#1d4ed8';
-  });
-}
-
-function toggleClient(btn) {
-  const cl = btn.dataset.client;
-  const col = clientColor(cl);
-  if (activeClients.has(cl)) {
-    if (activeClients.size === 1) return;
-    activeClients.delete(cl);
-    btn.classList.remove('on');
-    btn.style.background = '';
-    btn.style.borderColor = '';
-    btn.style.color = '';
-  } else {
-    activeClients.add(cl);
-    btn.classList.add('on');
-    btn.style.background  = col.bg;
-    btn.style.borderColor = col.main;
-    btn.style.color       = col.main;
-  }
-  applyFilters();
-}
-
-function toggleCoord(btn) {
-  const co = btn.dataset.coord;
-  if (activeCoords.has(co)) {
-    if (activeCoords.size === 1) return;
-    activeCoords.delete(co);
-    btn.classList.remove('on');
-    btn.style.background = '';
-    btn.style.borderColor = '';
-    btn.style.color = '';
-  } else {
-    activeCoords.add(co);
-    btn.classList.add('on');
-    btn.style.background  = '#eff6ff';
-    btn.style.borderColor = '#3b82f6';
-    btn.style.color       = '#1d4ed8';
-  }
-  renderCurrentView();
-}
-
-function applyFilters() {
-  renderCurrentView();
-}
-
-function clearFilters() {
-  buildFilterBar();   // reconstrói pills com tudo ativo
-  renderCurrentView();
-}
-
 function toggleScope() {
   onlyActive = !onlyActive;
   const wrap = document.getElementById('scope-toggle');
@@ -1932,17 +1618,11 @@ function toggleScope() {
     wrap.classList.remove('on');
     lbl.textContent = 'Exibir todos os projetos';
   }
-  // Reconstrói os filtros de cliente com o novo escopo
-  buildFilterBar();
-  applyFilters();
+  renderCurrentView();
 }
 
 function getFiltered() {
-  return ALL_PROJECTS.filter(p =>
-    (!onlyActive  || p.pctConcluido < 100) &&
-    activeClients.has(p.client) &&
-    activeCoords.has(p.coordenador)
-  );
+  return ALL_PROJECTS.filter(p => !onlyActive || p.pctConcluido < 100);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1952,7 +1632,6 @@ const VIEW_META = {
   overview:   { title:'Visão Geral',              sub:'' },
   projetos:   { title:'Por Projeto',              sub:'Cronograma completo com Gantt' },
   clientes:   { title:'Por Cliente',              sub:'Métricas agregadas por cliente' },
-  cidades:    { title:'Por Cidade',               sub:'Distribuição geográfica dos projetos' },
   saude:      { title:'Saúde dos Cronogramas',    sub:'Qualidade estrutural da rede de dependências' },
   saudeproj:  { title:'Saúde do Cronograma',      sub:'Análise de um projeto' },
   report:     { title:'Report Semanal',           sub:'' },
@@ -1962,7 +1641,7 @@ const VIEW_META = {
   ferias:     { title:'Anotação de Férias',        sub:'' },
 };
 
-// A barra de filtros (cliente/coordenador) não se aplica a estas views.
+// A barra (só o toggle de projetos em andamento) não se aplica a estas views.
 const TOOL_VIEWS = new Set(['report','repfor','desembolso','cronograma','ferias','saude','saudeproj']);
 // Views sem item próprio no menu: qual item fica aceso enquanto elas estão abertas.
 const NAV_ALIAS = { saudeproj: 'saude' };
@@ -2008,31 +1687,6 @@ function renderCurrentView() {
   if (activeView === 'overview') renderOverview(data);
   if (activeView === 'projetos') renderProjetos(data);
   if (activeView === 'clientes') renderClientes(data);
-  if (activeView === 'cidades')  renderCidades(data);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   KPI CARDS
-═══════════════════════════════════════════════════════════════ */
-function renderKPIs(data, containerId, extra) {
-  const ok   = data.filter(p => p.status === 'ok').length;
-  const late = data.filter(p => p.status === 'late').length;
-  const warn = data.filter(p => p.status === 'warning').length;
-  const adhAvg = avg(data, p => p.adh).toFixed(0);
-  const varAvg = avg(data, p => p.variance).toFixed(1);
-  const cards = [
-    { c:'c-blue',   lbl:'Projetos',        val:data.length, sub:`${ok} no prazo · ${warn} atenção · ${late} atraso` },
-    { c:'c-green',  lbl:'Aderência Média', val:`${adhAvg}%`, sub:'Aderência ao planejamento' },
-    { c:'c-yellow', lbl:'Variação Média',  val:`+${varAvg} d`, sub:'Dias corridos de atraso' },
-    { c:'c-red',    lbl:'Atrasados',       val:late, sub:'Acima de 10 dias corridos' },
-    ...(extra || [{ c:'c-gray', lbl:'Cidades', val:new Set(data.map(p=>p.city)).size, sub:'Municípios cobertos' }]),
-  ];
-  document.getElementById(containerId).innerHTML = cards.map(k =>
-    `<div class="kpi ${k.c}">
-      <div class="kpi-lbl">${k.lbl}</div>
-      <div class="kpi-val">${k.val}</div>
-      <div class="kpi-sub">${k.sub}</div>
-    </div>`).join('');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2130,7 +1784,6 @@ function renderTimeline(data) {
    VISÃO GERAL
 ═══════════════════════════════════════════════════════════════ */
 function renderOverview(data) {
-  renderKPIs(data, 'kpi-overview');
   renderTimeline(data);
 
   const clients        = [...new Set(data.map(p => p.client))];
@@ -3260,83 +2913,6 @@ function prosaMelhor(p, inds) {
                   : `, o único ponto que ainda pode esconder uma causa.`);
   }
   return txt;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   POR CIDADE — mapa Leaflet
-═══════════════════════════════════════════════════════════════ */
-function renderCidades(data) {
-  const cityMap = {};
-  data.forEach(p => {
-    if (!cityMap[p.city]) cityMap[p.city] = { projects:[], clients:new Set() };
-    cityMap[p.city].projects.push(p);
-    cityMap[p.city].clients.add(p.client);
-  });
-  const cities = Object.keys(cityMap);
-  const maxCount = Math.max(1, ...cities.map(c => cityMap[c].projects.length));
-
-  const topCity = cities.sort((a,b) => cityMap[b].projects.length - cityMap[a].projects.length)[0];
-  document.getElementById('kpi-cities').innerHTML = `
-    <div class="kpi c-blue"><div class="kpi-lbl">Cidades</div><div class="kpi-val">${cities.length}</div><div class="kpi-sub">Municípios cobertos</div></div>
-    <div class="kpi c-green"><div class="kpi-lbl">Maior Concentração</div><div class="kpi-val" style="font-size:1.1rem;padding-top:5px;">${topCity||'—'}</div><div class="kpi-sub">${topCity?cityMap[topCity].projects.length:0} projeto(s)</div></div>
-    <div class="kpi c-yellow"><div class="kpi-lbl">Média por Cidade</div><div class="kpi-val">${(data.length/Math.max(1,cities.length)).toFixed(1)}</div><div class="kpi-sub">Projetos / cidade</div></div>
-    <div class="kpi c-gray"><div class="kpi-lbl">Clientes</div><div class="kpi-val">${new Set(data.map(p=>p.client)).size}</div><div class="kpi-sub">Clientes ativos</div></div>`;
-
-  if (!leafletMap) {
-    leafletMap = L.map('map-container', { zoomControl:true }).setView([-15.5, -50], 4);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution:'© OpenStreetMap © CartoDB', maxZoom:18
-    }).addTo(leafletMap);
-  } else {
-    leafletMap.eachLayer(l => { if (l instanceof L.CircleMarker || l instanceof L.Marker) leafletMap.removeLayer(l); });
-  }
-
-  const boundsArr = [];
-
-  cities.forEach(cityName => {
-    const coord = CITY_COORDS[cityName];
-    if (!coord) { console.warn('Cidade sem coordenada:', cityName); return; }
-    const info  = cityMap[cityName];
-    const count = info.projects.length;
-    const radius = 8 + (count / maxCount) * 30;
-    const adhAvg = avg(info.projects, p => p.adh);
-    const lateCount = info.projects.filter(p => p.status==='late').length;
-    const clientList = [...info.clients].map(c => `<span style="color:${clientColor(c).main};font-weight:600;">${c}</span>`).join(', ');
-
-    boundsArr.push([coord.lat, coord.lng]);
-
-    L.circleMarker([coord.lat, coord.lng], {
-      radius, fillColor:'#4f46e5', color:'#fff', weight:2, fillOpacity:.75
-    }).bindPopup(`<div style="font-size:13px;min-width:180px;line-height:1.6;">
-      <strong>${cityName}</strong><br/>
-      ${count} projeto(s)<br/>
-      ${clientList}<br/>
-      Aderência média: <strong>${adhAvg.toFixed(0)}%</strong><br/>
-      <span style="color:${lateCount>0?'#dc2626':'#16a34a'};">${lateCount} atrasado(s)</span>
-    </div>`).addTo(leafletMap);
-
-    L.marker([coord.lat, coord.lng], {
-      icon: L.divIcon({
-        html:`<div style="background:white;border:1px solid #dde3ec;border-radius:4px;
-          padding:2px 5px;font-size:10px;font-weight:600;color:#1e293b;
-          white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.12);">${cityName}</div>`,
-        className:'', iconAnchor:[0, -radius - 4]
-      })
-    }).addTo(leafletMap);
-  });
-
-  // Enquadra o mapa automaticamente nas cidades com projetos
-  if (boundsArr.length === 1) {
-    leafletMap.setView(boundsArr[0], 8);
-  } else if (boundsArr.length > 1) {
-    leafletMap.fitBounds(boundsArr, { padding:[50, 50] });
-  }
-
-  document.getElementById('map-legend').innerHTML = `
-    <div class="map-leg-item"><span style="width:12px;height:12px;border-radius:50%;background:#4f46e5;display:inline-block;"></span>Cidade com projetos</div>
-    <div class="map-leg-item" style="font-style:italic;">Tamanho proporcional ao nº de projetos</div>`;
-
-  setTimeout(() => leafletMap.invalidateSize(), 100);
 }
 
 /* ═══════════════════════════════════════════════════════════════

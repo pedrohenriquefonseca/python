@@ -1,11 +1,9 @@
 """
 Servidor Flask para o PMO Dashboard.
 
-Não chama mais o PWA diretamente — lê os snapshots gerados por fetcher.py.
-Tudo do dashboard fica instantâneo (lê de disco).
-
-Para atualizar os dados manualmente: POST /api/refresh (chama fetcher.py).
-Para fluxo automático: Windows Task Scheduler roda fetcher.py 3x/dia.
+Lê os cronogramas gravados em data/. A Microsoft encerrou o PWA em 01/10/26:
+a coleta (fetcher.py) e o botão Atualizar saíram de uso, e os dados de data/
+são os da última coleta, até a importação de .mpp substituí-la.
 """
 import io
 import json
@@ -151,8 +149,7 @@ def projects():
     data = _read_json(DATA_DIR / "projects.json", None)
     if data is None:
         return jsonify({
-            "error": "Nenhum snapshot disponível. Rode fetcher.py ou aguarde "
-                     "a próxima execução agendada.",
+            "error": "Nenhum cronograma carregado no site.",
         }), 503
     # O projeto mestre consolidado só deve aparecer na aba Cronogramas de Alocação.
     if isinstance(data, list):
@@ -177,23 +174,6 @@ def status():
         "finished_at": None,
         "projects": 0,
         "tasks": 0,
-    }))
-
-
-@app.route("/api/progress")
-def progress():
-    """Andamento do fetcher em curso (alimenta a barra do botão Atualizar).
-
-    Quem escreve é o fetcher; aqui só se repassa o arquivo. Sem arquivo, devolve
-    um andamento vazio — é o estado normal entre coletas.
-    """
-    return jsonify(_read_json(DATA_DIR / "fetch_progress.json", {
-        "run_id": None,
-        "fase":   "ocioso",
-        "rotulo": "",
-        "feito":  0,
-        "total":  0,
-        "ativo":  False,
     }))
 
 
@@ -233,47 +213,6 @@ def keepalive():
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-@app.route("/api/refresh", methods=["POST"])
-def refresh():
-    """Dispara o fetcher manualmente em background. Útil para forçar refresh.
-
-    O andamento inicial é gravado aqui, antes do Popen: o processo leva alguns
-    segundos para subir e escrever o primeiro progresso, e sem isso a barra
-    ficaria parada na sobra do run anterior. O run_id devolvido é o que o browser
-    usa para reconhecer o andamento deste run — e ignorar o de qualquer outro.
-    """
-    from datetime import datetime
-
-    run_id = datetime.now().isoformat(timespec="seconds")
-    try:
-        progresso = DATA_DIR / "fetch_progress.json"
-        tmp = progresso.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps({
-            "run_id":        run_id,
-            "fase":          "iniciando",
-            "rotulo":        "Iniciando coleta…",
-            "feito":         0,
-            "total":         0,
-            "ativo":         True,
-            "atualizado_em": run_id,
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(progresso)
-    except Exception as exc:
-        # Andamento é acessório — a coleta vale mais que a barra.
-        log.warning("Não foi possível gravar o andamento inicial: %s", exc)
-
-    try:
-        subprocess.Popen(
-            [sys.executable, str(HERE / "fetcher.py"), "--run-id", run_id],
-            cwd=str(HERE),
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-        )
-        return jsonify({"started": True, "run_id": run_id})
-    except Exception as exc:
-        log.error("Erro ao iniciar fetcher: %s", exc)
-        return jsonify({"error": str(exc)}), 500
 
 
 # ── Ferramentas (GUI integrado) ───────────────────────────────────────────────

@@ -7,6 +7,35 @@ Esse documento contém TUDO que foi descoberto durante a integração do dashboa
 com o Microsoft Project Online (PWA). Use isso como referência única se for
 recriar o projeto.
 
+!! 01/10/26 — A MICROSOFT ENCERROU O PWA !!
+O site não tem mais de onde coletar. A última coleta completa é de 01/10/26
+09:53 (13 projetos, 5700 tarefas) e tem cópia em
+data/_backup_ultimo_pwa_2026-10-01. O botão "Atualizar", a barra de progresso e
+as rotas /api/refresh e /api/progress foram removidos; a tarefa agendada
+PMO_Dashboard_Fetcher já estava desativada. fetcher.py e pwa_client.py ficam
+no repositório só como referência do formato de data/*.json.
+Caminho escolhido: o usuário envia o .mpp de cada projeto ao site, que o lê
+pelo Microsoft Project instalado na máquina (automação COM) e regrava
+data/tasks_<pid>.json no mesmo formato. Leitura testada com um .mpp em
+01/10/26: datas, níveis, duração, marcos, recursos e vínculos saem do arquivo.
+Comparação de 01/10/26 entre os 13 .mpp salvos do PWA (Desktop, 11:08-11:23) e
+o último snapshot: mesmas tarefas, mesma ordem, mesmo nome e nível em 12 dos 13
+(a BM Prodemge tem uma tarefa renomeada/movida depois da publicação). Datas,
+linha de base, %, recursos, duração (unidade inclusa), marcos, restrições e
+vínculos idênticos; Cliente/Coordenador/Cidade/Número saem do .mpp (campos de
+projeto). Exceções: Palhano com um vínculo a menos no .mpp (edição posterior à
+publicação) e Edson Pisani 1 dia adiantada no fim — o .mpp usa o calendário
+"Padrão" local, sem feriados (02/11 útil); os outros 12 usam "Horizontes
+Arquitetura".
+GUID: o "Salvar como" do PWA para .mpp gerou GUIDs novos em todas as tarefas.
+Teste numa cópia: editar + Salvar MANTÉM os GUIDs; Salvar Como GERA NOVOS. Daí:
+(1) na migração, as bases dos reports precisam ter os ids traduzidos PWA->mpp
+pela posição (que bate 100% em 12 projetos); (2) a importação não pode depender
+só do GUID — precisa casar por nome/nível/posição quando ele mudar.
+Leitura via COM: campo de duração = FieldNameToFieldConstant("Duração") ("68
+dias" = útil, "14 diasd" = corrido); script PowerShell com acento precisa ser
+salvo em UTF-8 com BOM (PowerShell 5.1).
+
 
 ================================================================================
   1. OBJETIVO E CONTEXTO
@@ -376,7 +405,7 @@ TAREFA (10 campos):
 C:\Apps Python\Repos\Python\Dashboard\
 ├── pwa_client.py        — Cliente HTTP, MSAL auth, fetch_projects, fetch_tasks
 ├── app.py               — Flask: rotas /api/projects, /api/tasks/<id>, /api/auth/*
-├── index.html           — Frontend (Chart.js + Leaflet)
+├── index.html           — Frontend (Chart.js)
 ├── fetcher.py           — Job batch que roda 3x/dia e gera data/*.json
 ├── report_base.py       — O cronograma como estava no último report gerado
 ├── export_campos.py     — Dump dos custom fields do PWA para planilha
@@ -659,23 +688,18 @@ TABELA (coluna esquerda do Gantt)
 
 
 ================================================================================
-  20. ABA "POR CIDADE" — MAPA LEAFLET (estado atual da UI)
+  20. ABA "POR CIDADE" — RETIRADA EM 24/09/26
 ================================================================================
 
-CITY_COORDS (coordenadas cadastradas):
-  Belo Horizonte    → (-19.9167, -43.9345)
-  São Paulo         → (-23.5505, -46.6333)
-  Brumadinho        → (-20.1417, -44.2017)
-  Ourilândia (PA)   → (-6.7603,  -51.0806)  ← região Vale/Carajás
-  Poços de Caldas   → (-21.7883, -46.5611)
-  Mário Campos      → (ver código — ainda não cadastrado)
-  + 20 capitais adicionadas para expansão futura
+A aba com o mapa Leaflet saiu do portal a pedido: menu, tela, CITY_COORDS,
+renderCidades() e o carregamento do Leaflet. O campo Cidade continua vindo do
+PWA e aparece no detalhe do projeto.
 
-COMPORTAMENTO DO MAPA
-  fitBounds automático: o mapa sempre enquadra TODAS as cidades com projetos.
-  Círculos: cor única #4f46e5 (removida codificação por aderência).
-  Tamanho proporcional ao nº de projetos: radius = 8 + (count/maxCount) * 30
-  console.warn emitido para cidades sem coordenada cadastrada.
+Na mesma data a Visão Geral perdeu os cards de KPI do topo (e com eles o
+renderKPIs, que só ela usava), e a barra de filtros perdeu os filtros de
+Cliente e Coordenador (pills, "Limpar", buildFilterBar, toggleClient/Coord).
+Sobrou só o toggle de projetos em andamento / todos, que aparece em Visão
+Geral, Por Projeto e Por Cliente; getFiltered() filtra apenas por ele.
 
 
 ================================================================================
@@ -865,13 +889,35 @@ quem AUMENTOU A DURACAO no caminho.
 
 Ofensor e quem aumentou a duracao dentro dessa rede. Tarefa que so foi
 deslocada por inteiro herdou o atraso, nao o produziu. Marco (duracao zero)
-nunca e ofensor: a varredura atravessa ele.
+so transmite o atraso, salvo o marco INCLUIDO desde o ultimo report que e a
+origem do empurrao (nada antes dele atrasou): ai e ofensor (01/10/26).
+
+TAREFA RECRIADA NAO E TAREFA NOVA (01/10/26)
+--------------------------------------------
+No 2525 (Palhano), report de 01/10 contra 18/09: Irrigacao e Terraplanagem do
+Campo de Futebol foram apagadas e refeitas no Project. Tarefa refeita ganha
+GUID novo, e o report acusou as duas como "incluidas". E a causa real (a
+Aprovacao TAC02 do Cliente, marco novo em 16/10 que segura Geometrico e
+Pavimentacao) sumia, porque marco nunca entrava na lista.
+Correcoes: comparador.parear agora tem segunda passada: tarefa sem par pelo id
+que ocupa o mesmo lugar (logo depois da mesma tarefa sobrevivente) e tem a
+mesma forma (unidade de duracao; nome e nivel quando a base tem) e a mesma
+tarefa. A base (report_base.CAMPOS) passou a guardar nome e nivel. E o marco
+incluido que origina o empurrao entra como ofensor. Rodado nos 12 projetos com
+base: so o 2525 mudou. Os outros 12 dias do aumento no 2525 sao o recesso de
+fim de ano (Planilhas de Quantidades empurradas para 18/12-05/01, mesma
+duracao) e nao tem responsavel.
 
 Vinculo empurrou quando (1) o lado da sucessora que ele governa andou para
 depois, (2) o lado da predecessora que ele le tambem andou, e (3) ele esta
 justo hoje: folga em dias uteis (feriados nacionais descontados, lag incluido)
 de no maximo rede.TOL_UTEIS = 1, que absorve feriado municipal e recesso.
-Vale para FS, SS, FF e SF. Chegando a uma tarefa pelo inicio (SS/SF), a duracao
+A tolerancia so vale quando nenhuma predecessora do mesmo lado encaixa com
+folga zero: se alguma encaixa, e ela que segura a data. Sucessora em dia nao
+util (sabado, por cadeia em dias corridos) mede a folga em dias corridos, e
+marco no FS fica no mesmo dia da predecessora (30/09/26, caso Inhotim: a
+Urbanismo terminava um dia antes das quatro disciplinas que seguravam o
+termino e saia como ofensora). Vale para FS, SS, FF e SF. Chegando a uma tarefa pelo inicio (SS/SF), a duracao
 dela nao conta. Vinculo com resumo vale para todas as filhas que coincidem com
 ele; vinculo no resumo de cima vale para as filhas. Tarefa nova no caminho
 entra com a duracao inteira; tarefa sem duracao comparavel entra nomeada, sem

@@ -134,6 +134,10 @@ def de_base(tarefas: list[dict]) -> list[dict]:
     """
     return [{
         "id":      str(t.get("id")) if t.get("id") else None,
+        # Nome e nível só existem nas bases gravadas a partir de 01/10/26; servem
+        # para reconhecer tarefa recriada no Project (ver `parear`).
+        "nome":    t.get("name"),
+        "nivel":   t.get("level"),
         "inicio":  t.get("start"),
         "termino": t.get("end"),
         "duracao":   t.get("duracao"),
@@ -230,25 +234,60 @@ def _variacao_duracao(a: dict, b: dict) -> tuple[int | None, str | None, str | N
 # ── Pareamento ────────────────────────────────────────────────────────────────
 
 def parear(anterior: list[dict], atual: list[dict]) -> dict:
-    """Casa as tarefas das duas versões pelo id.
+    """Casa as tarefas das duas versões: pelo id e, na falta dele, pelo lugar.
 
-    O GUID da tarefa é estável entre publicações do Project Server, e os dois
-    lados vêm do PWA. Tarefa sem id só aconteceria por dado corrompido: entra
-    como removida ou inserida, e a seção avisa.
+    O GUID é estável entre publicações, mas morre quando a tarefa é apagada e
+    refeita (ou copiada e colada) no Project. Foi o que aconteceu no Palhano em
+    09/26: Irrigação e Terraplanagem do Campo de Futebol foram refeitas no mesmo
+    lugar, e o report as anunciou como "incluídas".
+
+    Daí a segunda passada: entre as que sobraram, a tarefa que ocupa o mesmo
+    lugar (logo depois da mesma tarefa que sobreviveu) e tem a mesma forma
+    (unidade de duração; nome e nível quando a base os tem) é a mesma tarefa.
     """
     indice: dict[str, list[int]] = {}
     for i, t in enumerate(atual):
         if t["id"]:
             indice.setdefault(t["id"], []).append(i)
 
-    pares, removidas, usados = [], [], set()
-    for a in anterior:
+    par_de: dict[int, int] = {}            # posição em `anterior` -> em `atual`
+    usados: set[int] = set()
+    for j, a in enumerate(anterior):
         cands = [i for i in indice.get(a["id"], []) if i not in usados] if a["id"] else []
         if cands:
             usados.add(cands[0])
-            pares.append((a, atual[cands[0]]))
-        else:
-            removidas.append(a)
+            par_de[j] = cands[0]
+
+    # Sobras agrupadas pela última tarefa pareada pelo id antes delas.
+    def lugares(lista, pareada):
+        grupos, ancora = {}, None
+        for k, t in enumerate(lista):
+            if pareada(k):
+                ancora = t["id"]
+            else:
+                grupos.setdefault(ancora, []).append(k)
+        return grupos
+    sobra_ant = lugares(anterior, lambda j: j in par_de)
+    sobra_atu = lugares(atual, lambda i: i in usados)
+
+    def mesma_forma(a, b):
+        if a.get("duracaoUn") != b.get("duracaoUn"):
+            return False
+        return all(a.get(c) is None or a.get(c) == b.get(c) for c in ("nome", "nivel"))
+
+    for ancora, js in sobra_ant.items():
+        livres = sobra_atu.get(ancora, [])
+        p = 0
+        for j in js:
+            for q in range(p, len(livres)):
+                if mesma_forma(anterior[j], atual[livres[q]]):
+                    par_de[j] = livres[q]
+                    usados.add(livres[q])
+                    p = q + 1
+                    break
+
+    pares = [(anterior[j], atual[i]) for j, i in sorted(par_de.items())]
+    removidas = [a for j, a in enumerate(anterior) if j not in par_de]
     inseridas = [t for i, t in enumerate(atual) if i not in usados]
     return {"pares": pares, "removidas": removidas, "inseridas": inseridas}
 
@@ -398,6 +437,10 @@ def secao_semanal(r: dict, data_ant: str) -> str:
             # culpadas pela ordem em que o Project as devolvia.
             for g in ger:
                 nome = g.get("rotulo") or g["nome"]
+                if g.get("tipo") == "nova" and g.get("marco"):
+                    L.append("- %s: Marco incluído desde o último report, em %s."
+                             % (nome, br(g.get("termino"))))
+                    continue
                 if g.get("tipo") == "nova":
                     L.append("- %s: Tarefa incluída desde o último report%s."
                              % (nome, ", com duração de %s"

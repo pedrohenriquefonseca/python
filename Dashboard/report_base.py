@@ -12,12 +12,11 @@ decide se aquele relatório entra na história do projeto. Report tirado para
 outro fim — conferir uma dúvida, uma reunião fora de época — passa sem tocar
 nesta base, e o próximo comparativo continua partindo do último report salvo.
 
-data/report_base_<pid>.json guarda CINCO campos por tarefa: id, start, end,
-duracao e duracaoUn. São os únicos que a comparação lê do lado antigo — o
-pareamento é por id (GUID estável entre publicações, imune a renomeação) e a
-variação é de datas e de duração. Nome, recurso, nível e hierarquia saem sempre
-do cronograma ATUAL, que é quem escreve o rótulo de cada linha do relatório;
-guardá-los aqui seria copiar dado que ninguém lê.
+data/report_base_<pid>.json guarda por tarefa: id, nome, nível, start, end,
+duracao e duracaoUn. O pareamento é por id (GUID estável entre publicações,
+imune a renomeação); nome e nível servem para reconhecer a tarefa que foi
+apagada e refeita no Project, que volta com GUID novo. O rótulo de cada linha
+do relatório sai sempre do cronograma ATUAL.
 
 A duração entrou depois dos outros três, e em duas etapas. Primeiro como número
 solto — antes disso o lado antigo só tinha datas, e o aumento de duração era
@@ -46,7 +45,9 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent / "data"
 
-CAMPOS = ("id", "start", "end", "duracao", "duracaoUn")
+# Nome e nível entraram em 01/10/26: sem eles, uma tarefa apagada e refeita no
+# Project (GUID novo) só podia ser reconhecida pelo lugar e pela unidade.
+CAMPOS = ("id", "name", "level", "start", "end", "duracao", "duracaoUn")
 
 
 def _caminho(pid: str) -> Path:

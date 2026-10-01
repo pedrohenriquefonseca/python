@@ -43,7 +43,7 @@ Três condições, todas no vínculo:
   2. o lado da predecessora que o vínculo lê também andou para depois (o
      término no FS e no FF, o início no SS e no SF);
   3. o vínculo está justo HOJE: a sucessora está onde o vínculo a coloca, sem
-     folga entre as duas (`_apertado`).
+     folga entre as duas (`_folga`).
 
 A primeira versão pedia, no lugar da 3, que os dois deslocamentos tivessem o
 mesmo tamanho. Isso perdia a predecessora que andou 10 dias quando a sucessora,
@@ -56,6 +56,12 @@ snapshot não traz o calendário do projeto, feriado municipal e recesso da
 empresa ficariam de fora: por isso a tolerância de um dia útil (TOL_UTEIS).
 Medido nos cronogramas em 24/09/26, os vãos de um dia útil nos vínculos FS sem
 lag caem em 12/10, 02/11 e 20/11, e também em 26/10, que não é nacional.
+
+A tolerância só entra quando nenhuma predecessora do mesmo lado encaixa
+exatamente. Se alguma encaixa, é ela que segura a data, e a que termina um dia
+antes tem folga de verdade. Sem essa regra, no Inhotim (29/09/26) a Urbanismo,
+um dia fora do caminho crítico, saiu como ofensora ao lado das quatro que
+seguravam o término.
 
 O lado por onde se chega importa
 --------------------------------
@@ -71,7 +77,9 @@ Resumos, marcos e tarefas novas
   as que terminam no mesmo dia; no início, as que começam no mesmo dia. Todas,
   não só a primeira. E o vínculo que o Project põe num resumo vale para as
   filhas, então a varredura lê também os vínculos dos ancestrais de cada tarefa.
-- Marco não tem duração: transmite o deslocamento e nunca é ofensor.
+- Marco não tem duração: transmite o deslocamento. Só é ofensor quando foi
+  incluído desde o último report E é a origem do empurrão (uma aprovação nova
+  que nada antes dela atrasou).
 - Tarefa incluída desde o último report não tem par na base. Se ela está no
   caminho, a duração inteira dela foi acrescida ao prazo: entra como ofensora,
   com a sua própria linha.
@@ -199,20 +207,29 @@ _CAMPO = {"ini": "start", "fim": "end"}
 _DELTA = {"ini": "dini", "fim": "dfim"}
 
 
-def _apertado(pred: dict, suc: dict, tipo: str, lag: float) -> bool:
-    """A sucessora está onde o vínculo a põe, sem folga (até TOL_UTEIS)?
+def _folga(pred: dict, suc: dict, tipo: str, lag: float) -> float | None:
+    """Quanto a sucessora está depois de onde o vínculo a põe. Zero ou menos é justo.
 
     No FS a sucessora começa no dia útil SEGUINTE ao término da predecessora,
     daí o -1: vão zero é "dia útil seguinte". Nos outros tipos as duas datas
     coincidem. Vão negativo (sobreposição) conta como justo: é tarefa já
     iniciada, ou lag negativo, e quem filtra isso é o deslocamento.
+
+    Sucessora num dia que não é útil (sábado, domingo, feriado) só chegou lá
+    por uma cadeia em dias corridos, e ali a conta é em dias corridos: em dia
+    útil, sexta e sábado são o mesmo ponto. No Inhotim (29/09/26) o Término do
+    Projeto caiu num sábado, empurrado pelas Análises de quatro disciplinas; a
+    Análise da Urbanismo terminava na sexta e entrava como justa. Marco no FS
+    fica no mesmo dia do término da predecessora, sem o -1.
     """
     lp, ls = LADOS[tipo]
     a, b = _data(pred.get(_CAMPO[lp])), _data(suc.get(_CAMPO[ls]))
     if not a or not b:
-        return False
-    vao = _uteis(a, b) - (1 if tipo in ("FS", "SF") else 0)
-    return vao <= (lag or 0) + TOL_UTEIS
+        return None
+    vao = _uteis(a, b) if _util(b) else (b - a).days
+    if tipo in ("FS", "SF") and not suc.get("marco"):
+        vao -= 1
+    return vao - (lag or 0)
 
 
 # ── Causalidade ───────────────────────────────────────────────────────────────
@@ -285,7 +302,8 @@ def causa_do_prazo(saldo: int | None, fim_atual: str | None,
                 "ddur": v.get("ddur"), "dini": v.get("dini"), "dfim": v.get("dfim"),
                 "unidade": v.get("unidade") or t.get("duracaoUn"),
                 "motivo": v.get("motivo"), "duracao": t.get("duracao"),
-                "prof": prof, "pelo_fim": False}
+                "termino": t.get("end"),
+                "prof": prof, "pelo_fim": False, "empurrada": False}
         no["pelo_fim"] |= lado == "fim"
         no["prof"] = max(no["prof"], prof)
 
@@ -294,6 +312,7 @@ def causa_do_prazo(saldo: int | None, fim_atual: str | None,
         vinculos = list(t.get("preds") or [])
         for anc in idx["pais"].get(tid, []):
             vinculos += por_id[anc].get("preds") or []
+        candidatas: dict[str, list[tuple[float, str, str]]] = {"ini": [], "fim": []}
         for pr in vinculos:
             tipo = pr.get("tipo")
             if tipo not in LADOS:
@@ -303,14 +322,28 @@ def causa_do_prazo(saldo: int | None, fim_atual: str | None,
                 continue
             pid = str(pr["id"])
             p = por_id.get(pid)
-            if (p and ativa(pid) and andou(tid, ls) and andou(pid, lp)
-                    and _apertado(p, t, tipo, pr.get("lag") or 0)):
+            if p and ativa(pid) and andou(tid, ls) and andou(pid, lp):
+                f = _folga(p, t, tipo, pr.get("lag") or 0)
+                if f is not None and f <= TOL_UTEIS:
+                    candidatas[ls].append((f, pid, lp))
+        # Empurra quem encaixa exatamente. A tolerância só vale quando nenhuma
+        # encaixa: ela existe para o feriado municipal que abre um vão falso,
+        # não para absolver a folga de quem termina um dia antes das outras.
+        for grupo in candidatas.values():
+            justas = [c for c in grupo if c[0] <= 0] or grupo
+            for _, pid, lp in justas:
+                no["empurrada"] = True
                 fila.append((pid, lp, prof + 1))
 
     cadeia = list(nos.values())
     geradores = []
     for c in cadeia:
-        if c["marco"] or not c["pelo_fim"]:
+        # Marco só transmite o atraso, salvo o marco INCLUÍDO que é a origem do
+        # empurrão (nada antes dele atrasou): uma condição nova a que o
+        # cronograma passou a esperar. No Palhano (09/26) foi a Aprovação TAC02
+        # do Cliente. Marco incluído que só foi empurrado — o término de uma
+        # etapa nova, por exemplo — continua fora.
+        if not c["pelo_fim"] or (c["marco"] and (not c["nova"] or c["empurrada"])):
             continue
         if c["nova"]:
             c["tipo"] = "nova"

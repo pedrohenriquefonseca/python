@@ -326,12 +326,18 @@ def _gerar_grupos(df, grupos_novos=None):
     return results
 
 
+def _ativas(tarefas):
+    """Tarefa inativa do Project não é agendada: fica fora dos cronogramas."""
+    return [t for t in tarefas if t.get('ativa') is not False]
+
+
 def _df_de_tarefas_json(tarefas):
     """Monta o DataFrame que o motor espera a partir da lista de tarefas do JSON
     do PWA (mesmas tarefas usadas pelos dashboards). O JSON junta os recursos por
-    ', '; o motor espera ';'. Mantém só tarefas que têm pelo menos um recurso."""
+    ', '; o motor espera ';'. Mantém só tarefas ativas que têm pelo menos um
+    recurso (`ativa` ausente em snapshot antigo conta como ativa)."""
     linhas = []
-    for t in tarefas:
+    for t in _ativas(tarefas):
         recursos = ';'.join(r.strip() for r in str(t.get('resources') or '').split(',') if r.strip())
         if not recursos:
             continue
@@ -348,7 +354,7 @@ def verificar_recursos_desconhecidos_json(tarefas):
     """Versão JSON: retorna recursos das tarefas que ainda não têm grupo em grupos_recursos.json."""
     mapa = _carregar_mapa_grupos()
     todos = set()
-    for t in tarefas:
+    for t in _ativas(tarefas):
         for r in str(t.get('resources') or '').split(','):
             r = r.strip()
             if r:
